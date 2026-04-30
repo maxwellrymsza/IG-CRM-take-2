@@ -1,0 +1,99 @@
+
+<style>
+  .phase-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s; }
+  .phase-card:hover { border-color: var(--color-border-secondary); }
+  .phase-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; }
+  .badge-now { background: #E1F5EE; color: #0F6E56; }
+  .badge-next { background: #E6F1FB; color: #185FA5; }
+  .badge-later { background: #F1EFE8; color: #5F5E5A; }
+  .phase-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+  .phase-desc { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
+  .feature-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--color-background-secondary); color: var(--color-text-secondary); border: 0.5px solid var(--color-border-tertiary); }
+  .section-label { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin: 18px 0 8px; }
+</style>
+<h2 class="sr-only">Inspired Growing CRM build roadmap across 8 phases</h2>
+
+<div class="section-label">Build now — prototype in Claude first</div>
+
+<div class="phase-card" onclick="sendPrompt('Lets build Phase 1: the contact database UI and AI email composer prototype as a Claude artifact')">
+  <div class="phase-header">
+    <span class="badge badge-now">Phase 1</span>
+    <span class="phase-title">Contact DB + AI email composer + Gmail push ↗</span>
+  </div>
+  <div class="phase-desc">The core loop: add a contact, pick a persona, generate a draft, push to Gmail. Everything else builds on this.</div>
+  <div class="feature-row">
+    <span class="chip">Contact records</span><span class="chip">5 personas</span><span class="chip">Claude API email gen</span><span class="chip">Gmail MCP push</span><span class="chip">CSV import</span>
+  </div>
+</div>
+
+<div class="phase-card" onclick="sendPrompt('Lets build Phase 2: the pipeline kanban board and activity feed as a Claude artifact')">
+  <div class="phase-header">
+    <span class="badge badge-now">Phase 2</span>
+    <span class="phase-title">Pipeline kanban + activity feed + dashboard ↗</span>
+  </div>
+  <div class="phase-desc">Visual deal tracking. Drag contacts through stages. See who's hot. Tasks and stuck-time alerts.</div>
+  <div class="feature-row">
+    <span class="chip">Kanban board</span><span class="chip">6 stages</span><span class="chip">Deal value ($50k)</span><span class="chip">Activity timeline</span><span class="chip">Stuck alerts</span>
+  </div>
+</div>
+
+<div class="section-label">Build next — after prototype validated</div>
+
+<div class="phase-card" onclick="sendPrompt('Tell me more about Phase 3: sequence automation and scheduled jobs')">
+  <div class="phase-header">
+    <span class="badge badge-next">Phase 3</span>
+    <span class="phase-title">Sequence automation + scheduled jobs ↗</span>
+  </div>
+  <div class="phase-desc">Day 0/5/12/20 drip sequences. Review queue. Branch logic for click vs no-click. Daily server job.</div>
+  <div class="feature-row">
+    <span class="chip">Email sequences</span><span class="chip">Branch logic</span><span class="chip">Review queue</span><span class="chip">Railway/Render backend</span>
+  </div>
+</div>
+
+<div class="phase-card" onclick="sendPrompt('Tell me more about Phase 4: click tracking via Cloudflare Worker')">
+  <div class="phase-header">
+    <span class="badge badge-next">Phase 4</span>
+    <span class="phase-title">Click tracking (Cloudflare Worker) ↗</span>
+  </div>
+  <div class="phase-desc">Every link becomes a redirect. Clicks logged to contact timeline. Know exactly who clicked the brochure.</div>
+  <div class="feature-row">
+    <span class="chip">Link wrapping</span><span class="chip">Click logs</span><span class="chip">Cloudflare Worker</span><span class="chip">Timeline updates</span>
+  </div>
+</div>
+
+<div class="phase-card" onclick="sendPrompt('Tell me more about Phase 5: Squarespace integration')">
+  <div class="phase-header">
+    <span class="badge badge-next">Phase 5</span>
+    <span class="phase-title">Squarespace integration ↗</span>
+  </div>
+  <div class="phase-desc">JS snippet in header tracks page visits from email clicks. Form webhook creates contacts + triggers response sequence.</div>
+  <div class="feature-row">
+    <span class="chip">Tracking snippet</span><span class="chip">Form webhook</span><span class="chip">Inbound leads</span>
+  </div>
+</div>
+
+<div class="section-label">Later phases</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
+  <div class="phase-card" onclick="sendPrompt('Tell me about Phase 6: multi-user login')">
+    <div class="phase-header"><span class="badge badge-later">Phase 6</span></div>
+    <div class="phase-title" style="font-size:13px">Multi-user login</div>
+    <div class="phase-desc" style="font-size:12px;margin-top:4px">Admin + Sales Rep + Read-Only roles</div>
+  </div>
+  <div class="phase-card" onclick="sendPrompt('Tell me about Phase 7: Google Drive document generation')">
+    <div class="phase-header"><span class="badge badge-later">Phase 7</span></div>
+    <div class="phase-title" style="font-size:13px">Drive doc gen</div>
+    <div class="phase-desc" style="font-size:12px;margin-top:4px">One-click proposal PDF per contact</div>
+  </div>
+  <div class="phase-card" onclick="sendPrompt('Tell me about Phase 8: Google Analytics in dashboard')">
+    <div class="phase-header"><span class="badge badge-later">Phase 8</span></div>
+    <div class="phase-title" style="font-size:13px">GA in dashboard</div>
+    <div class="phase-desc" style="font-size:12px;margin-top:4px">Anonymous traffic alongside CRM signals</div>
+  </div>
+</div>
+
+<div style="margin-top: 18px; padding: 12px 14px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); font-size: 12px; color: var(--color-text-secondary); line-height: 1.6;">
+  <strong style="color: var(--color-text-primary);">Stack:</strong> Next.js on Vercel · Railway/Render backend · Supabase PostgreSQL · Claude Sonnet 4 · Gmail MCP · Cloudflare Workers &nbsp;|&nbsp; <strong style="color: var(--color-text-primary);">Est. cost at scale:</strong> ~$30–50/mo now · ~$100–150/mo at 10k contacts (vs HubSpot $800–3,200/mo)
+</div>
