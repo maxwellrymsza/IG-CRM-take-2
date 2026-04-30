@@ -18,32 +18,29 @@
   .kanban-col{min-width:210px;max-width:210px;}
   .kanban-card{cursor:grab;user-select:none;}
   .kanban-card:active{cursor:grabbing;}
-  .drag-over{background:#e8f4fc!important;border:2px dashed #40ACE2!important;}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useRef,useEffect} = React;
+const {useState,useRef} = React;
 
 const C={lavender:"#DFC4DF",lightblue:"#C2E8FB",blue:"#40ACE2",green:"#65C39D",yellow:"#FAEE36",orange:"#F9A139",coral:"#EB5665",gDark:"#2d8f68",gBg:"#edf7f2",gBorder:"#b6dfc9",bBg:"#e8f4fc",bDark:"#1e7db0",bg:"#F5F6F8",surface:"#fff",border:"#E4E7EC",text:"#111827",textS:"#6B7280",textT:"#9CA3AF"};
 
 const STAGES=["Cold","Contacted","Replied","Demo Scheduled","Proposal Sent","Closed Won","Closed Lost"];
 const STAGE_META={
-  "Cold":        {color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️",deal:0},
-  "Contacted":   {color:"#185FA5",bg:"#E6F1FB",icon:"📧",deal:50000},
-  "Replied":     {color:"#0F6E56",bg:"#E1F5EE",icon:"💬",deal:50000},
+  "Cold":{color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️",deal:0},
+  "Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧",deal:50000},
+  "Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬",deal:50000},
   "Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅",deal:50000},
   "Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄",deal:50000},
-  "Closed Won":  {color:"#065F46",bg:"#D1FAE5",icon:"🏆",deal:50000},
-  "Closed Lost": {color:"#A32D2D",bg:"#FEE2E2",icon:"✗",deal:0},
+  "Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆",deal:50000},
+  "Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗",deal:0},
 };
 const PER_C={STEM:["#185FA5","#E6F1FB"],Nutrition:["#0F6E56","#E1F5EE"],Sustainability:["#3B6D11","#EAF3DE"],CTE:["#854F0B","#FAEEDA"],General:["#5F5E5A","#F1EFE8"]};
-
 const STUCK_DAYS={Cold:14,Contacted:7,Replied:5,"Demo Scheduled":7,"Proposal Sent":14,"Closed Won":null,"Closed Lost":null};
 const DEAL_VAL=50000;
 
-// ── Seed contacts ─────────────────────────────────────────────────────────────
 const NOW=Date.now();
 const daysAgo=d=>new Date(NOW-d*86400000).toISOString();
 
@@ -62,9 +59,8 @@ const SEED_CONTACTS=[
   {id:12,name:"Tom Walsh",email:"t.walsh@larchmont.edu",role:"Sustainability Admin",school:"Mamaroneck HS",district:"Mamaroneck UFSD",state:"NY",persona:"Sustainability",stage:"Closed Won",stageEnteredAt:daysAgo(10),lastContact:daysAgo(10),notes:"Signed! Install scheduled June 2.",tasks:[]},
 ];
 
-// ── Seed activity feed ────────────────────────────────────────────────────────
 const SEED_ACTIVITY=[
-  {id:1,type:"stage",contactId:12,contactName:"Tom Walsh",text:"moved to Closed Won",detail:"Clarkstown CSD signed. Install June 2.",time:daysAgo(10),icon:"🏆"},
+  {id:1,type:"stage",contactId:12,contactName:"Tom Walsh",text:"moved to Closed Won",detail:"Mamaroneck UFSD signed. Install June 2.",time:daysAgo(10),icon:"🏆"},
   {id:2,type:"email",contactId:8,contactName:"David Chen",text:"Proposal sent",detail:"NYC DOE East Side STEM Academy — $50,000 proposal",time:daysAgo(4),icon:"📄"},
   {id:3,type:"reply",contactId:4,contactName:"Kevin Williams",text:"replied to outreach",detail:"Asked for pricing sheet. Warm lead.",time:daysAgo(3),icon:"💬"},
   {id:4,type:"demo",contactId:7,contactName:"Priya Nair",text:"Demo scheduled",detail:"May 10 — Montclair SD",time:daysAgo(2),icon:"📅"},
@@ -91,20 +87,24 @@ const SL=()=>({fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase
 function Tag({label,color,bg,size=10}){return <span style={{fontSize:size,fontWeight:600,padding:"2px 7px",borderRadius:10,background:bg,color,whiteSpace:"nowrap"}}>{label}</span>;}
 function Av({name,size=28,color=C.blue}){return <div style={{width:size,height:size,borderRadius:size/4,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:size*0.38,flexShrink:0}}>{ini(name)}</div>;}
 
-// ── DASHBOARD PAGE ────────────────────────────────────────────────────────────
+function NavItem({icon,label,onClick,active}){
+  return <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:active?C.gDark:C.textS,background:active?C.gBg:"transparent",fontWeight:active?500:400}}
+    onMouseEnter={e=>{if(!active)e.currentTarget.style.background=C.bg;}}
+    onMouseLeave={e=>{if(!active)e.currentTarget.style.background="transparent";}}>
+    <span style={{fontSize:14,width:18,textAlign:"center"}}>{icon}</span>{label}
+  </div>;
+}
+
 function DashboardPage({contacts,activity,onNavigate}){
   const pipeline=contacts.filter(c=>!["Cold","Closed Lost"].includes(c.stage));
   const pipelineVal=pipeline.length*DEAL_VAL;
   const wonVal=contacts.filter(c=>c.stage==="Closed Won").length*DEAL_VAL;
   const stuck=contacts.filter(isStuck);
-  const allTasks=contacts.flatMap(c=>(c.tasks||[]).map(t=>({...t,contactName:c.name,contactId:c.id})));
+  const allTasks=contacts.flatMap(c=>(c.tasks||[]).map(t=>({...t,contactName:c.name})));
   const dueTasks=allTasks.filter(t=>!t.done);
   const hot=contacts.filter(c=>["Replied","Demo Scheduled","Proposal Sent"].includes(c.stage));
-  const recentActivity=activity.slice(0,5);
 
   return <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
-
-    {/* Stats row */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
       {[
         {label:"Active Pipeline",value:`$${(pipelineVal/1000).toFixed(0)}k`,sub:`${pipeline.length} deals in progress`,color:C.blue,bg:C.bBg},
@@ -120,7 +120,6 @@ function DashboardPage({contacts,activity,onNavigate}){
       ))}
     </div>
 
-    {/* Pipeline by stage */}
     <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
       <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         Pipeline by Stage
@@ -134,24 +133,19 @@ function DashboardPage({contacts,activity,onNavigate}){
           const m=STAGE_META[stage];
           return <div key={stage} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
             <div style={{fontSize:10,fontWeight:600,color:m.color}}>{count}</div>
-            <div style={{width:"100%",height:h,background:m.bg,border:`1px solid ${m.color}33`,borderRadius:4,transition:"height 0.3s"}}/>
-            <div style={{fontSize:9,color:C.textT,textAlign:"center",lineHeight:1.2,whiteSpace:"nowrap"}}>{stage.replace(" ","\n")}</div>
+            <div style={{width:"100%",height:h,background:m.bg,border:`1px solid ${m.color}33`,borderRadius:4}}/>
+            <div style={{fontSize:9,color:C.textT,textAlign:"center",lineHeight:1.2}}>{stage}</div>
           </div>;
         })}
       </div>
     </div>
 
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-
-      {/* Who's hot */}
       <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
-        <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-          🔥 Who's Hot
-          <span style={{fontSize:10,color:C.textS,fontWeight:400}}>Recent engagement</span>
-        </div>
-        {hot.length===0&&<div style={{fontSize:12,color:C.textT,padding:"8px 0"}}>No warm leads yet</div>}
+        <div style={{fontWeight:600,fontSize:13,marginBottom:12}}>🔥 Who's Hot</div>
+        {hot.length===0&&<div style={{fontSize:12,color:C.textT}}>No warm leads yet</div>}
         {hot.map(c=>{
-          const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
+          const[pc]=PER_C[c.persona]||["#6B7280"];
           const m=STAGE_META[c.stage];
           return <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.border}`}}>
             <Av name={c.name} size={28} color={pc}/>
@@ -163,14 +157,9 @@ function DashboardPage({contacts,activity,onNavigate}){
           </div>;
         })}
       </div>
-
-      {/* Tasks due */}
       <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
-        <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-          ✅ Open Tasks
-          <span style={{fontSize:10,color:C.textS,fontWeight:400}}>{dueTasks.length} items</span>
-        </div>
-        {dueTasks.length===0&&<div style={{fontSize:12,color:C.textT,padding:"8px 0"}}>All clear — no open tasks</div>}
+        <div style={{fontWeight:600,fontSize:13,marginBottom:12}}>✅ Open Tasks <span style={{fontSize:10,color:C.textS,fontWeight:400}}>{dueTasks.length} items</span></div>
+        {dueTasks.length===0&&<div style={{fontSize:12,color:C.textT}}>All clear!</div>}
         {dueTasks.map(t=>(
           <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
             <div style={{width:6,height:6,borderRadius:"50%",background:C.orange,flexShrink:0}}/>
@@ -183,11 +172,8 @@ function DashboardPage({contacts,activity,onNavigate}){
       </div>
     </div>
 
-    {/* Stuck contacts */}
     {stuck.length>0&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:16}}>
-      <div style={{fontWeight:600,fontSize:13,color:"#A32D2D",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-        ⚠️ Stuck Contacts <span style={{fontWeight:400,fontSize:11,color:"#C45252"}}>— no movement in too long</span>
-      </div>
+      <div style={{fontWeight:600,fontSize:13,color:"#A32D2D",marginBottom:10}}>⚠️ Stuck Contacts</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
         {stuck.map(c=>(
           <div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:"1px solid #FECACA",borderRadius:8,padding:"6px 10px"}}>
@@ -201,13 +187,12 @@ function DashboardPage({contacts,activity,onNavigate}){
       </div>
     </div>}
 
-    {/* Recent activity */}
     <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
       <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         Recent Activity
         <button onClick={()=>onNavigate("activity")} style={{...B("ghost","sm"),color:C.blue,fontSize:11}}>View all →</button>
       </div>
-      {recentActivity.map(a=>(
+      {activity.slice(0,5).map(a=>(
         <div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
           <div style={{width:28,height:28,borderRadius:"50%",background:C.bg,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>{a.icon}</div>
           <div style={{flex:1,minWidth:0}}>
@@ -221,49 +206,26 @@ function DashboardPage({contacts,activity,onNavigate}){
   </div>;
 }
 
-// ── KANBAN PAGE ───────────────────────────────────────────────────────────────
 function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
-  const [dragging,setDragging]=useState(null);
-  const [dragOver,setDragOver]=useState(null);
-
-  function handleDragStart(e,contact){
-    setDragging(contact);
-    e.dataTransfer.effectAllowed="move";
-  }
-  function handleDragOver(e,stage){
-    e.preventDefault();
-    setDragOver(stage);
-  }
-  function handleDrop(e,stage){
-    e.preventDefault();
-    if(!dragging||dragging.stage===stage)return;
-    const prev=dragging.stage;
-    setContacts(cs=>cs.map(c=>c.id===dragging.id?{...c,stage,stageEnteredAt:new Date().toISOString(),lastContact:["Contacted","Replied","Demo Scheduled","Proposal Sent"].includes(stage)?new Date().toISOString():c.lastContact}:c));
-    onActivityAdd({type:"stage",contactId:dragging.id,contactName:dragging.name,text:`moved from ${prev} → ${stage}`,detail:`${dragging.district}`,icon:STAGE_META[stage].icon});
-    setDragging(null);setDragOver(null);
-  }
-  function handleDragEnd(){setDragging(null);setDragOver(null);}
-
+  const[dragging,setDragging]=useState(null);
+  const[dragOver,setDragOver]=useState(null);
   const shownStages=STAGES.filter(s=>s!=="Cold");
   const coldCount=contacts.filter(c=>c.stage==="Cold").length;
 
   return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-    {/* Cold banner */}
-    <div style={{padding:"8px 20px",background:"#F9FAFB",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-      <span style={{fontSize:11,color:C.textS}}>❄️ <strong style={{color:C.text}}>{coldCount} Cold contacts</strong> not shown in kanban ·</span>
-      <span style={{fontSize:11,color:C.textS}}>Drag cards between columns to advance stages · Deal value: <strong style={{color:C.text}}>$50,000</strong> each</span>
+    <div style={{padding:"8px 20px",background:"#F9FAFB",borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.textS,flexShrink:0}}>
+      ❄️ <strong style={{color:C.text}}>{coldCount} Cold contacts</strong> not shown · Drag cards to advance · Deal value: <strong style={{color:C.text}}>$50,000</strong>
     </div>
     <div style={{flex:1,overflowX:"auto",overflowY:"hidden",padding:"16px 20px",display:"flex",gap:10}}>
       {shownStages.map(stage=>{
         const cols=contacts.filter(c=>c.stage===stage);
         const m=STAGE_META[stage];
-        const isDragTarget=dragOver===stage;
+        const isTarget=dragOver===stage;
         return <div key={stage} className="kanban-col"
-          onDragOver={e=>handleDragOver(e,stage)}
-          onDrop={e=>handleDrop(e,stage)}
+          onDragOver={e=>{e.preventDefault();setDragOver(stage);}}
+          onDrop={e=>{e.preventDefault();if(!dragging||dragging.stage===stage)return;const prev=dragging.stage;setContacts(cs=>cs.map(c=>c.id===dragging.id?{...c,stage,stageEnteredAt:new Date().toISOString()}:c));onActivityAdd({type:"stage",contactId:dragging.id,contactName:dragging.name,text:`moved from ${prev} → ${stage}`,detail:dragging.district,icon:m.icon});setDragging(null);setDragOver(null);}}
           onDragLeave={()=>setDragOver(null)}
-          style={{display:"flex",flexDirection:"column",background:isDragTarget?"#e8f4fc":"#F0F2F5",border:isDragTarget?`2px dashed ${C.blue}`:`2px solid transparent`,borderRadius:10,padding:8,transition:"all 0.15s",overflowY:"auto"}}>
-          {/* Column header */}
+          style={{display:"flex",flexDirection:"column",background:isTarget?"#e8f4fc":"#F0F2F5",border:isTarget?`2px dashed ${C.blue}`:"2px solid transparent",borderRadius:10,padding:8,overflowY:"auto"}}>
           <div style={{padding:"4px 4px 10px",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:2}}>
               <span style={{fontSize:13}}>{m.icon}</span>
@@ -272,18 +234,16 @@ function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
             </div>
             {cols.length>0&&stage!=="Closed Lost"&&<div style={{fontSize:10,color:C.textS}}>${(cols.length*DEAL_VAL/1000).toFixed(0)}k</div>}
           </div>
-          {/* Cards */}
           <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
             {cols.map(c=>{
               const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
               const stuck=isStuck(c);
               const openTasks=(c.tasks||[]).filter(t=>!t.done).length;
-              return <div key={c.id} className="kanban-card"
-                draggable
-                onDragStart={e=>handleDragStart(e,c)}
-                onDragEnd={handleDragEnd}
+              return <div key={c.id} className="kanban-card" draggable
+                onDragStart={e=>{setDragging(c);e.dataTransfer.effectAllowed="move";}}
+                onDragEnd={()=>{setDragging(null);setDragOver(null);}}
                 onClick={()=>onContactClick(c)}
-                style={{background:"white",border:stuck?`1px solid #FECACA`:`1px solid ${C.border}`,borderRadius:8,padding:10,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",animation:"fadeIn 0.2s ease",opacity:dragging?.id===c.id?0.4:1}}>
+                style={{background:"white",border:stuck?"1px solid #FECACA":`1px solid ${C.border}`,borderRadius:8,padding:10,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",opacity:dragging?.id===c.id?0.4:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
                   <Av name={c.name} size={24} color={pc}/>
                   <div style={{flex:1,minWidth:0}}>
@@ -292,7 +252,7 @@ function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
                   </div>
                 </div>
                 <div style={{fontSize:10,color:C.textS,marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.district}</div>
-                <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                   <Tag label={c.persona} color={pc} bg={pb} size={9}/>
                   {stuck&&<Tag label={`${daysInStage(c)}d stuck`} color="#A32D2D" bg="#FEE2E2" size={9}/>}
                   {openTasks>0&&<Tag label={`${openTasks} task${openTasks>1?"s":""}`} color="#854F0B" bg="#FAEEDA" size={9}/>}
@@ -307,17 +267,16 @@ function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
   </div>;
 }
 
-// ── ACTIVITY PAGE ─────────────────────────────────────────────────────────────
-function ActivityPage({activity,contacts}){
+function ActivityPage({activity}){
   const typeFilters=["All","email","reply","stage","demo","task"];
-  const [filter,setFilter]=useState("All");
+  const[filter,setFilter]=useState("All");
   const filtered=filter==="All"?activity:activity.filter(a=>a.type===filter);
   const typeColors={email:[C.blue,"#E6F1FB"],reply:["#0F6E56","#E1F5EE"],stage:["#854F0B","#FAEEDA"],demo:["#5B21B6","#EDE9FE"],task:["#065F46","#D1FAE5"]};
 
   return <>
     <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
       <div style={{fontWeight:700,fontSize:16}}>Activity Feed</div>
-      <div style={{fontSize:12,color:C.textS,marginTop:1}}>Every touch, stage change, reply, and task — in chronological order</div>
+      <div style={{fontSize:12,color:C.textS,marginTop:1}}>Every touch, stage change, reply, and task</div>
     </div>
     <div style={{display:"flex",gap:6,padding:"8px 20px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
       {typeFilters.map(f=>(
@@ -337,30 +296,26 @@ function ActivityPage({activity,contacts}){
                 <span style={{fontWeight:600,fontSize:12}}>{a.contactName}</span>
                 <span style={{fontSize:12,color:C.textS}}>{a.text}</span>
                 <Tag label={a.type} color={tc} bg={tb} size={9}/>
-                <span style={{marginLeft:"auto",fontSize:10,color:C.textT,whiteSpace:"nowrap"}}>{fmtTime(a.time)}</span>
+                <span style={{marginLeft:"auto",fontSize:10,color:C.textT}}>{fmtTime(a.time)}</span>
               </div>
               {a.detail&&<div style={{fontSize:11,color:C.textS,lineHeight:1.5}}>{a.detail}</div>}
             </div>
           </div>;
         })}
-        {filtered.length===0&&<div style={{textAlign:"center",padding:60,color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>📭</div><div style={{fontWeight:500,color:C.textS}}>No activity yet</div></div>}
       </div>
     </div>
   </>;
 }
 
-// ── CONTACT DETAIL MODAL (with tasks) ─────────────────────────────────────────
-function ContactModal({contact,onClose,onStageChange,onTaskAdd,onTaskToggle,stages}){
-  const [newTask,setNewTask]=useState("");
-  const [newDue,setNewDue]=useState("");
-  const [newStage,setNewStage]=useState(contact.stage);
+function ContactModal({contact,onClose,onStageChange,onTaskAdd,onTaskToggle}){
+  const[newTask,setNewTask]=useState("");
+  const[newDue,setNewDue]=useState("");
   const[pc,pb]=PER_C[contact.persona]||["#6B7280","#F1EFE8"];
   const m=STAGE_META[contact.stage];
   const tasks=contact.tasks||[];
 
   return <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:480,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24,animation:"fadeIn 0.15s ease"}}>
-      {/* Header */}
+    <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:480,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
       <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:18}}>
         <Av name={contact.name} size={44} color={pc}/>
         <div style={{flex:1}}>
@@ -370,33 +325,22 @@ function ContactModal({contact,onClose,onStageChange,onTaskAdd,onTaskToggle,stag
         </div>
         <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
       </div>
-
-      {/* Stage + persona */}
       <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center"}}>
         <Tag label={contact.persona} color={pc} bg={pb}/>
         <Tag label={contact.stage} color={m.color} bg={m.bg}/>
         {isStuck(contact)&&<Tag label={`${daysInStage(contact)}d stuck`} color="#A32D2D" bg="#FEE2E2"/>}
         <span style={{fontSize:11,color:C.textS,marginLeft:"auto"}}>{daysInStage(contact)}d in stage</span>
       </div>
-
-      {/* Change stage */}
       <div style={{marginBottom:16}}>
         <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Move to stage</div>
         <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-          {stages.map(s=>{
-            const sm=STAGE_META[s];
-            return <button key={s} onClick={()=>onStageChange(contact.id,s)} style={{...B("secondary","xs"),background:contact.stage===s?sm.bg:"white",color:contact.stage===s?sm.color:C.textS,border:`1px solid ${contact.stage===s?sm.color:C.border}`,fontWeight:contact.stage===s?600:400}}>{sm.icon} {s}</button>;
-          })}
+          {STAGES.map(s=>{const sm=STAGE_META[s];return <button key={s} onClick={()=>onStageChange(contact.id,s)} style={{...B("secondary","xs"),background:contact.stage===s?sm.bg:"white",color:contact.stage===s?sm.color:C.textS,border:`1px solid ${contact.stage===s?sm.color:C.border}`,fontWeight:contact.stage===s?600:400}}>{sm.icon} {s}</button>;})}
         </div>
       </div>
-
-      {/* Notes */}
       {contact.notes&&<div style={{marginBottom:16}}>
         <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Notes</div>
         <div style={{fontSize:13,color:C.textS,lineHeight:1.6,background:C.bg,borderRadius:6,padding:"8px 10px"}}>{contact.notes}</div>
       </div>}
-
-      {/* Tasks */}
       <div style={{marginBottom:16}}>
         <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tasks</div>
         {tasks.length===0&&<div style={{fontSize:12,color:C.textT,marginBottom:8}}>No tasks yet</div>}
@@ -409,33 +353,26 @@ function ContactModal({contact,onClose,onStageChange,onTaskAdd,onTaskToggle,stag
             </div>
           </div>
         ))}
-        {/* Add task */}
         <div style={{display:"flex",gap:6,marginTop:8}}>
           <input value={newTask} onChange={e=>setNewTask(e.target.value)} placeholder="Add a task..." style={{...I(),fontSize:12,padding:"5px 8px",flex:1}}/>
           <input type="date" value={newDue} onChange={e=>setNewDue(e.target.value)} style={{...I("130px"),fontSize:12,padding:"5px 8px"}}/>
           <button onClick={()=>{if(newTask&&newDue){onTaskAdd(contact.id,{text:newTask,due:newDue});setNewTask("");setNewDue("");}}} style={B("primary","sm")}>Add</button>
         </div>
       </div>
-
-      <div style={{display:"flex",gap:8}}>
-        <button onClick={onClose} style={B("secondary")}>Close</button>
-      </div>
+      <button onClick={onClose} style={B("secondary")}>Close</button>
     </div>
   </div>;
 }
 
-// ── MAIN APP ──────────────────────────────────────────────────────────────────
 function App(){
-  const [contacts,setContacts]=useState(SEED_CONTACTS);
-  const [activity,setActivity]=useState(SEED_ACTIVITY);
-  const [page,setPage]=useState("dashboard");
-  const [selectedContact,setSelectedContact]=useState(null);
+  const[contacts,setContacts]=useState(SEED_CONTACTS);
+  const[activity,setActivity]=useState(SEED_ACTIVITY);
+  const[page,setPage]=useState("dashboard");
+  const[selectedContact,setSelectedContact]=useState(null);
   const actIdRef=useRef(SEED_ACTIVITY.length+1);
   const taskIdRef=useRef(10);
 
-  function addActivity(evt){
-    setActivity(prev=>[{...evt,id:actIdRef.current++,time:new Date().toISOString()},...prev]);
-  }
+  function addActivity(evt){setActivity(prev=>[{...evt,id:actIdRef.current++,time:new Date().toISOString()},...prev]);}
 
   function handleStageChange(contactId,stage){
     const c=contacts.find(x=>x.id===contactId);
@@ -443,7 +380,7 @@ function App(){
     const prev=c.stage;
     setContacts(cs=>cs.map(x=>x.id===contactId?{...x,stage,stageEnteredAt:new Date().toISOString()}:x));
     addActivity({type:"stage",contactId,contactName:c.name,text:`moved from ${prev} → ${stage}`,detail:c.district,icon:STAGE_META[stage].icon});
-    if(selectedContact?.id===contactId) setSelectedContact(prev=>({...prev,stage,stageEnteredAt:new Date().toISOString()}));
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,stage,stageEnteredAt:new Date().toISOString()}));
   }
 
   function handleTaskAdd(contactId,task){
@@ -451,31 +388,15 @@ function App(){
     setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:[...(c.tasks||[]),newTask]}:c));
     const c=contacts.find(x=>x.id===contactId);
     addActivity({type:"task",contactId,contactName:c?.name||"",text:"Task added",detail:`${task.text} · Due ${fmtDate(task.due)}`,icon:"✅"});
-    if(selectedContact?.id===contactId) setSelectedContact(prev=>({...prev,tasks:[...(prev.tasks||[]),newTask]}));
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:[...(p.tasks||[]),newTask]}));
   }
 
   function handleTaskToggle(contactId,taskId){
     setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:(c.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}:c));
-    if(selectedContact?.id===contactId) setSelectedContact(prev=>({...prev,tasks:(prev.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}));
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:(p.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}));
   }
 
-  const NAV=[
-    {id:"dashboard",icon:"📊",label:"Dashboard"},
-    {id:"pipeline",icon:"📋",label:"Pipeline"},
-    {id:"activity",icon:"⚡",label:"Activity Feed"},
-  ];
-  const PHASE1_NAV=[
-    {id:"contacts",icon:"👥",label:"Contacts"},
-    {id:"compose",icon:"✉️",label:"Compose"},
-    {id:"resources",icon:"📁",label:"Resources"},
-    {id:"settings",icon:"⚙️",label:"Email Templates"},
-  ];
-
-  const stats={
-    total:contacts.length,
-    pipeline:contacts.filter(c=>!["Cold","Closed Lost"].includes(c.stage)).length,
-    won:contacts.filter(c=>c.stage==="Closed Won").length,
-  };
+  const stats={total:contacts.length,pipeline:contacts.filter(c=>!["Cold","Closed Lost"].includes(c.stage)).length,won:contacts.filter(c=>c.stage==="Closed Won").length};
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
 
@@ -486,7 +407,7 @@ function App(){
         <div><div style={{fontWeight:700,fontSize:13}}>Inspired Growing</div><div style={{fontSize:10,color:C.textS}}>CRM · Phase 2</div></div>
       </div>
       <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
-        {[[stats.total,"contacts"],[stats.pipeline,"active"],[`${stats.won}`,`won`]].map(([v,l])=>(
+        {[[stats.total,"contacts"],[stats.pipeline,"active"],[stats.won,"won"]].map(([v,l])=>(
           <div key={l} style={{fontSize:12,color:C.textS,padding:"3px 10px",background:C.bg,borderRadius:20,border:`1px solid ${C.border}`}}><strong style={{color:C.text}}>{v}</strong> {l}</div>
         ))}
         <div style={{width:28,height:28,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:11,fontWeight:600}}>EW</div>
@@ -498,40 +419,32 @@ function App(){
       {/* SIDEBAR */}
       <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
         <div style={SL()}>Pipeline</div>
-        {NAV.map(item=>(
-          <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}}>
-            <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
-          </div>
-        ))}
-      <div style={SL()}>Outreach</div>
-        <div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <span style={{fontSize:14,width:18,textAlign:"center"}}>👥</span>Contacts
-        </div>
-        <div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <span style={{fontSize:14,width:18,textAlign:"center"}}>✉️</span>Compose
-        </div>
-        <div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <span style={{fontSize:14,width:18,textAlign:"center"}}>📁</span>Resources
-        </div>
-        <div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-          <span style={{fontSize:14,width:18,textAlign:"center"}}>⚙️</span>Email Templates
-        </div>
+        <NavItem icon="📊" label="Dashboard" onClick={()=>setPage("dashboard")} active={page==="dashboard"}/>
+        <NavItem icon="📋" label="Pipeline" onClick={()=>setPage("pipeline")} active={page==="pipeline"}/>
+        <NavItem icon="⚡" label="Activity Feed" onClick={()=>setPage("activity")} active={page==="activity"}/>
+        <div style={SL()}>Outreach</div>
+        <NavItem icon="👥" label="Contacts" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+        <NavItem icon="✉️" label="Compose" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+        <NavItem icon="📁" label="Resources" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+        <NavItem icon="⚙️" label="Email Templates" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+      </div>
 
       {/* MAIN */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-
-        {/* Page header */}
-        {page==="dashboard"&&<div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
-          <div style={{fontWeight:700,fontSize:16}}>Dashboard</div>
-          <div style={{fontSize:12,color:C.textS,marginTop:1}}>Pipeline overview · Who's hot · Tasks · Activity</div>
-        </div>}
-        {page==="pipeline"&&<div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
-          <div style={{fontWeight:700,fontSize:16}}>Pipeline</div>
-          <div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance stages · Click a card for details & tasks · $50,000 per deal</div>
-        </div>}
-
-        {page==="dashboard"&&<DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/>}
-        {page==="pipeline"&&<KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>{setSelectedContact(contacts.find(x=>x.id===c.id)||c);}}/>}
+        {page==="dashboard"&&<>
+          <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+            <div style={{fontWeight:700,fontSize:16}}>Dashboard</div>
+            <div style={{fontSize:12,color:C.textS,marginTop:1}}>Pipeline overview · Who's hot · Tasks · Activity</div>
+          </div>
+          <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/>
+        </>}
+        {page==="pipeline"&&<>
+          <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+            <div style={{fontWeight:700,fontSize:16}}>Pipeline</div>
+            <div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance stages · Click for details & tasks · $50,000 per deal</div>
+          </div>
+          <KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/>
+        </>}
         {page==="activity"&&<ActivityPage activity={activity} contacts={contacts}/>}
       </div>
     </div>
@@ -541,15 +454,7 @@ function App(){
       {[C.lavender,C.lightblue,C.blue,C.green,C.yellow,C.orange,C.coral].map(col=><div key={col} style={{flex:1,background:col}}/>)}
     </div>
 
-    {/* CONTACT MODAL */}
-    {selectedContact&&<ContactModal
-      contact={selectedContact}
-      stages={STAGES}
-      onClose={()=>setSelectedContact(null)}
-      onStageChange={handleStageChange}
-      onTaskAdd={handleTaskAdd}
-      onTaskToggle={handleTaskToggle}
-    />}
+    {selectedContact&&<ContactModal contact={selectedContact} onClose={()=>setSelectedContact(null)} onStageChange={handleStageChange} onTaskAdd={handleTaskAdd} onTaskToggle={handleTaskToggle}/>}
   </div>;
 }
 
