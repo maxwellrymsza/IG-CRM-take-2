@@ -426,8 +426,10 @@ function App(){
         <NavItem icon="👥" label="Contacts" onClick={()=>window.location.href='/contacts.html'} active={false}/>
         <NavItem icon="✉️" label="Compose" onClick={()=>window.location.href='/contacts.html'} active={false}/>
         <NavItem icon="📁" label="Resources" onClick={()=>window.location.href='/contacts.html'} active={false}/>
-        <NavItem icon="⚙️" label="Email Templates" onClick={()=>window.location.href='/contacts.html'} active={false}/>
-      </div>
+<NavItem icon="⚙️" label="Email Templates" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+        <div style={SL()}>Automation</div>
+        <NavItem icon="🔄" label="Sequences" onClick={()=>window.location.href='/sequences.html'} active={false}/>
+      </div>    
 
       {/* MAIN */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
