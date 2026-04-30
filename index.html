@@ -464,12 +464,7 @@ function App(){
     {id:"pipeline",icon:"📋",label:"Pipeline"},
     {id:"activity",icon:"⚡",label:"Activity Feed"},
   ];
-const PHASE1_NAV=[
-    {id:"contacts",icon:"👥",label:"Contacts",href:"/contacts.html"},
-    {id:"compose",icon:"✉️",label:"Compose",href:"/contacts.html"},
-    {id:"resources",icon:"📁",label:"Resources",href:"/contacts.html"},
-    {id:"settings",icon:"⚙️",label:"Email Templates",href:"/contacts.html"},
-  ];
+
 
   const stats={
     total:contacts.length,
@@ -503,14 +498,19 @@ const PHASE1_NAV=[
             <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
           </div>
         ))}
-     {PHASE1_NAV.map(item=>(
-  <div key={item.id} onClick={()=>window.location.href=item.href}
-    style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS,background:"transparent",fontWeight:400}}
-    onMouseEnter={e=>e.currentTarget.style.background=C.bg}
-    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-    <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
-  </div>
-))}
+    <div style={SL()}>Outreach</div>
+<div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+  <span style={{fontSize:14,width:18,textAlign:"center"}}>👥</span>Contacts
+</div>
+<div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+  <span style={{fontSize:14,width:18,textAlign:"center"}}>✉️</span>Compose
+</div>
+<div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+  <span style={{fontSize:14,width:18,textAlign:"center"}}>📁</span>Resources
+</div>
+<div onClick={()=>window.location.href='/contacts.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+  <span style={{fontSize:14,width:18,textAlign:"center"}}>⚙️</span>Email Templates
+</div>
 
       {/* MAIN */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
