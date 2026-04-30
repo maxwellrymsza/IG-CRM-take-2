@@ -479,7 +479,20 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {/* SIDEBAR */}
         <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
-          <div style={SL()}>Workspace</div>
+         <div style={SL()}>Pipeline</div>
+<div onClick={()=>window.location.href='/'} 
+  style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS,background:"transparent"}}
+  onMouseEnter={e=>e.currentTarget.style.background=C.bg}
+  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+  <span style={{fontSize:14,width:18,textAlign:"center"}}>📊</span>Dashboard
+</div>
+<div onClick={()=>window.location.href='/'} 
+  style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS,background:"transparent"}}
+  onMouseEnter={e=>e.currentTarget.style.background=C.bg}
+  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+  <span style={{fontSize:14,width:18,textAlign:"center"}}>📋</span>Pipeline
+</div>
+         <div style={SL()}>Workspace</div>
           {NAV.map(item=>(
             <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}}>
               <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
