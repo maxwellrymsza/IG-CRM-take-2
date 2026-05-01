@@ -23,6 +23,31 @@ const {useState,useRef} = React;
 
 const C={lavender:"#DFC4DF",lightblue:"#C2E8FB",blue:"#40ACE2",green:"#65C39D",yellow:"#FAEE36",orange:"#F9A139",coral:"#EB5665",gDark:"#2d8f68",gBg:"#edf7f2",gBorder:"#b6dfc9",bBg:"#e8f4fc",bDark:"#1e7db0",bg:"#F5F6F8",surface:"#fff",border:"#E4E7EC",text:"#111827",textS:"#6B7280",textT:"#9CA3AF"};
 
+// ── Click Tracker ─────────────────────────────────────────────────────────────
+const TRACKER_URL = "https://ig-click-tracker.maxwellrymsza.workers.dev";
+
+// Map doc IDs to short doc keys used by the Cloudflare Worker
+const DOC_KEYS = {
+  "10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX": "onepager",
+  "1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn": "specs",
+  "1wB62cx610skkGak9xC2jmFdt2Djzqcex": "aeroponics",
+  "146JfX8dKV11HRm3yXejJeW64kOV6cSTE": "comparison",
+  "1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp": "grant",
+  "1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5": "deck",
+  "1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF": "curriculum",
+  "1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl": "manual",
+  "1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn": "experiments",
+  "1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-": "education",
+  "1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz": "services",
+  "1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA": "cleaning",
+};
+
+function trackedLink(contactId, docId) {
+  const docKey = DOC_KEYS[docId];
+  if (!docKey) return null;
+  return `${TRACKER_URL}/t/${contactId}-${docKey}`;
+}
+
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
 const KB_DOCS = [
   {
@@ -339,6 +364,82 @@ function ResourcesPage() {
 }
 
 // ── Main App ───────────────────────────────────────────────────────────────────
+// ── Doc sentence templates ────────────────────────────────────────────────────
+const DOC_SENTENCES = {
+  "10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX": "I thought this might be useful — here's a quick overview of what the Inspired Growing system does and how it fits into schools like yours:",
+  "1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn": "Here are the full specs and yield data if you'd like to dig into the technical details:",
+  "1wB62cx610skkGak9xC2jmFdt2Djzqcex": "Here's a brief on the aeroponics technology behind the system — including the water usage and NASA tech origin:",
+  "146JfX8dKV11HRm3yXejJeW64kOV6cSTE": "In case it's helpful, here's how our system compares to other classroom growing options on the market:",
+  "1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp": "Given your district's focus, I thought this grant alignment guide might be worth a look — it maps the program to several common funding sources:",
+  "1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5": "Here's a full overview deck with more context on the program, the schools we work with, and what the experience looks like for students:",
+  "1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF": "Here's our curriculum overview — it's NGSS-aligned and walks through the six core lessons students work through:",
+  "1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl": "Here's the full user manual if you'd like to share it with anyone reviewing the technical side:",
+  "1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn": "Here are some of the Living Light Lab experiments we've developed for schools that want to go deeper into plant science:",
+  "1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-": "Here's an overview of the educational programming we offer — including in-class, after-school, and workshop formats:",
+  "1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz": "Here's a look at the expanded services we offer for schools that want additional support beyond the core program:",
+  "1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA": "Here's information on our maintenance and cleaning service options:",
+};
+
+// ── Suggested Attachments with Tracked Links ──────────────────────────────────
+function SuggestedAttachments({cc,onViewAll}){
+  const[copiedId,setCopiedId]=useState(null);
+  const[copiedSentenceId,setCopiedSentenceId]=useState(null);
+  const docs=KB_DOCS.filter(d=>d.personas.includes(cc.persona)).slice(0,4);
+
+  function copyLink(doc){
+    const link=trackedLink(cc.id,doc.id);
+    if(link){navigator.clipboard&&navigator.clipboard.writeText(link);setCopiedId(doc.id);setTimeout(()=>setCopiedId(null),2000);}
+  }
+
+  function copySentence(doc){
+    const link=trackedLink(cc.id,doc.id);
+    const sentence=DOC_SENTENCES[doc.id]||`Here's our ${doc.title} for your reference:`;
+    const full=`${sentence}\n${link}`;
+    navigator.clipboard&&navigator.clipboard.writeText(full);
+    setCopiedSentenceId(doc.id);
+    setTimeout(()=>setCopiedSentenceId(null),2000);
+  }
+
+  return <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+    <div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
+      <span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>📎 Suggested attachments — {TMPL[cc.persona]?.label}</span>
+      <button onClick={onViewAll} style={{marginLeft:"auto",...B("ghost","sm"),color:C.gDark,fontSize:11}}>View all ↗</button>
+    </div>
+    <div style={{padding:"10px 12px",display:"flex",flexDirection:"column",gap:8,background:"white"}}>
+      {docs.map(doc=>{
+        const link=trackedLink(cc.id,doc.id);
+        const sentence=DOC_SENTENCES[doc.id]||`Here's our ${doc.title} for your reference:`;
+        return <div key={doc.id} style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+          {/* Doc header */}
+          <div style={{padding:"8px 10px",background:C.bg,display:"flex",alignItems:"center",gap:8}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.text}}>{doc.title}</div>
+              <div style={{fontSize:10,color:C.textT,marginTop:1}}>{doc.description.slice(0,70)}...</div>
+            </div>
+            <a href={doc.viewUrl} target="_blank" style={{fontSize:10,color:C.blue,textDecoration:"none",fontWeight:500,flexShrink:0,padding:"3px 7px",border:`1px solid ${C.border}`,borderRadius:4,background:"white"}}>Preview ↗</a>
+          </div>
+          {/* Pre-written sentence */}
+          <div style={{padding:"8px 10px",background:"#FAFAFA",borderTop:`1px solid ${C.border}`}}>
+            <div style={{fontSize:11,color:C.textS,fontStyle:"italic",lineHeight:1.5,marginBottom:8}}>"{sentence}"</div>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>copySentence(doc)} style={{...B("primary","sm"),flex:1,fontSize:11}}>
+                {copiedSentenceId===doc.id?"✓ Copied to clipboard!":"📋 Copy sentence + tracked link"}
+              </button>
+              <button onClick={()=>copyLink(doc)} style={{...B("secondary","sm"),fontSize:11,whiteSpace:"nowrap"}}>
+                {copiedId===doc.id?"✓ Copied!":"🔗 Link only"}
+              </button>
+            </div>
+          </div>
+        </div>;
+      })}
+      <div style={{fontSize:10,color:C.textT,padding:"2px 4px",display:"flex",alignItems:"center",gap:4}}>
+        <span>🔗</span>
+        <span>Links are tracked via Cloudflare · <strong>Cmd+K</strong> in Gmail to hyperlink text · contact ID <strong>{cc.id}</strong> embedded</span>
+      </div>
+    </div>
+  </div>;
+}
+
 function App(){
   const[contacts,setContacts]=useState(SEED);
   const[templates,setTemplates]=useState(TMPL);
@@ -479,20 +580,7 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {/* SIDEBAR */}
         <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
-         <div style={SL()}>Pipeline</div>
-<div onClick={()=>window.location.href='/'} 
-  style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS,background:"transparent"}}
-  onMouseEnter={e=>e.currentTarget.style.background=C.bg}
-  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-  <span style={{fontSize:14,width:18,textAlign:"center"}}>📊</span>Dashboard
-</div>
-<div onClick={()=>window.location.href='/'} 
-  style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS,background:"transparent"}}
-  onMouseEnter={e=>e.currentTarget.style.background=C.bg}
-  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-  <span style={{fontSize:14,width:18,textAlign:"center"}}>📋</span>Pipeline
-</div>
-         <div style={SL()}>Workspace</div>
+          <div style={SL()}>Workspace</div>
           {NAV.map(item=>(
             <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}}>
               <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
@@ -660,21 +748,8 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
                     </div>
                   </div>
 
-                  {/* Suggested attachments */}
-                  {cc&&<div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-                    <div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>📎 Suggested attachments for {TMPL[cc.persona]?.label}</span>
-                      <button onClick={()=>setPage("resources")} style={{marginLeft:"auto",...B("ghost","sm"),color:C.gDark,fontSize:11}}>View all docs ↗</button>
-                    </div>
-                    <div style={{padding:"10px 12px",display:"flex",flexWrap:"wrap",gap:8,background:"white"}}>
-                      {KB_DOCS.filter(d=>d.personas.includes(cc.persona)).slice(0,3).map(doc=>(
-                        <div key={doc.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:C.bg}}>
-                          <span style={{fontSize:11,fontWeight:500,color:C.text}}>{doc.title}</span>
-                          <a href={doc.viewUrl} target="_blank" style={{fontSize:10,color:C.blue,textDecoration:"none",fontWeight:500}}>Open ↗</a>
-                        </div>
-                      ))}
-                    </div>
-                  </div>}
+                  {/* Suggested attachments with tracked links */}
+                  {cc&&<SuggestedAttachments cc={cc} onViewAll={()=>setPage("resources")}/>}
 
                   {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
                     <div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
