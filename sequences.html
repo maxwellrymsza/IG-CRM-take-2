@@ -388,7 +388,7 @@ function ReviewQueuePage({queue,setQueue,contacts,setContacts}){
         {approved.length>0&&<>
           <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.06em",padding:"10px 14px 4px"}}>Approved ({approved.length})</div>
           {approved.map(q=>(
-            <div key={q.id} onClick={()=>setSelected(q)} style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.id===q.id?"#f0fdf4":"white",opacity:0.7}}>
+            <div key={q.id} onClick={()=>setSelected(q)} style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.id===q.id?"#f0fdf4":"white",:0.7}}>
               <div style={{fontSize:12,fontWeight:500,color:C.gDark}}>✓ {q.contactName}</div>
               <div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.subject}</div>
             </div>
@@ -577,6 +577,15 @@ function UnsubscribePage({contacts,setContacts}){
   </>;
 }
 
+ function NavItem({icon,label,onClick,active}){
+  return <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:active?C.gDark:C.textS,background:active?C.gBg:"transparent",fontWeight:active?500:400}}
+    onMouseEnter={e=>{if(!active)e.currentTarget.style.background=C.bg;}}
+    onMouseLeave={e=>{if(!active)e.currentTarget.style.background="transparent";}}>
+    <span style={{fontSize:14,width:18,textAlign:"center"}}>{icon}</span>{label}
+  </div>;
+}
+
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 function App(){
   const[contacts,setContacts]=useState(SEED_CONTACTS);
@@ -631,16 +640,15 @@ function App(){
             {item.badge>0&&<span style={{fontSize:9,fontWeight:700,background:page===item.id?C.green:C.coral,color:"white",padding:"1px 5px",borderRadius:10}}>{item.badge}</span>}
           </div>
         ))}
-        {PHASE_NAV.map(group=>(
-          <React.Fragment key={group.label}>
-            <div style={SL()}>{group.label}</div>
-            {group.items.map(item=>(
-              <div key={item.label} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,fontSize:13,color:C.textT,opacity:0.45}}>
-                <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>
-                <span style={{flex:1}}>{item.label}</span>
-                <span style={{fontSize:9,color:C.textT,background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,padding:"1px 4px"}}>P{item.label==="Dashboard"||item.label==="Pipeline"||item.label==="Activity Feed"?"2":"1"}</span>
-              </div>
-            ))}
+       <div style={SL()}>Pipeline</div>
+<NavItem icon="📊" label="Dashboard" onClick={()=>window.location.href='/'} active={false}/>
+<NavItem icon="📋" label="Pipeline" onClick={()=>window.location.href='/'} active={false}/>
+<NavItem icon="⚡" label="Activity Feed" onClick={()=>window.location.href='/'} active={false}/>
+<div style={SL()}>Outreach</div>
+<NavItem icon="👥" label="Contacts" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+<NavItem icon="✉️" label="Compose" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+<NavItem icon="📁" label="Resources" onClick={()=>window.location.href='/contacts.html'} active={false}/>
+<NavItem icon="⚙️" label="Email Templates" onClick={()=>window.location.href='/contacts.html'} active={false}/>
           </React.Fragment>
         ))}
       </div>
