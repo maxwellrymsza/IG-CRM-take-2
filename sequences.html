@@ -369,8 +369,7 @@ function ReviewQueuePage({queue,setQueue,contacts,setContacts}){
           <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.06em",padding:"10px 14px 4px"}}>Pending Approval ({pending.length})</div>
           {pending.map(q=>(
             <div key={q.id} onClick={()=>setSelected(q)}
-              style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.id===q.id?C.gBg:"white",borderLeft:selected?.id===q.id?`3px solid ${C.green}`:"3px solid transparent"}}
-              onMouseEnter={e=>{if(selected?.id!==q.id)e.currentTarget.style.background=C.bg;}}
+style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.id===q.id?"#f0fdf4":"white",opacity:0.7}}              onMouseEnter={e=>{if(selected?.id!==q.id)e.currentTarget.style.background=C.bg;}}
               onMouseLeave={e=>{if(selected?.id!==q.id)e.currentTarget.style.background="white";}}>
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                 <Av name={q.contactName} size={24} color={PER_C[q.contactPersona]?.[0]||C.blue}/>
