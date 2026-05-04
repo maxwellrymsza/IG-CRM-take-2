@@ -26,7 +26,6 @@ const C={lavender:"#DFC4DF",lightblue:"#C2E8FB",blue:"#40ACE2",green:"#65C39D",y
 // ── Click Tracker ─────────────────────────────────────────────────────────────
 const TRACKER_URL = "https://ig-click-tracker.maxwellrymsza.workers.dev";
 
-// Map doc IDs to short doc keys used by the Cloudflare Worker
 const DOC_KEYS = {
   "10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX": "onepager",
   "1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn": "specs",
@@ -48,157 +47,32 @@ function trackedLink(contactId, docId) {
   return `${TRACKER_URL}/t/${contactId}-${docKey}`;
 }
 
+// ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
+function canSpamFooter(contact) {
+  const unsubUrl = contact
+    ? `https://ig-crm-take-2.pages.dev/unsubscribe.html?id=${contact.id}`
+    : `https://ig-crm-take-2.pages.dev/unsubscribe.html`;
+  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\nTo unsubscribe: ${unsubUrl}`;
+}
+
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
 const KB_DOCS = [
-  {
-    id: "10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX",
-    title: "General One-Pager",
-    file: "Overview_Key_Features.pdf",
-    category: "Sales",
-    tag: "One-Pager",
-    tagColor: C.blue,
-    tagBg: "#E6F1FB",
-    description: "Key outcomes, aeroponics advantage, grant-readiness. Best all-purpose attach for cold outreach.",
-    personas: ["General","STEM","Nutrition","CTE","Sustainability"],
-    viewUrl: "https://drive.google.com/file/d/10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX/view",
-  },
-  {
-    id: "1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn",
-    title: "Specs & Yields",
-    file: "Specs_Safety_Requirements_Yields.pdf",
-    category: "Sales",
-    tag: "One-Pager",
-    tagColor: C.blue,
-    tagBg: "#E6F1FB",
-    description: "Exact yield data — 240–336 servings/harvest, 7-14 day cycles, 75 sq ft footprint. Send to technical buyers.",
-    personas: ["STEM","General"],
-    viewUrl: "https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view",
-  },
-  {
-    id: "1wB62cx610skkGak9xC2jmFdt2Djzqcex",
-    title: "Aeroponics Technology Brief",
-    file: "Aeroponics_Facts_Process.pdf",
-    category: "Sales",
-    tag: "One-Pager",
-    tagColor: C.blue,
-    tagBg: "#E6F1FB",
-    description: "95% less water, NASA tech origin, how the misting system works. Great for science-forward contacts.",
-    personas: ["STEM","Sustainability"],
-    viewUrl: "https://drive.google.com/file/d/1wB62cx610skkGak9xC2jmFdt2Djzqcex/view",
-  },
-  {
-    id: "146JfX8dKV11HRm3yXejJeW64kOV6cSTE",
-    title: "Competitive Comparison",
-    file: "Comparison_Competition_Stats.pdf",
-    category: "Sales",
-    tag: "One-Pager",
-    tagColor: C.blue,
-    tagBg: "#E6F1FB",
-    description: "IG vs tower & cabinet systems — 75 sq ft, 100 salads/week, 10+ year durability. Use when competing.",
-    personas: ["General","STEM"],
-    viewUrl: "https://drive.google.com/file/d/146JfX8dKV11HRm3yXejJeW64kOV6cSTE/view",
-  },
-  {
-    id: "1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp",
-    title: "Grant Alignment Guide",
-    file: "Grant_Info_For_Schools.pdf",
-    category: "Sales",
-    tag: "One-Pager",
-    tagColor: "#0F6E56",
-    tagBg: "#E1F5EE",
-    description: "How IG maps to grantmaker priorities — STEM, farm-to-school, food deserts, workforce dev. Essential for Nutrition contacts.",
-    personas: ["Nutrition","Sustainability","CTE"],
-    viewUrl: "https://drive.google.com/file/d/1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp/view",
-  },
-  {
-    id: "1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5",
-    title: "Full Overview Slideshow",
-    file: "General_Overview_Slideshow.pdf",
-    category: "Sales",
-    tag: "Deck",
-    tagColor: "#854F0B",
-    tagBg: "#FAEEDA",
-    description: "Complete pitch deck — founder story, AeroFarms DNA, quotes from Newark BOE & Riverdale. Best for warm leads.",
-    personas: ["General","STEM","Nutrition","CTE","Sustainability"],
-    viewUrl: "https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view",
-  },
-  {
-    id: "1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF",
-    title: "Curriculum Overview",
-    file: "Curriculum_Features_Extensions.pdf",
-    category: "Education",
-    tag: "One-Pager",
-    tagColor: "#3B6D11",
-    tagBg: "#EAF3DE",
-    description: "NGSS-aligned, 6 lessons, student journals, special needs angle. Send to STEM coordinators and science teachers.",
-    personas: ["STEM","CTE"],
-    viewUrl: "https://drive.google.com/file/d/1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF/view",
-  },
-  {
-    id: "1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl",
-    title: "User Manual",
-    file: "User_Manual_Specs_Facts.pdf",
-    category: "Technical",
-    tag: "Manual",
-    tagColor: "#5B21B6",
-    tagBg: "#EDE9FE",
-    description: "Complete operational manual — equipment, safety, growing process, glossary. Share post-sale or with technical reviewers.",
-    personas: ["General"],
-    viewUrl: "https://drive.google.com/file/d/1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl/view",
-  },
-  {
-    id: "1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn",
-    title: "Living Light Lab Experiments",
-    file: "Premium_Experiments_Ideas.pdf",
-    category: "Education",
-    tag: "Premium",
-    tagColor: "#854F0B",
-    tagBg: "#FAEEDA",
-    description: "Light spectrum experiments across grade levels — lower, middle, high school. Great for engaged STEM schools.",
-    personas: ["STEM"],
-    viewUrl: "https://drive.google.com/file/d/1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn/view",
-  },
-  {
-    id: "1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-",
-    title: "Educational Service Program",
-    file: "Premium_Education_Service.pdf",
-    category: "Services",
-    tag: "Service",
-    tagColor: "#185FA5",
-    tagBg: "#E6F1FB",
-    description: "IG teaching programs — K-5, 6-8, 9-12 formats. In-class, after-school, one-time workshops.",
-    personas: ["STEM","CTE","Nutrition"],
-    viewUrl: "https://drive.google.com/file/d/1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-/view",
-  },
-  {
-    id: "1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz",
-    title: "Expanded Services Overview",
-    file: "Premium_Services_Overview.pdf",
-    category: "Services",
-    tag: "Service",
-    tagColor: "#185FA5",
-    tagBg: "#E6F1FB",
-    description: "Farming support, kids programs, workshops & events, enhanced cleaning. For current and prospective customers.",
-    personas: ["General","Nutrition"],
-    viewUrl: "https://drive.google.com/file/d/1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz/view",
-  },
-  {
-    id: "1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA",
-    title: "Farm Cleaning & Maintenance",
-    file: "Premium_Cleaning_Service.pdf",
-    category: "Services",
-    tag: "Service",
-    tagColor: "#185FA5",
-    tagBg: "#E6F1FB",
-    description: "Maintenance services for non-IG systems — deep cleaning, preventive maintenance, troubleshooting.",
-    personas: ["General"],
-    viewUrl: "https://drive.google.com/file/d/1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA/view",
-  },
+  {id:"10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX",title:"General One-Pager",file:"Overview_Key_Features.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"Key outcomes, aeroponics advantage, grant-readiness. Best all-purpose attach for cold outreach.",personas:["General","STEM","Nutrition","CTE","Sustainability"],viewUrl:"https://drive.google.com/file/d/10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX/view"},
+  {id:"1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn",title:"Specs & Yields",file:"Specs_Safety_Requirements_Yields.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"Exact yield data — 240–336 servings/harvest, 7-14 day cycles, 75 sq ft footprint. Send to technical buyers.",personas:["STEM","General"],viewUrl:"https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view"},
+  {id:"1wB62cx610skkGak9xC2jmFdt2Djzqcex",title:"Aeroponics Technology Brief",file:"Aeroponics_Facts_Process.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"95% less water, NASA tech origin, how the misting system works. Great for science-forward contacts.",personas:["STEM","Sustainability"],viewUrl:"https://drive.google.com/file/d/1wB62cx610skkGak9xC2jmFdt2Djzqcex/view"},
+  {id:"146JfX8dKV11HRm3yXejJeW64kOV6cSTE",title:"Competitive Comparison",file:"Comparison_Competition_Stats.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"IG vs tower & cabinet systems — 75 sq ft, 100 salads/week, 10+ year durability. Use when competing.",personas:["General","STEM"],viewUrl:"https://drive.google.com/file/d/146JfX8dKV11HRm3yXejJeW64kOV6cSTE/view"},
+  {id:"1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp",title:"Grant Alignment Guide",file:"Grant_Info_For_Schools.pdf",category:"Sales",tag:"One-Pager",tagColor:"#0F6E56",tagBg:"#E1F5EE",description:"How IG maps to grantmaker priorities — STEM, farm-to-school, food deserts, workforce dev. Essential for Nutrition contacts.",personas:["Nutrition","Sustainability","CTE"],viewUrl:"https://drive.google.com/file/d/1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp/view"},
+  {id:"1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5",title:"Full Overview Slideshow",file:"General_Overview_Slideshow.pdf",category:"Sales",tag:"Deck",tagColor:"#854F0B",tagBg:"#FAEEDA",description:"Complete pitch deck — founder story, AeroFarms DNA, quotes from Newark BOE & Riverdale. Best for warm leads.",personas:["General","STEM","Nutrition","CTE","Sustainability"],viewUrl:"https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view"},
+  {id:"1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF",title:"Curriculum Overview",file:"Curriculum_Features_Extensions.pdf",category:"Education",tag:"One-Pager",tagColor:"#3B6D11",tagBg:"#EAF3DE",description:"NGSS-aligned, 6 lessons, student journals, special needs angle. Send to STEM coordinators and science teachers.",personas:["STEM","CTE"],viewUrl:"https://drive.google.com/file/d/1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF/view"},
+  {id:"1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl",title:"User Manual",file:"User_Manual_Specs_Facts.pdf",category:"Technical",tag:"Manual",tagColor:"#5B21B6",tagBg:"#EDE9FE",description:"Complete operational manual — equipment, safety, growing process, glossary. Share post-sale or with technical reviewers.",personas:["General"],viewUrl:"https://drive.google.com/file/d/1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl/view"},
+  {id:"1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn",title:"Living Light Lab Experiments",file:"Premium_Experiments_Ideas.pdf",category:"Education",tag:"Premium",tagColor:"#854F0B",tagBg:"#FAEEDA",description:"Light spectrum experiments across grade levels — lower, middle, high school. Great for engaged STEM schools.",personas:["STEM"],viewUrl:"https://drive.google.com/file/d/1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn/view"},
+  {id:"1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-",title:"Educational Service Program",file:"Premium_Education_Service.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"IG teaching programs — K-5, 6-8, 9-12 formats. In-class, after-school, one-time workshops.",personas:["STEM","CTE","Nutrition"],viewUrl:"https://drive.google.com/file/d/1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-/view"},
+  {id:"1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz",title:"Expanded Services Overview",file:"Premium_Services_Overview.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"Farming support, kids programs, workshops & events, enhanced cleaning. For current and prospective customers.",personas:["General","Nutrition"],viewUrl:"https://drive.google.com/file/d/1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz/view"},
+  {id:"1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA",title:"Farm Cleaning & Maintenance",file:"Premium_Cleaning_Service.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"Maintenance services for non-IG systems — deep cleaning, preventive maintenance, troubleshooting.",personas:["General"],viewUrl:"https://drive.google.com/file/d/1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA/view"},
 ];
 
 const KB_CATEGORIES = ["All", "Sales", "Education", "Technical", "Services"];
 
-// Map persona → which doc IDs are most relevant for KB reading
 const PERSONA_KB_MAP = {
   STEM: ["10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX","1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF","1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn"],
   Nutrition: ["10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX","1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp","1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5"],
@@ -249,7 +123,7 @@ const SL=()=>({fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase
 function Tag({label,color,bg}){return <span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,background:bg,color,whiteSpace:"nowrap"}}>{label}</span>;}
 function Av({name,size=32,color=C.blue}){return <div style={{width:size,height:size,borderRadius:size/4,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:size*0.38,flexShrink:0}}>{ini(name)}</div>;}
 
-// ── Resources Page ─────────────────────────────────────────────────────────────
+// ── Resources Page ────────────────────────────────────────────────────────────
 function ResourcesPage() {
   const [catFilter, setCatFilter] = useState("All");
   const [personaFilter, setPersonaFilter] = useState("All");
@@ -279,20 +153,16 @@ function ResourcesPage() {
         <div style={{fontWeight:700,fontSize:16}}>Resources & Documents</div>
         <div style={{fontSize:12,color:C.textS,marginTop:1}}>All IG sales materials · Click to open · Copy link to attach in emails</div>
       </div>
-      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+      <div style={{marginLeft:"auto"}}>
         <a href="https://drive.google.com/drive/folders/16bIf6yD-E-kgxek6DbDAM_EBoEgQl6DR" target="_blank" style={{...B("secondary","sm"),textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
           📁 Open Drive Folder
         </a>
       </div>
     </div>
-
-    {/* Filters */}
     <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 20px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
       <span style={{fontSize:11,color:C.textT,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginRight:4}}>Category</span>
       {KB_CATEGORIES.map(c=>(
-        <button key={c} onClick={()=>setCatFilter(c)} style={{...B(catFilter===c?"primary":"secondary","sm"),borderRadius:20}}>
-          {c}
-        </button>
+        <button key={c} onClick={()=>setCatFilter(c)} style={{...B(catFilter===c?"primary":"secondary","sm"),borderRadius:20}}>{c}</button>
       ))}
       <div style={{width:1,height:20,background:C.border,margin:"0 4px"}}/>
       <span style={{fontSize:11,color:C.textT,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginRight:4}}>Persona</span>
@@ -302,21 +172,19 @@ function ResourcesPage() {
       })}
       <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{filtered.length} docs</span>
     </div>
-
     <div style={{flex:1,overflowY:"auto",padding:20}}>
       {Object.entries(grouped).map(([cat, docs]) => (
         <div key={cat} style={{marginBottom:28}}>
           <div style={{fontSize:11,fontWeight:700,color:C.textT,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-            <span>{cat === "Sales" ? "📊" : cat === "Education" ? "📚" : cat === "Technical" ? "🔧" : "🛠"}</span>
+            <span>{cat==="Sales"?"📊":cat==="Education"?"📚":cat==="Technical"?"🔧":"🛠"}</span>
             {cat}
             <span style={{fontSize:10,fontWeight:500,color:C.textT,background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"1px 7px"}}>{docs.length}</span>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
             {docs.map(doc => (
-              <div key={doc.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16,display:"flex",flexDirection:"column",gap:10,transition:"box-shadow 0.15s"}}
+              <div key={doc.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16,display:"flex",flexDirection:"column",gap:10}}
                 onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.08)"}
                 onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                {/* Doc header */}
                 <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
                   <div style={{width:36,height:36,borderRadius:8,background:"#FEF2F2",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
                     {cat==="Sales"?"📄":cat==="Education"?"📖":cat==="Technical"?"📋":"🔧"}
@@ -326,23 +194,15 @@ function ResourcesPage() {
                     <div style={{marginTop:4}}><Tag label={doc.tag} color={doc.tagColor} bg={doc.tagBg}/></div>
                   </div>
                 </div>
-
-                {/* Description */}
                 <div style={{fontSize:12,color:C.textS,lineHeight:1.6}}>{doc.description}</div>
-
-                {/* Persona tags */}
                 <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                   {doc.personas.map(p => {
                     const [pc,pb]=PER_C[p]||[C.textS,"#F1EFE8"];
                     return <Tag key={p} label={p} color={pc} bg={pb}/>;
                   })}
                 </div>
-
-                {/* Actions */}
                 <div style={{display:"flex",gap:6,marginTop:2}}>
-                  <a href={doc.viewUrl} target="_blank" style={{...B("blue","sm"),textDecoration:"none",flex:1,textAlign:"center",display:"block"}}>
-                    Open PDF ↗
-                  </a>
+                  <a href={doc.viewUrl} target="_blank" style={{...B("blue","sm"),textDecoration:"none",flex:1,textAlign:"center",display:"block"}}>Open PDF ↗</a>
                   <button onClick={()=>copyLink(doc)} style={{...B("secondary","sm"),minWidth:90}}>
                     {copied===doc.id ? "✓ Copied!" : "Copy Link"}
                   </button>
@@ -352,7 +212,6 @@ function ResourcesPage() {
           </div>
         </div>
       ))}
-
       {filtered.length === 0 && (
         <div style={{padding:60,textAlign:"center",color:C.textT}}>
           <div style={{fontSize:30,marginBottom:8}}>📂</div>
@@ -363,7 +222,6 @@ function ResourcesPage() {
   </>;
 }
 
-// ── Main App ───────────────────────────────────────────────────────────────────
 // ── Doc sentence templates ────────────────────────────────────────────────────
 const DOC_SENTENCES = {
   "10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX": "I thought this might be useful — here's a quick overview of what the Inspired Growing system does and how it fits into schools like yours:",
@@ -380,7 +238,7 @@ const DOC_SENTENCES = {
   "1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA": "Here's information on our maintenance and cleaning service options:",
 };
 
-// ── Suggested Attachments with Tracked Links ──────────────────────────────────
+// ── Suggested Attachments ─────────────────────────────────────────────────────
 function SuggestedAttachments({cc,onViewAll}){
   const[copiedId,setCopiedId]=useState(null);
   const[copiedSentenceId,setCopiedSentenceId]=useState(null);
@@ -410,7 +268,6 @@ function SuggestedAttachments({cc,onViewAll}){
         const link=trackedLink(cc.id,doc.id);
         const sentence=DOC_SENTENCES[doc.id]||`Here's our ${doc.title} for your reference:`;
         return <div key={doc.id} style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-          {/* Doc header */}
           <div style={{padding:"8px 10px",background:C.bg,display:"flex",alignItems:"center",gap:8}}>
             <div style={{flex:1}}>
               <div style={{fontSize:12,fontWeight:600,color:C.text}}>{doc.title}</div>
@@ -418,7 +275,6 @@ function SuggestedAttachments({cc,onViewAll}){
             </div>
             <a href={doc.viewUrl} target="_blank" style={{fontSize:10,color:C.blue,textDecoration:"none",fontWeight:500,flexShrink:0,padding:"3px 7px",border:`1px solid ${C.border}`,borderRadius:4,background:"white"}}>Preview ↗</a>
           </div>
-          {/* Pre-written sentence */}
           <div style={{padding:"8px 10px",background:"#FAFAFA",borderTop:`1px solid ${C.border}`}}>
             <div style={{fontSize:11,color:C.textS,fontStyle:"italic",lineHeight:1.5,marginBottom:8}}>"{sentence}"</div>
             <div style={{display:"flex",gap:6}}>
@@ -434,12 +290,13 @@ function SuggestedAttachments({cc,onViewAll}){
       })}
       <div style={{fontSize:10,color:C.textT,padding:"2px 4px",display:"flex",alignItems:"center",gap:4}}>
         <span>🔗</span>
-        <span>Links are tracked via Cloudflare · <strong>Cmd+K</strong> in Gmail to hyperlink text · contact ID <strong>{cc.id}</strong> embedded</span>
+        <span>Links tracked via Cloudflare · <strong>Cmd+K</strong> in Gmail to hyperlink text · contact ID <strong>{cc.id}</strong> embedded</span>
       </div>
     </div>
   </div>;
 }
 
+// ── Main App ──────────────────────────────────────────────────────────────────
 function App(){
   const[contacts,setContacts]=useState(SEED);
   const[templates,setTemplates]=useState(TMPL);
@@ -452,7 +309,7 @@ function App(){
   const nid=useRef(13);
   const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");
   const[subj,setSubj]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
-  const[kbSt,setKbSt]=useState("idle"); // idle | loading | done
+  const[kbSt,setKbSt]=useState("idle");
   const[stab,setStab]=useState("STEM");const[saved,setSaved]=useState(false);
 
   const filtered=contacts.filter(c=>{
@@ -463,66 +320,19 @@ function App(){
 
   function selectCC(c){setCc(c);setL2(templates[c.persona]?.roleBlurb||"");setL3(closeText);setL1("");setSubj("");setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");}
 
-  // Read relevant KB docs from Drive, return combined text snippet
-  async function readKBDocs(persona) {
-    const docIds = PERSONA_KB_MAP[persona] || PERSONA_KB_MAP.General;
-    const snippets = [];
-    for (const id of docIds) {
-      const doc = KB_DOCS.find(d => d.id === id);
-      if (!doc) continue;
-      try {
-        const resp = await fetch(`https://api.anthropic.com/v1/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 400,
-            system: "Extract only the most useful facts, statistics, and quotes from this document snippet for use in a cold sales email. Return bullet points only. Max 8 bullets.",
-            messages: [{ role: "user", content: `Document: ${doc.title}\n\nContent snippet available from file metadata.` }]
-          })
-        });
-        // We use the contentSnippet we already have from the Drive search
-        snippets.push(`[${doc.title}]: ${doc.description}`);
-      } catch(e) {}
-    }
-    return snippets.join("\n");
-  }
-
   async function genHook(){
     if(!cc)return;
-    setAiSt("loading");
-    setKbSt("loading");
-    setL1("");
-
-    // Gather KB facts from the docs we already read
-    const relevantDocs = (PERSONA_KB_MAP[cc.persona] || PERSONA_KB_MAP.General)
-      .map(id => KB_DOCS.find(d => d.id === id))
-      .filter(Boolean);
-
-    // Pull real content snippets already loaded
-    const kbFacts = {
-      STEM: "• 7-14 day seed-to-harvest cycle for microgreens\n• NGSS-aligned curriculum with 6 structured lessons\n• 12 independent trays for simultaneous experiments\n• 75 sq ft growing canopy\n• 40+ annual grow cycles drive data-driven inquiry\n• Students seed, observe, adjust, and harvest within a single unit",
-      Nutrition: "• 100 fresh salads per week from a single system\n• 240–336 servings per harvest\n• Zero pesticides, no food miles\n• Closed-loop reservoir uses 95% less water than conventional growing\n• 'Growers become eaters' — students eat what they grow\n• Grant-aligned: farm-to-school, food deserts, nutritional literacy",
-      Sustainability: "• 95% less water than soil farming\n• Closed-loop reservoir — near-zero water waste\n• Zero pesticides, no food transportation\n• NASA-selected aeroponics technology\n• Students see the full local food system in action\n• Green team programs tracking growth data and environmental stewardship",
-      CTE: "• Students grow, harvest, and use fresh produce in culinary projects\n• Connects to AgEd and food science career pathways\n• 40+ annual grow cycles — rapid, real production\n• Commercial-grade equipment used in real Ag-Tech careers\n• 'Seed-to-Plate' project-based learning\n• Workforce development grant alignment",
-      General: "• 100 salads per week, every week, in as little as 7 days\n• 32 schools currently installed across NY and NJ\n• 75 sq ft footprint, fits standard classrooms\n• Connects to standard 15/20 amp outlets — no special plumbing\n• Founded by AeroFarms co-founder, former science teacher\n• Quote: 'Our students are learning how science, sustainability, and creativity come together' — Newark BOE President",
+    setAiSt("loading");setKbSt("loading");setL1("");
+    const kbFacts={
+      STEM:"• 7-14 day seed-to-harvest cycle for microgreens\n• NGSS-aligned curriculum with 6 structured lessons\n• 12 independent trays for simultaneous experiments\n• 75 sq ft growing canopy\n• 40+ annual grow cycles drive data-driven inquiry\n• Students seed, observe, adjust, and harvest within a single unit",
+      Nutrition:"• 100 fresh salads per week from a single system\n• 240–336 servings per harvest\n• Zero pesticides, no food miles\n• Closed-loop reservoir uses 95% less water than conventional growing\n• 'Growers become eaters' — students eat what they grow\n• Grant-aligned: farm-to-school, food deserts, nutritional literacy",
+      Sustainability:"• 95% less water than soil farming\n• Closed-loop reservoir — near-zero water waste\n• Zero pesticides, no food transportation\n• NASA-selected aeroponics technology\n• Students see the full local food system in action\n• Green team programs tracking growth data and environmental stewardship",
+      CTE:"• Students grow, harvest, and use fresh produce in culinary projects\n• Connects to AgEd and food science career pathways\n• 40+ annual grow cycles — rapid, real production\n• Commercial-grade equipment used in real Ag-Tech careers\n• 'Seed-to-Plate' project-based learning\n• Workforce development grant alignment",
+      General:"• 100 salads per week, every week, in as little as 7 days\n• 32 schools currently installed across NY and NJ\n• 75 sq ft footprint, fits standard classrooms\n• Connects to standard 15/20 amp outlets — no special plumbing\n• Founded by AeroFarms co-founder, former science teacher\n• Quote: 'Our students are learning how science, sustainability, and creativity come together' — Newark BOE President",
     };
-
     setKbSt("done");
-
-    const facts = kbFacts[cc.persona] || kbFacts.General;
-    const sys=`You write one-sentence personalized cold email openers for Inspired Growing, an EdTech company selling aeroponic classroom farm systems to K-12 schools.
-
-Write ONE sentence (max 30 words) opening a cold email to ${cc.name}, ${cc.role} at ${cc.school} in the ${cc.district} district (${cc.state}).
-
-Reference something specific and plausible about ${cc.district} — a known initiative, grant, strategic plan, sustainability goal, or community fact that shows you did your homework on their district specifically.
-
-Tone: warm, collegial. Do NOT mention Inspired Growing or the product. Just the hook about them.
-
-KEY FACTS FROM OUR KNOWLEDGE BASE (use these for accuracy in later email layers):
-${facts}
-
-RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
+    const facts=kbFacts[cc.persona]||kbFacts.General;
+    const sys=`You write one-sentence personalized cold email openers for Inspired Growing, an EdTech company selling aeroponic classroom farm systems to K-12 schools.\n\nWrite ONE sentence (max 30 words) opening a cold email to ${cc.name}, ${cc.role} at ${cc.school} in the ${cc.district} district (${cc.state}).\n\nReference something specific and plausible about ${cc.district} — a known initiative, grant, strategic plan, sustainability goal, or community fact that shows you did your homework on their district specifically.\n\nTone: warm, collegial. Do NOT mention Inspired Growing or the product. Just the hook about them.\n\nKEY FACTS FROM OUR KNOWLEDGE BASE:\n${facts}\n\nRESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
     try{
       const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:sys,messages:[{role:"user",content:"Write the opening sentence."}]})});
       const d=await r.json();const t=(d.content?.[0]?.text||"").trim();
@@ -530,7 +340,8 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
     }catch(e){setAiSt("error");}
   }
 
-  const preview=[l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
+  // ── CHANGE 1: preview now includes CAN-SPAM footer with contact's unsubscribe link ──
+  const preview=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
 
   async function pushGmail(){
     if(!subj||!preview||!cc)return;setGmSt("loading");setGmMsg("Pushing to Gmail draft folder...");
@@ -558,7 +369,6 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
     {id:"resources",icon:"📁",label:"Resources"},
     {id:"settings",icon:"⚙️",label:"Email Templates"},
   ];
-  const DIS=[{icon:"📋",label:"Pipeline"},{icon:"⚡",label:"Activity"},{icon:"🔄",label:"Sequences"}];
 
   return (
     <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
@@ -580,18 +390,30 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {/* SIDEBAR */}
         <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
-          <div style={SL()}>Workspace</div>
+          <div style={SL()}>Pipeline</div>
+          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}}
+            onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <span style={{fontSize:14,width:18,textAlign:"center"}}>📊</span>Dashboard
+          </div>
+          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}}
+            onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <span style={{fontSize:14,width:18,textAlign:"center"}}>📋</span>Pipeline
+          </div>
+          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}}
+            onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <span style={{fontSize:14,width:18,textAlign:"center"}}>⚡</span>Activity Feed
+          </div>
+          <div style={SL()}>Outreach</div>
           {NAV.map(item=>(
             <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}}>
               <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
             </div>
           ))}
-          <div style={SL()}>Coming Soon</div>
-          {DIS.map(item=>(
-            <div key={item.label} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,fontSize:13,color:C.textT,opacity:0.45}}>
-              <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
-            </div>
-          ))}
+          <div style={SL()}>Automation</div>
+          <div onClick={()=>window.location.href='/sequences.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}}
+            onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <span style={{fontSize:14,width:18,textAlign:"center"}}>🔄</span>Sequences
+          </div>
         </div>
 
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -748,9 +570,10 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
                     </div>
                   </div>
 
-                  {/* Suggested attachments with tracked links */}
+                  {/* Suggested attachments */}
                   {cc&&<SuggestedAttachments cc={cc} onViewAll={()=>setPage("resources")}/>}
 
+                  {/* CHANGE 2: Full email preview now includes CAN-SPAM footer */}
                   {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
                     <div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                       <span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span>
@@ -806,6 +629,7 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
                     <br/><br/>{templates[stab].roleBlurb}<br/><br/>
                     <span style={{background:"#FEF3C7",borderRadius:3,padding:"1px 4px",color:"#92400E",fontSize:12}}>{closeText}</span>
                     <br/><br/><span style={{color:C.textS,fontSize:12,whiteSpace:"pre-wrap"}}>{sig}</span>
+                    <br/><br/><span style={{color:C.textT,fontSize:11,whiteSpace:"pre-wrap"}}>{`--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\nTo unsubscribe: https://ig-crm-take-2.pages.dev/unsubscribe.html?id={contactId}`}</span>
                   </div>
                 </div>
               </div>}
@@ -820,6 +644,9 @@ RESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
                   <label style={{...LBL(),fontSize:11}}>Signature</label>
                   <textarea value={sig} onChange={e=>setSig(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
+                </div>
+                <div style={{padding:"10px 14px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:12,color:C.gDark}}>
+                  ✓ <strong>CAN-SPAM footer</strong> is automatically appended to every email with the contact's personalized unsubscribe link. It cannot be removed.
                 </div>
               </div>}
             </div>
