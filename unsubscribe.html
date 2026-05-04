@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unsubscribe — Inspired Growing</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#F5F6F8;color:#111827;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+  .card{background:white;border-radius:16px;padding:40px;max-width:480px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;}
+  .logo{width:40px;height:40px;background:#65C39D;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:16px;margin:0 auto 20px;}
+  h1{font-size:22px;font-weight:700;margin-bottom:8px;color:#111827;}
+  .sub{font-size:14px;color:#6B7280;line-height:1.6;margin-bottom:28px;}
+  .btn{display:inline-block;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;font-family:inherit;}
+  .btn-confirm{background:#EB5665;color:white;width:100%;margin-bottom:10px;}
+  .btn-confirm:hover{background:#d44455;}
+  .btn-cancel{background:white;color:#6B7280;border:1px solid #E4E7EC;width:100%;}
+  .btn-cancel:hover{background:#F5F6F8;}
+  .success{display:none;}
+  .success-icon{font-size:48px;margin-bottom:16px;}
+  .footer-note{font-size:12px;color:#9CA3AF;margin-top:24px;line-height:1.5;}
+  .color-bar{height:4px;display:flex;border-radius:0 0 16px 16px;overflow:hidden;margin-top:28px;}
+  .color-bar div{flex:1;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <!-- Unsubscribe form state -->
+  <div id="form-state">
+    <div class="logo">IG</div>
+    <h1>Unsubscribe</h1>
+    <p class="sub">
+      You're about to unsubscribe from Inspired Growing outreach emails.<br><br>
+      You won't receive any future emails from us. This can't be undone automatically — 
+      if you'd like to re-subscribe in the future, please contact us directly at 
+      <strong>info@inspiredgrowing.com</strong>.
+    </p>
+    <button class="btn btn-confirm" onclick="confirmUnsub()">Yes, unsubscribe me</button>
+    <button class="btn btn-cancel" onclick="window.history.back()">No, take me back</button>
+    <p class="footer-note">
+      Inspired Growing | 123 Innovation Way, Newark, NJ 07102<br>
+      inspiredgrowing.com | info@inspiredgrowing.com
+    </p>
+    <div class="color-bar">
+      <div style="background:#DFC4DF"></div>
+      <div style="background:#C2E8FB"></div>
+      <div style="background:#40ACE2"></div>
+      <div style="background:#65C39D"></div>
+      <div style="background:#FAEE36"></div>
+      <div style="background:#F9A139"></div>
+      <div style="background:#EB5665"></div>
+    </div>
+  </div>
+
+  <!-- Success state -->
+  <div id="success-state" class="success">
+    <div class="success-icon">✓</div>
+    <h1>You've been unsubscribed</h1>
+    <p class="sub">
+      You won't receive any more emails from Inspired Growing.<br><br>
+      If this was a mistake or you'd like to reconnect in the future, 
+      reach out anytime at <strong>info@inspiredgrowing.com</strong>.
+    </p>
+    <a href="https://inspiredgrowing.com" class="btn btn-cancel" style="display:block;text-decoration:none;text-align:center;">
+      Visit inspiredgrowing.com
+    </a>
+    <div class="color-bar">
+      <div style="background:#DFC4DF"></div>
+      <div style="background:#C2E8FB"></div>
+      <div style="background:#40ACE2"></div>
+      <div style="background:#65C39D"></div>
+      <div style="background:#FAEE36"></div>
+      <div style="background:#F9A139"></div>
+      <div style="background:#EB5665"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function getParam(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+var contactId = getParam('id');
+var TRACKER_URL = 'https://ig-click-tracker.maxwellrymsza.workers.dev';
+
+function confirmUnsub() {
+  // Log unsubscribe to Cloudflare Worker
+  fetch(TRACKER_URL + '/unsubscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event: 'unsubscribe',
+      contactId: contactId,
+      timestamp: new Date().toISOString()
+    }),
+    keepalive: true
+  }).catch(function() {});
+
+  // Show success state
+  document.getElementById('form-state').style.display = 'none';
+  document.getElementById('success-state').style.display = 'block';
+
+  console.log('[IG] Unsubscribe logged for contact:', contactId);
+}
+</script>
+</body>
+</html>
