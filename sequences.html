@@ -25,7 +25,13 @@ const {useState,useRef} = React;
 const C={lavender:"#DFC4DF",lightblue:"#C2E8FB",blue:"#40ACE2",green:"#65C39D",yellow:"#FAEE36",orange:"#F9A139",coral:"#EB5665",gDark:"#2d8f68",gBg:"#edf7f2",gBorder:"#b6dfc9",bBg:"#e8f4fc",bDark:"#1e7db0",bg:"#F5F6F8",surface:"#fff",border:"#E4E7EC",text:"#111827",textS:"#6B7280",textT:"#9CA3AF"};
 const PER_C={STEM:["#185FA5","#E6F1FB"],Nutrition:["#0F6E56","#E1F5EE"],Sustainability:["#3B6D11","#EAF3DE"],CTE:["#854F0B","#FAEEDA"],General:["#5F5E5A","#F1EFE8"]};
 
-const CANSPAM_FOOTER=`--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\nYou are receiving this email because of your role in K-12 education.\nTo unsubscribe from future emails: [UNSUBSCRIBE_LINK]\n© 2026 Inspired Growing. All rights reserved.`;
+// ── CHANGE 1: Dynamic CAN-SPAM footer with personalized unsubscribe link ──────
+function canSpamFooter(contactId) {
+  const unsubUrl = contactId
+    ? `https://ig-crm-take-2.pages.dev/unsubscribe.html?id=${contactId}`
+    : `https://ig-crm-take-2.pages.dev/unsubscribe.html`;
+  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\nYou are receiving this email because of your role in K-12 education.\nTo unsubscribe: ${unsubUrl}\n© 2026 Inspired Growing. All rights reserved.`;
+}
 
 const SEQUENCE_TEMPLATES={
   "Cold Outreach — Standard":{id:"cold_standard",description:"4-touch cold outreach sequence. Day 0 intro, follow-ups at 5, 12, 20.",steps:[
@@ -76,10 +82,11 @@ const SEED_SEQUENCES=[{
   ]
 }];
 
+// ── CHANGE 2: Seed queue uses dynamic footer with real contact IDs ─────────────
 const SEED_QUEUE=[
-  {id:1,sequenceName:"Cold Outreach — Standard",contactName:"Maria Torres",contactDistrict:"Clarkstown CSD",contactPersona:"Nutrition",stepLabel:"Follow-Up 1",subject:"Re: aeroponic farm for Clarkstown CSD — checking in",scheduledFor:new Date(NOW+3600000).toISOString(),status:"pending",body:`Hi Maria,\n\nJust following up on my note from last week about Inspired Growing's classroom farm program.\n\nI know Clarkstown CSD has been expanding its farm-to-school initiatives — our system produces around 100 fresh salads a week right from a classroom, with zero food miles and no soil or pesticides.\n\nWould a quick 10-minute call be worth it?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${CANSPAM_FOOTER}`},
-  {id:2,sequenceName:"Cold Outreach — Standard",contactName:"James Okafor",contactDistrict:"Bronxville UFSD",contactPersona:"STEM",stepLabel:"Follow-Up 1",subject:"Re: aeroponic farm for Bronxville UFSD — checking in",scheduledFor:new Date(NOW+3600000*2).toISOString(),status:"pending",body:`Hi James,\n\nFollowing up on my earlier note. Bronxville has been expanding its STEM lab offerings — our aeroponic farm runs 7-day seed-to-harvest cycles and connects directly to NGSS standards.\n\nWorth a look?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${CANSPAM_FOOTER}`},
-  {id:3,sequenceName:"Cold Outreach — Standard",contactName:"Sandra Perez",contactDistrict:"Ithaca City SD",contactPersona:"Sustainability",stepLabel:"Follow-Up 1",subject:"Re: aeroponic farm for Ithaca City SD — checking in",scheduledFor:new Date(NOW+3600000*3).toISOString(),status:"pending",body:`Hi Sandra,\n\nFollowing up — Ithaca City SD has strong sustainability goals for 2026 and Green Ribbon status.\n\nOur system uses 95% less water than soil farming, zero pesticides, and eliminates food transportation entirely.\n\nHappy to jump on a quick call.\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${CANSPAM_FOOTER}`},
+  {id:1,sequenceName:"Cold Outreach — Standard",contactId:1,contactName:"Maria Torres",contactDistrict:"Clarkstown CSD",contactPersona:"Nutrition",stepLabel:"Follow-Up 1",subject:"Re: aeroponic farm for Clarkstown CSD — checking in",scheduledFor:new Date(NOW+3600000).toISOString(),status:"pending",body:`Hi Maria,\n\nJust following up on my note from last week about Inspired Growing's classroom farm program.\n\nI know Clarkstown CSD has been expanding its farm-to-school initiatives — our system produces around 100 fresh salads a week right from a classroom, with zero food miles and no soil or pesticides.\n\nWould a quick 10-minute call be worth it?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(1)}`},
+  {id:2,sequenceName:"Cold Outreach — Standard",contactId:2,contactName:"James Okafor",contactDistrict:"Bronxville UFSD",contactPersona:"STEM",stepLabel:"Follow-Up 1",subject:"Re: aeroponic farm for Bronxville UFSD — checking in",scheduledFor:new Date(NOW+3600000*2).toISOString(),status:"pending",body:`Hi James,\n\nFollowing up on my earlier note. Bronxville has been expanding its STEM lab offerings — our aeroponic farm runs 7-day seed-to-harvest cycles and connects directly to NGSS standards.\n\nWorth a look?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(2)}`},
+  {id:3,sequenceName:"Cold Outreach — Standard",contactId:3,contactName:"Sandra Perez",contactDistrict:"Ithaca City SD",contactPersona:"Sustainability",stepLabel:"Follow-Up 1",subject:"Re: aeroponic farm for Ithaca City SD — checking in",scheduledFor:new Date(NOW+3600000*3).toISOString(),status:"pending",body:`Hi Sandra,\n\nFollowing up — Ithaca City SD has strong sustainability goals for 2026 and Green Ribbon status.\n\nOur system uses 95% less water than soil farming, zero pesticides, and eliminates food transportation entirely.\n\nHappy to jump on a quick call.\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(3)}`},
 ];
 
 const ini=n=>n.split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2);
@@ -97,7 +104,6 @@ const SL=()=>({fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase
 function Tag({label,color,bg,size=10}){return <span style={{fontSize:size,fontWeight:600,padding:"2px 7px",borderRadius:10,background:bg,color,whiteSpace:"nowrap"}}>{label}</span>;}
 function Av({name,size=28,color=C.blue}){return <div style={{width:size,height:size,borderRadius:size/4,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:size*0.38,flexShrink:0}}>{ini(name)}</div>;}
 
-// ── NavItem — defined first so all components can use it ──────────────────────
 function NavItem({icon,label,onClick,active}){
   return (
     <div onClick={onClick}
@@ -109,7 +115,6 @@ function NavItem({icon,label,onClick,active}){
   );
 }
 
-// ── SEQUENCES PAGE ────────────────────────────────────────────────────────────
 function SequencesPage({contacts,sequences,setSequences}){
   const[newOpen,setNewOpen]=useState(false);
   const[newName,setNewName]=useState("Cold Outreach — Standard");
@@ -232,7 +237,7 @@ function SequencesPage({contacts,sequences,setSequences}){
           </div>
         </div>
         <div style={{padding:"10px 14px",background:"#FFF7ED",borderRadius:8,border:"1px solid #FED7AA",fontSize:12,color:"#92400E",marginBottom:16}}>
-          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and unsubscribe link.
+          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a personalized unsubscribe link.
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <button onClick={()=>setNewOpen(false)} style={B("secondary")}>Cancel</button>
@@ -243,7 +248,6 @@ function SequencesPage({contacts,sequences,setSequences}){
   </>;
 }
 
-// ── REVIEW QUEUE PAGE ─────────────────────────────────────────────────────────
 function ReviewQueuePage({queue,setQueue}){
   const[selected,setSelected]=useState(null);
   const[approving,setApproving]=useState(false);
@@ -333,7 +337,7 @@ function ReviewQueuePage({queue,setQueue}){
             <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Email Body</label>
             <textarea value={selected.body} onChange={e=>setSelected(p=>({...p,body:e.target.value}))} readOnly={selected.status!=="pending"} rows={12} style={{...I(),resize:"vertical",lineHeight:1.7,background:selected.status==="pending"?"white":"#F9FAFB",fontFamily:"Georgia,serif",fontSize:12}}/>
           </div>
-          <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and unsubscribe link.</div>
+          <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and personalized unsubscribe link.</div>
           {selected.status==="pending"&&<div style={{display:"flex",gap:8}}>
             <button onClick={()=>approve(selected.id)} disabled={approving} style={{...B("primary"),flex:1,opacity:approving?0.6:1}}>{approving?"Approving…":"✓ Approve & Queue"}</button>
             <button onClick={()=>reject(selected.id)} style={{...B("danger"),flex:1}}>✗ Reject</button>
@@ -344,7 +348,6 @@ function ReviewQueuePage({queue,setQueue}){
   </>;
 }
 
-// ── UNSUBSCRIBE PAGE ──────────────────────────────────────────────────────────
 function UnsubscribePage({contacts,setContacts}){
   const unsubs=contacts.filter(c=>c.isUnsubscribed);
   const bounced=contacts.filter(c=>c.bounced);
@@ -403,7 +406,6 @@ function UnsubscribePage({contacts,setContacts}){
   </>;
 }
 
-// ── APP ───────────────────────────────────────────────────────────────────────
 function App(){
   const[contacts,setContacts]=useState(SEED_CONTACTS);
   const[sequences,setSequences]=useState(SEED_SEQUENCES);
@@ -417,7 +419,6 @@ function App(){
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
 
-    {/* TOPBAR */}
     <div style={{height:52,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
       <div style={{display:"flex",alignItems:"center",gap:8,width:195,flexShrink:0}}>
         <div style={{width:28,height:28,borderRadius:6,background:C.green,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:12}}>IG</div>
@@ -432,29 +433,22 @@ function App(){
     </div>
 
     <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-
-      {/* SIDEBAR */}
       <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
-
         <div style={SL()}>Automation</div>
         <NavItem icon="🔄" label="Sequences" onClick={()=>setPage("sequences")} active={page==="sequences"}/>
         <NavItem icon="📬" label={`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`} onClick={()=>setPage("review")} active={page==="review"}/>
         <NavItem icon="🚫" label="Unsubscribes" onClick={()=>setPage("unsub")} active={page==="unsub"}/>
-
         <div style={SL()}>Pipeline</div>
         <NavItem icon="📊" label="Dashboard" onClick={()=>window.location.href='/'} active={false}/>
         <NavItem icon="📋" label="Pipeline" onClick={()=>window.location.href='/'} active={false}/>
         <NavItem icon="⚡" label="Activity Feed" onClick={()=>window.location.href='/'} active={false}/>
-
         <div style={SL()}>Outreach</div>
         <NavItem icon="👥" label="Contacts" onClick={()=>window.location.href='/contacts.html'} active={false}/>
         <NavItem icon="✉️" label="Compose" onClick={()=>window.location.href='/contacts.html'} active={false}/>
         <NavItem icon="📁" label="Resources" onClick={()=>window.location.href='/contacts.html'} active={false}/>
         <NavItem icon="⚙️" label="Email Templates" onClick={()=>window.location.href='/contacts.html'} active={false}/>
-
       </div>
 
-      {/* MAIN */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {page==="sequences"&&<SequencesPage contacts={contacts} sequences={sequences} setSequences={setSequences}/>}
         {page==="review"&&<ReviewQueuePage queue={queue} setQueue={setQueue}/>}
@@ -462,7 +456,6 @@ function App(){
       </div>
     </div>
 
-    {/* COLOR BAR */}
     <div style={{height:4,display:"flex",flexShrink:0}}>
       {[C.lavender,C.lightblue,C.blue,C.green,C.yellow,C.orange,C.coral].map(col=><div key={col} style={{flex:1,background:col}}/>)}
     </div>
