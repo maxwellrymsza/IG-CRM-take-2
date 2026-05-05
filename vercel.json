@@ -1,8 +1,11 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "redirects": [
-    { "source": "/", "destination": "/index", "permanent": false }
+  "routes": [
+    { "src": "/", "dest": "/index.html" },
+    { "src": "/contacts", "dest": "/contacts.html" },
+    { "src": "/sequences", "dest": "/sequences.html" },
+    { "src": "/unsubscribe", "dest": "/unsubscribe.html" }
   ],
   "headers": [
     {
