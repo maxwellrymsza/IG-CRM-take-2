@@ -128,6 +128,18 @@ const DEF_CLOSE="Would it be worth a quick 10-minute call to see if it could be 
 const DEF_SIG="Eric Wagner\nInspired Growing\ninspiredgrowing.com | info@inspiredgrowing.com";
  
 const STAGES=["Cold","Contacted","Replied","Demo Scheduled","Proposal Sent","Bounced","Declined","Closed/Lost"];
+ const STAGE_META={
+  "Cold":          {color:"#9CA3AF", bg:"#F3F4F6",    icon:"❄️"},
+  "Contacted":     {color:"#185FA5", bg:"#E6F1FB",    icon:"📧"},
+  "Replied":       {color:"#0F6E56", bg:"#E1F5EE",    icon:"💬"},
+  "Demo Scheduled":{color:"#854F0B", bg:"#FAEEDA",    icon:"📅"},
+  "Proposal Sent": {color:"#5B21B6", bg:"#EDE9FE",    icon:"📋"},
+  "Bounced":       {color:"#A32D2D", bg:"#FEE2E2",    icon:"⚠️"},
+  "Declined":      {color:"#6B7280", bg:"#F3F4F6",    icon:"🚫"},
+  "Closed Won":    {color:"#065F46", bg:"#D1FAE5",    icon:"🏆"},
+  "Closed/Lost":   {color:"#A32D2D", bg:"#FEE2E2",    icon:"❌"},
+  "OOO":           {color:"#854F0B", bg:"#FAEEDA",    icon:"🏖"},
+};
 const STAGE_C={"Cold":"#9CA3AF","Contacted":"#185FA5","Replied":"#0F6E56","Demo Scheduled":"#854F0B","Proposal Sent":"#5B21B6","Bounced":"#A32D2D","Declined":"#6B7280","OOO":"#854F0B","Closed/Lost":"#A32D2D"};
 const STAGE_BG={"Cold":"#F3F4F6","Contacted":"#E6F1FB","Replied":"#E1F5EE","Demo Scheduled":"#FAEEDA","Proposal Sent":"#EDE9FE","Bounced":"#FEE2E2","Declined":"#F3F4F6","OOO":"#FAEEDA","Closed/Lost":"#FEE2E2"};
 const PER_C={STEM:["#185FA5","#E6F1FB"],Nutrition:["#0F6E56","#E1F5EE"],Sustainability:["#3B6D11","#EAF3DE"],CTE:["#854F0B","#FAEEDA"],General:["#5F5E5A","#F1EFE8"]};
