@@ -13,12 +13,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F5F6F8;color:#11
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-thumb{background:#E4E7EC;border-radius:3px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 input,select,textarea,button{font-family:inherit;}
+.kanban-col{min-width:210px;max-width:210px;}
+.kanban-card{cursor:grab;user-select:none;}
+.kanban-card:active{cursor:grabbing;}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
+
 const {useState,useRef,useEffect} = React;
 
 // ── Supabase Config ───────────────────────────────────────────────────────────
@@ -284,35 +289,960 @@ function SuggestedAttachments({cc,onViewAll}){
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
+
+// ── Sequence Templates ────────────────────────────────────────────────────────
+const SEQUENCE_TEMPLATES={
+  "Cold Outreach — Standard":{id:"cold_standard",description:"4-touch cold outreach sequence. Day 0 intro, follow-ups at 5, 12, 20.",steps:[
+    {day:0,label:"Initial Outreach",type:"hook+pitch",approvalRequired:true},
+    {day:5,label:"Follow-Up 1",type:"follow_up",approvalRequired:true},
+    {day:12,label:"Follow-Up 2",type:"value_add",approvalRequired:true},
+    {day:20,label:"Break-Up Email",type:"breakup",approvalRequired:false},
+  ]},
+  "Warm Lead — Clicked Link":{id:"warm_clicked",description:"For contacts who clicked a brochure or resource link. Faster cadence.",steps:[
+    {day:0,label:"Engagement Follow-Up",type:"clicked_hook",approvalRequired:true},
+    {day:3,label:"Demo Offer",type:"demo_offer",approvalRequired:true},
+    {day:8,label:"Social Proof",type:"social_proof",approvalRequired:false},
+  ]},
+  "Replied — No Demo Yet":{id:"replied_nodemo",description:"Contact replied but hasn't booked a demo. Nurture to demo scheduled.",steps:[
+    {day:0,label:"Demo Push",type:"demo_push",approvalRequired:true},
+    {day:5,label:"Easy Yes",type:"easy_yes",approvalRequired:false},
+    {day:10,label:"Last Nudge",type:"last_nudge",approvalRequired:false},
+  ]},
+};
+const STUCK_DAYS={Cold:14,Contacted:7,Replied:5,'Demo Scheduled':7,'Proposal Sent':14};
+const NOW=Date.now();
+const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?'Today':d===1?'Yesterday':`${d}d ago`;};
+const fmtDate=iso=>new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
+  const[newOpen,setNewOpen]=useState(false);
+  const[newName,setNewName]=useState("Cold Outreach — Standard");
+  const[newInterval,setNewInterval]=useState(7);
+  const[newBrake,setNewBrake]=useState(50);
+  const[saving,setSaving]=useState(false);
+  const[enrollTarget,setEnrollTarget]=useState(null);
+
+  async function createSeq(){
+    const tmpl=SEQUENCE_TEMPLATES[newName];
+    if(!tmpl)return;
+    setSaving(true);
+    try{
+      const rows=await sbFetch("sequences",{method:"POST",body:JSON.stringify({
+        name:newName, template_id:tmpl.id, status:"paused",
+        interval_minutes:newInterval, emergency_brake_threshold:newBrake,
+        started_at:new Date().toISOString()
+      })});
+      setSequences(p=>[...p,rows[0]]);
+      setNewOpen(false);
+    }catch(e){alert("Error creating sequence: "+e.message);}
+    setSaving(false);
+  }
+
+  async function toggleStatus(seq){
+    const newStatus=seq.status==="active"?"paused":"active";
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:newStatus})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:newStatus}:s));
+  }
+
+  async function brakeSeq(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"braked"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"braked"}:s));
+  }
+
+  async function resetBrake(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"paused"}:s));
+  }
+
+  async function handleEnroll(seqId, contactIds){
+    const now=new Date().toISOString();
+    const rows=contactIds.map(cid=>({
+      sequence_id:seqId, contact_id:cid,
+      current_step:0, status:"active",
+      enrolled_at:now, next_send_at:now
+    }));
+    try{
+      const inserted=await sbFetch("enrollments",{method:"POST",body:JSON.stringify(rows)});
+      setEnrollments(p=>[...p,...inserted]);
+      // Update pipeline stage to Contacted for Cold contacts
+      for(const cid of contactIds){
+        const c=contacts.find(x=>x.id===cid);
+        if(c&&c.stage==="Cold"){
+          await sbFetch(`contacts?id=eq.${cid}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted"})});
+        }
+      }
+    }catch(e){alert("Error enrolling: "+e.message);}
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Sequences</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Automated drip sequences · staggered sending · review queue</div></div>
+      <button onClick={()=>setNewOpen(true)} style={{...B("primary","sm"),marginLeft:"auto"}}>+ New Sequence</button>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:10,padding:"12px 16px",display:"flex",gap:10}}>
+        <span style={{fontSize:18,flexShrink:0}}>⏱</span>
+        <div>
+          <div style={{fontWeight:600,fontSize:13,color:"#0369A1",marginBottom:3}}>Slow Drip Mode — Active</div>
+          <div style={{fontSize:12,color:"#0284C7",lineHeight:1.6}}>Emails send 1 at a time with a configurable gap (default: every 7 minutes). This mimics human sending behavior and avoids Gmail's automated spam filters. The Emergency Brake automatically pauses any sequence if bounce rate exceeds threshold or an API error is detected.</div>
+        </div>
+      </div>
+
+      {sequences.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT}}>
+        <div style={{fontSize:32,marginBottom:8}}>🔄</div>
+        <div style={{fontWeight:500,color:C.textS}}>No sequences yet</div>
+        <div style={{fontSize:12,marginTop:4}}>Create your first sequence to start automating outreach</div>
+      </div>}
+
+      {sequences.map(seq=>{
+        const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id)||Object.values(SEQUENCE_TEMPLATES)[0];
+        const seqEnrollments=enrollments.filter(e=>e.sequence_id===seq.id);
+        const activeEnrollments=seqEnrollments.filter(e=>e.status==="active");
+        const sentCount=seqLog.filter(l=>l.sequence_id===seq.id).length;
+        const recentLogs=seqLog.filter(l=>l.sequence_id===seq.id).slice(0,4);
+        const sm={active:{color:C.gDark,bg:C.gBg,label:"● Active"},paused:{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"},braked:{color:"#A32D2D",bg:"#FEE2E2",label:"🛑 Emergency Brake"}}[seq.status]||{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"};
+
+        return <div key={seq.id} style={{background:"white",border:`1px solid ${seq.status==="braked"?"#FECACA":C.border}`,borderRadius:10,overflow:"hidden"}}>
+          {seq.status==="braked"&&<div style={{background:"#FEE2E2",borderBottom:"1px solid #FECACA",padding:"8px 16px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#A32D2D"}}>
+            <span>🛑</span><strong>Emergency Brake Triggered</strong> — Review logs before resuming.
+            <button onClick={()=>resetBrake(seq)} style={{marginLeft:"auto",...B("secondary","sm")}}>Reset</button>
+          </div>}
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:12}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{seq.name}</div>
+                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:10,background:sm.bg,color:sm.color}}>{sm.label}</span>
+                </div>
+                <div style={{fontSize:12,color:C.textS}}>{tmpl?.description}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>setEnrollTarget(seq)} style={B("secondary","sm")}>+ Enroll</button>
+                {seq.status!=="braked"&&<button onClick={()=>toggleStatus(seq)} style={B(seq.status==="active"?"warning":"primary","sm")}>{seq.status==="active"?"⏸ Pause":"▶ Resume"}</button>}
+                <button onClick={()=>brakeSeq(seq)} style={B("danger","sm")}>🛑 Brake</button>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
+              {[["Enrolled",seqEnrollments.length,"#185FA5","#E6F1FB"],["Active",activeEnrollments.length,C.gDark,C.gBg],["Sent",sentCount,"#5B21B6","#EDE9FE"],["Completed",seqEnrollments.filter(e=>e.status==="completed").length,"#9CA3AF","#F3F4F6"]].map(([l,v,col,bg])=>(
+                <div key={l} style={{background:bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:18,fontWeight:700,color:col,lineHeight:1}}>{v}</div>
+                  <div style={{fontSize:10,color:C.textS,marginTop:2}}>{l}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"flex",gap:12,padding:"8px 10px",background:C.bg,borderRadius:8,fontSize:12,color:C.textS,marginBottom:12}}>
+              <span>⏱ <strong style={{color:C.text}}>{seq.interval_minutes} min</strong> between sends</span>
+              <span>·</span>
+              <span>🛑 Brake at <strong style={{color:C.text}}>{seq.emergency_brake_threshold}</strong> sends</span>
+              <span>·</span>
+              <span>Started <strong style={{color:C.text}}>{fmtTime(seq.started_at||seq.created_at)}</strong></span>
+            </div>
+
+            <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Sequence steps</div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:recentLogs.length>0?12:0}}>
+              {tmpl?.steps.map((step,i)=>(
+                <React.Fragment key={i}>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:11}}>
+                    <div style={{fontWeight:600}}>Day {step.day}: {step.label}</div>
+                    <div style={{color:C.textS,marginTop:1,display:"flex",gap:4,alignItems:"center"}}>
+                      {step.approvalRequired&&<span style={{fontSize:9,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 5px",borderRadius:4}}>APPROVAL</span>}
+                      <span style={{fontSize:10}}>{step.type.replace(/_/g," ")}</span>
+                    </div>
+                  </div>
+                  {i<tmpl.steps.length-1&&<span style={{color:C.textT}}>→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {recentLogs.length>0&&<>
+              <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,marginTop:4}}>Recent sends</div>
+              {recentLogs.map((l,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:C.textS,marginBottom:3}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:C.green,flexShrink:0}}/>
+                  <strong style={{color:C.text}}>{l.contact_name}</strong>
+                  <span>{l.step_label}</span>
+                  <span style={{marginLeft:"auto",color:C.textT}}>{fmtTime(l.sent_at)}</span>
+                </div>
+              ))}
+            </>}
+          </div>
+        </div>;
+      })}
+    </div>
+
+    {newOpen&&<div onClick={()=>setNewOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{fontWeight:700,fontSize:16,marginBottom:16,display:"flex",justifyContent:"space-between"}}>
+          New Sequence
+          <button onClick={()=>setNewOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+          <div>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Template</label>
+            <select value={newName} onChange={e=>setNewName(e.target.value)} style={I()}>
+              {Object.keys(SEQUENCE_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+            </select>
+            <div style={{fontSize:11,color:C.textS,marginTop:4}}>{SEQUENCE_TEMPLATES[newName]?.description}</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Interval (minutes)</label>
+              <input type="number" value={newInterval} onChange={e=>setNewInterval(Number(e.target.value))} min={1} max={60} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Recommended: 5–10 min</div>
+            </div>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Emergency Brake</label>
+              <input type="number" value={newBrake} onChange={e=>setNewBrake(Number(e.target.value))} min={1} max={200} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Max sends before auto-pause</div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"10px 14px",background:"#FFF7ED",borderRadius:8,border:"1px solid #FED7AA",fontSize:12,color:"#92400E",marginBottom:16}}>
+          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a personalized unsubscribe link.
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={()=>setNewOpen(false)} style={B("secondary")}>Cancel</button>
+          <button onClick={createSeq} disabled={saving} style={{...B("primary"),opacity:saving?0.6:1}}>
+            {saving?<span style={{display:"flex",alignItems:"center",gap:6}}><Spinner/>Creating…</span>:"Create Sequence"}
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {enrollTarget&&<EnrollModal
+      seq={enrollTarget}
+      contacts={contacts}
+      enrollments={enrollments}
+      onClose={()=>setEnrollTarget(null)}
+      onEnroll={handleEnroll}
+    />}
+  </>;
+}
+
+// ── Review Queue Page ─────────────────────────────────────────────────────────
+
+function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
+  const[selected,setSelected]=useState(null);
+  const[approving,setApproving]=useState(false);
+
+  // Build a queue from active enrollments that need approval for their current step
+  const queue = enrollments
+    .filter(e=>e.status==="active")
+    .map(e=>{
+      const c=contacts.find(x=>x.id===e.contact_id);
+      const seq=sequences.find(x=>x.id===e.sequence_id);
+      if(!c||!seq)return null;
+      const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id);
+      const step=tmpl?.steps[e.current_step];
+      if(!step||!step.approvalRequired)return null;
+      const alreadySent=seqLog.find(l=>l.sequence_id===seq.id&&l.contact_id===c.id&&l.step_label===step.label);
+      if(alreadySent)return null;
+      return {
+        enrollmentId:e.id, sequenceId:seq.id, sequenceName:seq.name,
+        contactId:c.id, contactName:c.name, contactDistrict:c.district,
+        contactPersona:c.persona, stepLabel:step.label, stepIndex:e.current_step,
+        subject:`Quick note — aeroponic classroom farm for ${c.district}`,
+        scheduledFor:e.next_send_at||new Date().toISOString(),
+        status:"pending",
+        body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
+      };
+    }).filter(Boolean);
+
+  const [editBodies, setEditBodies] = useState({});
+
+  async function approve(item){
+    setApproving(true);
+    try{
+      // Log the send
+      const logRow={
+        sequence_id:item.sequenceId, contact_id:item.contactId,
+        contact_name:item.contactName, step_label:item.stepLabel,
+        subject:item.subject, status:"sent", sent_at:new Date().toISOString()
+      };
+      const inserted=await sbFetch("sequence_log",{method:"POST",body:JSON.stringify(logRow)});
+      setSeqLog(p=>[inserted[0],...p]);
+      // Advance enrollment step
+      await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({current_step:item.stepIndex+1})});
+      // Update contact pipeline stage
+      await sbFetch(`contacts?id=eq.${item.contactId}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});
+    }catch(e){alert("Error approving: "+e.message);}
+    setApproving(false);
+    setSelected(null);
+  }
+
+  async function reject(item){
+    // Mark enrollment as paused for this contact
+    await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSelected(null);
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Review Queue</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Approve or reject emails before they send</div></div>
+      {queue.length>0&&<span style={{marginLeft:"auto",fontSize:12,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"3px 10px",borderRadius:20,border:"1px solid #FDE68A"}}>{queue.length} awaiting approval</span>}
+    </div>
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{width:300,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
+        {queue.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT,fontSize:12}}>
+          <div style={{fontSize:28,marginBottom:8}}>📬</div>
+          No emails pending review
+        </div>}
+        {queue.map(q=>(
+          <div key={q.enrollmentId} onClick={()=>setSelected(q)}
+            style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.enrollmentId===q.enrollmentId?C.gBg:"white",borderLeft:selected?.enrollmentId===q.enrollmentId?`3px solid ${C.green}`:"3px solid transparent"}}
+            onMouseEnter={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background=C.bg;}}
+            onMouseLeave={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background="white";}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+              <Av name={q.contactName} size={22} color={PER_C[q.contactPersona]?.[0]||C.blue}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.contactName}</div>
+                <div style={{fontSize:10,color:C.textS}}>{q.contactDistrict}</div>
+              </div>
+              <span style={{width:7,height:7,borderRadius:"50%",background:C.orange,flexShrink:0}}/>
+            </div>
+            <div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.stepLabel} · {q.sequenceName}</div>
+            <div style={{fontSize:10,color:C.textT,marginTop:2}}>Scheduled: {fmtDT(q.scheduledFor)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:12}}>
+        {!selected?(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,textAlign:"center"}}>
+            <div style={{fontSize:36,opacity:0.3}}>📬</div>
+            <div style={{fontWeight:500,color:C.textS}}>Select an email to review</div>
+            <div style={{fontSize:12,maxWidth:260,lineHeight:1.6}}>Review and approve each email before it sends. You can edit the body before approving.</div>
+          </div>
+        ):<>
+          <div style={{padding:"11px 14px",background:C.gBg,border:`1px solid ${C.gBorder}`,borderRadius:8,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={selected.contactName} size={34} color={PER_C[selected.contactPersona]?.[0]||C.blue}/>
+            <div>
+              <div style={{fontWeight:600,fontSize:13}}>{selected.contactName}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:1}}>{selected.contactDistrict} · {selected.sequenceName} · {selected.stepLabel}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Subject</label>
+            <div style={{padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,background:C.bg}}>{selected.subject}</div>
+          </div>
+          <div style={{fontSize:12,color:C.textS}}>📅 Scheduled: <strong style={{color:C.text}}>{fmtDT(selected.scheduledFor)}</strong></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,flex:1}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Email Body</label>
+            <textarea
+              value={editBodies[selected.enrollmentId]??selected.body}
+              onChange={e=>setEditBodies(p=>({...p,[selected.enrollmentId]:e.target.value}))}
+              rows={12}
+              style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",fontFamily:"Georgia,serif",fontSize:12}}/>
+          </div>
+          <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>
+            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and personalized unsubscribe link.
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>approve(selected)} disabled={approving} style={{...B("primary"),flex:1,opacity:approving?0.6:1}}>
+              {approving?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Spinner/>Approving…</span>:"✓ Approve & Queue"}
+            </button>
+            <button onClick={()=>reject(selected)} style={{...B("danger"),flex:1}}>✗ Reject</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  </>;
+}
+
+// ── Unsubscribe Page ──────────────────────────────────────────────────────────
+
+function UnsubscribePage({contacts,setContacts}){
+  const unsubs=contacts.filter(c=>c.isUnsubscribed);
+  const bounced=contacts.filter(c=>c.bounced);
+
+  async function toggleUnsub(c, val){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:val?"Cold":"Bounced"})}).catch(console.error);
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,isUnsubscribed:val}:x));
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{fontWeight:700,fontSize:16}}>Unsubscribe & Suppression</div>
+      <div style={{fontSize:12,color:C.textS,marginTop:1}}>CAN-SPAM compliance · unsubscribed contacts skipped in all sequences</div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>Suppression summary</div>
+        <div style={{display:"flex",gap:12}}>
+          {[["Unsubscribed",unsubs.length,"#A32D2D","#FEE2E2"],["Bounced",bounced.length,"#854F0B","#FAEEDA"],["Eligible",contacts.length-unsubs.length-bounced.length,C.gDark,C.gBg]].map(([l,v,col,bg])=>(
+            <div key={l} style={{flex:1,background:bg,borderRadius:8,padding:"10px 14px",textAlign:"center"}}>
+              <div style={{fontSize:22,fontWeight:700,color:col}}>{v}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:2}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {unsubs.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Unsubscribed</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#A32D2D",background:"#FEE2E2",padding:"1px 7px",borderRadius:10}}>{unsubs.length}</span>
+        </div>
+        {unsubs.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Unsubscribed" color="#A32D2D" bg="#FEE2E2"/>
+            <button onClick={()=>toggleUnsub(c,false)} style={B("secondary","sm")}>Re-subscribe</button>
+          </div>
+        );})}
+      </div>}
+
+      {bounced.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Bounced</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 7px",borderRadius:10}}>{bounced.length}</span>
+        </div>
+        {bounced.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Bounced" color="#854F0B" bg="#FAEEDA"/>
+          </div>
+        );})}
+      </div>}
+    </div>
+  </>;
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+
+function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
+  const[newOpen,setNewOpen]=useState(false);
+  const[newName,setNewName]=useState("Cold Outreach — Standard");
+  const[newInterval,setNewInterval]=useState(7);
+  const[newBrake,setNewBrake]=useState(50);
+  const[saving,setSaving]=useState(false);
+  const[enrollTarget,setEnrollTarget]=useState(null);
+
+  async function createSeq(){
+    const tmpl=SEQUENCE_TEMPLATES[newName];
+    if(!tmpl)return;
+    setSaving(true);
+    try{
+      const rows=await sbFetch("sequences",{method:"POST",body:JSON.stringify({
+        name:newName, template_id:tmpl.id, status:"paused",
+        interval_minutes:newInterval, emergency_brake_threshold:newBrake,
+        started_at:new Date().toISOString()
+      })});
+      setSequences(p=>[...p,rows[0]]);
+      setNewOpen(false);
+    }catch(e){alert("Error creating sequence: "+e.message);}
+    setSaving(false);
+  }
+
+  async function toggleStatus(seq){
+    const newStatus=seq.status==="active"?"paused":"active";
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:newStatus})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:newStatus}:s));
+  }
+
+  async function brakeSeq(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"braked"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"braked"}:s));
+  }
+
+  async function resetBrake(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"paused"}:s));
+  }
+
+  async function handleEnroll(seqId, contactIds){
+    const now=new Date().toISOString();
+    const rows=contactIds.map(cid=>({
+      sequence_id:seqId, contact_id:cid,
+      current_step:0, status:"active",
+      enrolled_at:now, next_send_at:now
+    }));
+    try{
+      const inserted=await sbFetch("enrollments",{method:"POST",body:JSON.stringify(rows)});
+      setEnrollments(p=>[...p,...inserted]);
+      // Update pipeline stage to Contacted for Cold contacts
+      for(const cid of contactIds){
+        const c=contacts.find(x=>x.id===cid);
+        if(c&&c.stage==="Cold"){
+          await sbFetch(`contacts?id=eq.${cid}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted"})});
+        }
+      }
+    }catch(e){alert("Error enrolling: "+e.message);}
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Sequences</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Automated drip sequences · staggered sending · review queue</div></div>
+      <button onClick={()=>setNewOpen(true)} style={{...B("primary","sm"),marginLeft:"auto"}}>+ New Sequence</button>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:10,padding:"12px 16px",display:"flex",gap:10}}>
+        <span style={{fontSize:18,flexShrink:0}}>⏱</span>
+        <div>
+          <div style={{fontWeight:600,fontSize:13,color:"#0369A1",marginBottom:3}}>Slow Drip Mode — Active</div>
+          <div style={{fontSize:12,color:"#0284C7",lineHeight:1.6}}>Emails send 1 at a time with a configurable gap (default: every 7 minutes). This mimics human sending behavior and avoids Gmail's automated spam filters. The Emergency Brake automatically pauses any sequence if bounce rate exceeds threshold or an API error is detected.</div>
+        </div>
+      </div>
+
+      {sequences.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT}}>
+        <div style={{fontSize:32,marginBottom:8}}>🔄</div>
+        <div style={{fontWeight:500,color:C.textS}}>No sequences yet</div>
+        <div style={{fontSize:12,marginTop:4}}>Create your first sequence to start automating outreach</div>
+      </div>}
+
+      {sequences.map(seq=>{
+        const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id)||Object.values(SEQUENCE_TEMPLATES)[0];
+        const seqEnrollments=enrollments.filter(e=>e.sequence_id===seq.id);
+        const activeEnrollments=seqEnrollments.filter(e=>e.status==="active");
+        const sentCount=seqLog.filter(l=>l.sequence_id===seq.id).length;
+        const recentLogs=seqLog.filter(l=>l.sequence_id===seq.id).slice(0,4);
+        const sm={active:{color:C.gDark,bg:C.gBg,label:"● Active"},paused:{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"},braked:{color:"#A32D2D",bg:"#FEE2E2",label:"🛑 Emergency Brake"}}[seq.status]||{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"};
+
+        return <div key={seq.id} style={{background:"white",border:`1px solid ${seq.status==="braked"?"#FECACA":C.border}`,borderRadius:10,overflow:"hidden"}}>
+          {seq.status==="braked"&&<div style={{background:"#FEE2E2",borderBottom:"1px solid #FECACA",padding:"8px 16px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#A32D2D"}}>
+            <span>🛑</span><strong>Emergency Brake Triggered</strong> — Review logs before resuming.
+            <button onClick={()=>resetBrake(seq)} style={{marginLeft:"auto",...B("secondary","sm")}}>Reset</button>
+          </div>}
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:12}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{seq.name}</div>
+                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:10,background:sm.bg,color:sm.color}}>{sm.label}</span>
+                </div>
+                <div style={{fontSize:12,color:C.textS}}>{tmpl?.description}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>setEnrollTarget(seq)} style={B("secondary","sm")}>+ Enroll</button>
+                {seq.status!=="braked"&&<button onClick={()=>toggleStatus(seq)} style={B(seq.status==="active"?"warning":"primary","sm")}>{seq.status==="active"?"⏸ Pause":"▶ Resume"}</button>}
+                <button onClick={()=>brakeSeq(seq)} style={B("danger","sm")}>🛑 Brake</button>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
+              {[["Enrolled",seqEnrollments.length,"#185FA5","#E6F1FB"],["Active",activeEnrollments.length,C.gDark,C.gBg],["Sent",sentCount,"#5B21B6","#EDE9FE"],["Completed",seqEnrollments.filter(e=>e.status==="completed").length,"#9CA3AF","#F3F4F6"]].map(([l,v,col,bg])=>(
+                <div key={l} style={{background:bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:18,fontWeight:700,color:col,lineHeight:1}}>{v}</div>
+                  <div style={{fontSize:10,color:C.textS,marginTop:2}}>{l}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"flex",gap:12,padding:"8px 10px",background:C.bg,borderRadius:8,fontSize:12,color:C.textS,marginBottom:12}}>
+              <span>⏱ <strong style={{color:C.text}}>{seq.interval_minutes} min</strong> between sends</span>
+              <span>·</span>
+              <span>🛑 Brake at <strong style={{color:C.text}}>{seq.emergency_brake_threshold}</strong> sends</span>
+              <span>·</span>
+              <span>Started <strong style={{color:C.text}}>{fmtTime(seq.started_at||seq.created_at)}</strong></span>
+            </div>
+
+            <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Sequence steps</div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:recentLogs.length>0?12:0}}>
+              {tmpl?.steps.map((step,i)=>(
+                <React.Fragment key={i}>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:11}}>
+                    <div style={{fontWeight:600}}>Day {step.day}: {step.label}</div>
+                    <div style={{color:C.textS,marginTop:1,display:"flex",gap:4,alignItems:"center"}}>
+                      {step.approvalRequired&&<span style={{fontSize:9,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 5px",borderRadius:4}}>APPROVAL</span>}
+                      <span style={{fontSize:10}}>{step.type.replace(/_/g," ")}</span>
+                    </div>
+                  </div>
+                  {i<tmpl.steps.length-1&&<span style={{color:C.textT}}>→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {recentLogs.length>0&&<>
+              <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,marginTop:4}}>Recent sends</div>
+              {recentLogs.map((l,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:C.textS,marginBottom:3}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:C.green,flexShrink:0}}/>
+                  <strong style={{color:C.text}}>{l.contact_name}</strong>
+                  <span>{l.step_label}</span>
+                  <span style={{marginLeft:"auto",color:C.textT}}>{fmtTime(l.sent_at)}</span>
+                </div>
+              ))}
+            </>}
+          </div>
+        </div>;
+      })}
+    </div>
+
+    {newOpen&&<div onClick={()=>setNewOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{fontWeight:700,fontSize:16,marginBottom:16,display:"flex",justifyContent:"space-between"}}>
+          New Sequence
+          <button onClick={()=>setNewOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+          <div>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Template</label>
+            <select value={newName} onChange={e=>setNewName(e.target.value)} style={I()}>
+              {Object.keys(SEQUENCE_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+            </select>
+            <div style={{fontSize:11,color:C.textS,marginTop:4}}>{SEQUENCE_TEMPLATES[newName]?.description}</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Interval (minutes)</label>
+              <input type="number" value={newInterval} onChange={e=>setNewInterval(Number(e.target.value))} min={1} max={60} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Recommended: 5–10 min</div>
+            </div>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Emergency Brake</label>
+              <input type="number" value={newBrake} onChange={e=>setNewBrake(Number(e.target.value))} min={1} max={200} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Max sends before auto-pause</div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"10px 14px",background:"#FFF7ED",borderRadius:8,border:"1px solid #FED7AA",fontSize:12,color:"#92400E",marginBottom:16}}>
+          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a personalized unsubscribe link.
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={()=>setNewOpen(false)} style={B("secondary")}>Cancel</button>
+          <button onClick={createSeq} disabled={saving} style={{...B("primary"),opacity:saving?0.6:1}}>
+            {saving?<span style={{display:"flex",alignItems:"center",gap:6}}><Spinner/>Creating…</span>:"Create Sequence"}
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {enrollTarget&&<EnrollModal
+      seq={enrollTarget}
+      contacts={contacts}
+      enrollments={enrollments}
+      onClose={()=>setEnrollTarget(null)}
+      onEnroll={handleEnroll}
+    />}
+  </>;
+}
+
+// ── Review Queue Page ─────────────────────────────────────────────────────────
+
+function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
+  const[selected,setSelected]=useState(null);
+  const[approving,setApproving]=useState(false);
+
+  // Build a queue from active enrollments that need approval for their current step
+  const queue = enrollments
+    .filter(e=>e.status==="active")
+    .map(e=>{
+      const c=contacts.find(x=>x.id===e.contact_id);
+      const seq=sequences.find(x=>x.id===e.sequence_id);
+      if(!c||!seq)return null;
+      const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id);
+      const step=tmpl?.steps[e.current_step];
+      if(!step||!step.approvalRequired)return null;
+      const alreadySent=seqLog.find(l=>l.sequence_id===seq.id&&l.contact_id===c.id&&l.step_label===step.label);
+      if(alreadySent)return null;
+      return {
+        enrollmentId:e.id, sequenceId:seq.id, sequenceName:seq.name,
+        contactId:c.id, contactName:c.name, contactDistrict:c.district,
+        contactPersona:c.persona, stepLabel:step.label, stepIndex:e.current_step,
+        subject:`Quick note — aeroponic classroom farm for ${c.district}`,
+        scheduledFor:e.next_send_at||new Date().toISOString(),
+        status:"pending",
+        body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
+      };
+    }).filter(Boolean);
+
+  const [editBodies, setEditBodies] = useState({});
+
+  async function approve(item){
+    setApproving(true);
+    try{
+      // Log the send
+      const logRow={
+        sequence_id:item.sequenceId, contact_id:item.contactId,
+        contact_name:item.contactName, step_label:item.stepLabel,
+        subject:item.subject, status:"sent", sent_at:new Date().toISOString()
+      };
+      const inserted=await sbFetch("sequence_log",{method:"POST",body:JSON.stringify(logRow)});
+      setSeqLog(p=>[inserted[0],...p]);
+      // Advance enrollment step
+      await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({current_step:item.stepIndex+1})});
+      // Update contact pipeline stage
+      await sbFetch(`contacts?id=eq.${item.contactId}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});
+    }catch(e){alert("Error approving: "+e.message);}
+    setApproving(false);
+    setSelected(null);
+  }
+
+  async function reject(item){
+    // Mark enrollment as paused for this contact
+    await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSelected(null);
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Review Queue</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Approve or reject emails before they send</div></div>
+      {queue.length>0&&<span style={{marginLeft:"auto",fontSize:12,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"3px 10px",borderRadius:20,border:"1px solid #FDE68A"}}>{queue.length} awaiting approval</span>}
+    </div>
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{width:300,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
+        {queue.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT,fontSize:12}}>
+          <div style={{fontSize:28,marginBottom:8}}>📬</div>
+          No emails pending review
+        </div>}
+        {queue.map(q=>(
+          <div key={q.enrollmentId} onClick={()=>setSelected(q)}
+            style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.enrollmentId===q.enrollmentId?C.gBg:"white",borderLeft:selected?.enrollmentId===q.enrollmentId?`3px solid ${C.green}`:"3px solid transparent"}}
+            onMouseEnter={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background=C.bg;}}
+            onMouseLeave={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background="white";}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+              <Av name={q.contactName} size={22} color={PER_C[q.contactPersona]?.[0]||C.blue}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.contactName}</div>
+                <div style={{fontSize:10,color:C.textS}}>{q.contactDistrict}</div>
+              </div>
+              <span style={{width:7,height:7,borderRadius:"50%",background:C.orange,flexShrink:0}}/>
+            </div>
+            <div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.stepLabel} · {q.sequenceName}</div>
+            <div style={{fontSize:10,color:C.textT,marginTop:2}}>Scheduled: {fmtDT(q.scheduledFor)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:12}}>
+        {!selected?(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,textAlign:"center"}}>
+            <div style={{fontSize:36,opacity:0.3}}>📬</div>
+            <div style={{fontWeight:500,color:C.textS}}>Select an email to review</div>
+            <div style={{fontSize:12,maxWidth:260,lineHeight:1.6}}>Review and approve each email before it sends. You can edit the body before approving.</div>
+          </div>
+        ):<>
+          <div style={{padding:"11px 14px",background:C.gBg,border:`1px solid ${C.gBorder}`,borderRadius:8,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={selected.contactName} size={34} color={PER_C[selected.contactPersona]?.[0]||C.blue}/>
+            <div>
+              <div style={{fontWeight:600,fontSize:13}}>{selected.contactName}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:1}}>{selected.contactDistrict} · {selected.sequenceName} · {selected.stepLabel}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Subject</label>
+            <div style={{padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,background:C.bg}}>{selected.subject}</div>
+          </div>
+          <div style={{fontSize:12,color:C.textS}}>📅 Scheduled: <strong style={{color:C.text}}>{fmtDT(selected.scheduledFor)}</strong></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,flex:1}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Email Body</label>
+            <textarea
+              value={editBodies[selected.enrollmentId]??selected.body}
+              onChange={e=>setEditBodies(p=>({...p,[selected.enrollmentId]:e.target.value}))}
+              rows={12}
+              style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",fontFamily:"Georgia,serif",fontSize:12}}/>
+          </div>
+          <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>
+            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and personalized unsubscribe link.
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>approve(selected)} disabled={approving} style={{...B("primary"),flex:1,opacity:approving?0.6:1}}>
+              {approving?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Spinner/>Approving…</span>:"✓ Approve & Queue"}
+            </button>
+            <button onClick={()=>reject(selected)} style={{...B("danger"),flex:1}}>✗ Reject</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  </>;
+}
+
+// ── Unsubscribe Page ──────────────────────────────────────────────────────────
+
+function UnsubscribePage({contacts,setContacts}){
+  const unsubs=contacts.filter(c=>c.isUnsubscribed);
+  const bounced=contacts.filter(c=>c.bounced);
+
+  async function toggleUnsub(c, val){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:val?"Cold":"Bounced"})}).catch(console.error);
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,isUnsubscribed:val}:x));
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{fontWeight:700,fontSize:16}}>Unsubscribe & Suppression</div>
+      <div style={{fontSize:12,color:C.textS,marginTop:1}}>CAN-SPAM compliance · unsubscribed contacts skipped in all sequences</div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>Suppression summary</div>
+        <div style={{display:"flex",gap:12}}>
+          {[["Unsubscribed",unsubs.length,"#A32D2D","#FEE2E2"],["Bounced",bounced.length,"#854F0B","#FAEEDA"],["Eligible",contacts.length-unsubs.length-bounced.length,C.gDark,C.gBg]].map(([l,v,col,bg])=>(
+            <div key={l} style={{flex:1,background:bg,borderRadius:8,padding:"10px 14px",textAlign:"center"}}>
+              <div style={{fontSize:22,fontWeight:700,color:col}}>{v}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:2}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {unsubs.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Unsubscribed</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#A32D2D",background:"#FEE2E2",padding:"1px 7px",borderRadius:10}}>{unsubs.length}</span>
+        </div>
+        {unsubs.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Unsubscribed" color="#A32D2D" bg="#FEE2E2"/>
+            <button onClick={()=>toggleUnsub(c,false)} style={B("secondary","sm")}>Re-subscribe</button>
+          </div>
+        );})}
+      </div>}
+
+      {bounced.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Bounced</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 7px",borderRadius:10}}>{bounced.length}</span>
+        </div>
+        {bounced.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Bounced" color="#854F0B" bg="#FAEEDA"/>
+          </div>
+        );})}
+      </div>}
+    </div>
+  </>;
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+// ── Dashboard & Pipeline pages (inline) ──────────────────────────────────────
+function DashboardPage({contacts,activity,onNavigate}){
+  const pipeline=contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined"].includes(c.stage));
+  const daysInStage=c=>Math.floor((NOW-new Date(c.stageEnteredAt||NOW).getTime())/86400000);
+  const isStuck=c=>{const d=STUCK_DAYS[c.stage];return d&&daysInStage(c)>=d;};
+  const stuck=contacts.filter(isStuck);
+  const hot=contacts.filter(c=>["Replied","Demo Scheduled","Proposal Sent"].includes(c.stage));
+  const fmtT=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
+  return <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      {[{label:"Total Contacts",value:contacts.length,sub:"in Supabase",color:C.text,bg:C.bg},{label:"Active Pipeline",value:`$${(pipeline.length*50000/1000).toFixed(0)}k`,sub:`${pipeline.length} deals`,color:C.blue,bg:C.bBg},{label:"Replied",value:contacts.filter(c=>c.stage==="Replied").length,sub:"warm leads",color:C.gDark,bg:C.gBg},{label:"Stuck",value:stuck.length,sub:"need attention",color:stuck.length>0?"#A32D2D":C.textS,bg:stuck.length>0?"#FEE2E2":C.bg}].map(s=>(
+        <div key={s.label} style={{background:s.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px"}}>
+          <div style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{s.label}</div>
+          <div style={{fontSize:24,fontWeight:700,color:s.color,lineHeight:1}}>{s.value}</div>
+          <div style={{fontSize:11,color:C.textS,marginTop:4}}>{s.sub}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+      <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>Pipeline by Stage<button onClick={()=>onNavigate("pipeline")} style={{...B("ghost","sm"),color:C.blue,fontSize:11}}>View kanban →</button></div>
+      <div style={{display:"flex",gap:6,alignItems:"flex-end",height:80}}>
+        {["Contacted","Replied","Demo Scheduled","Proposal Sent","Closed Won","Bounced"].map(stage=>{const count=contacts.filter(c=>c.stage===stage).length;const max=Math.max(...["Contacted","Replied","Demo Scheduled","Proposal Sent","Closed Won","Bounced"].map(s=>contacts.filter(c=>c.stage===s).length),1);const h=Math.max((count/max)*60,count>0?6:2);const m=STAGE_META[stage]||{color:C.textS,bg:C.bg};return <div key={stage} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><div style={{fontSize:10,fontWeight:600,color:m.color}}>{count}</div><div style={{width:"100%",height:h,background:m.bg,border:`1px solid ${m.color}33`,borderRadius:4}}/><div style={{fontSize:9,color:C.textT,textAlign:"center",lineHeight:1.2}}>{stage}</div></div>;})}
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:12}}>🔥 Who's Hot</div>
+        {hot.slice(0,8).map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];const m=STAGE_META[c.stage]||{color:C.textS,bg:C.bg};return <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.border}`}}><Av name={c.name} size={28} color={pc}/><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:10,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.district}</div></div><Tag label={c.stage} color={m.color} bg={m.bg}/></div>;})}
+        {hot.length===0&&<div style={{fontSize:12,color:C.textT}}>No warm leads yet</div>}
+      </div>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>📊 Stage Breakdown</div>
+        {["Cold","Contacted","Replied","Demo Scheduled","Proposal Sent","Bounced","Declined"].map(stage=>{const count=contacts.filter(c=>c.stage===stage).length;if(!count)return null;const m=STAGE_META[stage]||{color:C.textS,bg:C.bg};const pct=contacts.length>0?Math.round(count/contacts.length*100):0;return <div key={stage} style={{marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:m.color,fontWeight:500}}>{stage}</span><span style={{color:C.textS}}>{count} · {pct}%</span></div><div style={{height:5,background:C.bg,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:m.color,borderRadius:3}}/></div></div>;})}
+      </div>
+    </div>
+    {stuck.length>0&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:16}}><div style={{fontWeight:600,fontSize:13,color:"#A32D2D",marginBottom:10}}>⚠️ Stuck Contacts</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{stuck.slice(0,12).map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:"1px solid #FECACA",borderRadius:8,padding:"6px 10px"}}><Av name={c.name} size={22} color="#A32D2D"/><div><div style={{fontSize:12,fontWeight:500}}>{c.name}</div><div style={{fontSize:10,color:"#C45252"}}>{c.stage} · {daysInStage(c)}d</div></div></div>)}</div></div>}
+    <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+      <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>Recent Activity<button onClick={()=>onNavigate("activity")} style={{...B("ghost","sm"),color:C.blue,fontSize:11}}>View all →</button></div>
+      {activity.slice(0,6).map(a=><div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}><div style={{width:28,height:28,borderRadius:"50%",background:C.bg,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>{a.icon}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:12}}><strong>{a.contactName}</strong> {a.text}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{a.detail}</div></div><div style={{fontSize:10,color:C.textT,whiteSpace:"nowrap"}}>{fmtT(a.time)}</div></div>)}
+      {activity.length===0&&<div style={{fontSize:12,color:C.textT}}>No activity yet.</div>}
+    </div>
+  </div>;
+}
+
+function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
+  const[dragging,setDragging]=useState(null);
+  const[dragOver,setDragOver]=useState(null);
+  const shownStages=["Contacted","Replied","Demo Scheduled","Proposal Sent","Closed Won","Closed Lost"];
+  const daysInStage=c=>Math.floor((NOW-new Date(c.stageEnteredAt||NOW).getTime())/86400000);
+  const isStuck=c=>{const d=STUCK_DAYS[c.stage];return d&&daysInStage(c)>=d;};
+  const coldCount=contacts.filter(c=>c.stage==="Cold").length;
+  return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{padding:"8px 20px",background:"#F9FAFB",borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.textS,flexShrink:0}}>❄️ <strong style={{color:C.text}}>{coldCount} Cold</strong> not shown · Drag cards to advance · $50,000 per deal</div>
+    <div style={{flex:1,overflowX:"auto",overflowY:"hidden",padding:"16px 20px",display:"flex",gap:10}}>
+      {shownStages.map(stage=>{
+        const cols=contacts.filter(c=>c.stage===stage);
+        const m=STAGE_META[stage]||{color:C.textS,bg:C.bg,icon:"•"};
+        const isTarget=dragOver===stage;
+        return <div key={stage} className="kanban-col"
+          onDragOver={e=>{e.preventDefault();setDragOver(stage);}}
+          onDrop={e=>{e.preventDefault();if(!dragging||dragging.stage===stage)return;const prev=dragging.stage;setContacts(cs=>cs.map(c=>c.id===dragging.id?{...c,stage,stageEnteredAt:new Date().toISOString()}:c));sbFetch(`contacts?id=eq.${dragging.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:stage})}).catch(console.error);onActivityAdd({type:"stage",contactId:dragging.id,contactName:dragging.name,text:`moved from ${prev} → ${stage}`,detail:dragging.district,icon:m.icon});setDragging(null);setDragOver(null);}}
+          onDragLeave={()=>setDragOver(null)}
+          style={{display:"flex",flexDirection:"column",background:isTarget?"#e8f4fc":"#F0F2F5",border:isTarget?`2px dashed ${C.blue}`:"2px solid transparent",borderRadius:10,padding:8,overflowY:"auto"}}>
+          <div style={{padding:"4px 4px 10px",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:13}}>{m.icon}</span><span style={{fontSize:11,fontWeight:700,color:m.color}}>{stage}</span><span style={{marginLeft:"auto",fontSize:10,fontWeight:600,background:m.bg,color:m.color,padding:"1px 6px",borderRadius:10}}>{cols.length}</span></div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+            {cols.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];const stuck=isStuck(c);return <div key={c.id} className="kanban-card" draggable onDragStart={e=>{setDragging(c);e.dataTransfer.effectAllowed="move";}} onDragEnd={()=>{setDragging(null);setDragOver(null);}} onClick={()=>onContactClick(c)} style={{background:"white",border:stuck?"1px solid #FECACA":`1px solid ${C.border}`,borderRadius:8,padding:10,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",opacity:dragging?.id===c.id?0.4:1}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Av name={c.name} size={24} color={pc}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:9,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role}</div></div></div><div style={{fontSize:10,color:C.textS,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.district||c.school}</div><div style={{display:"flex",gap:4,flexWrap:"wrap"}}><Tag label={c.persona} color={pc} bg={pb} size={9}/>{stuck&&<Tag label={`${daysInStage(c)}d stuck`} color="#A32D2D" bg="#FEE2E2" size={9}/>}</div></div>;})}
+            {cols.length===0&&<div style={{textAlign:"center",padding:"20px 8px",fontSize:11,color:C.textT,border:`1px dashed ${C.border}`,borderRadius:8}}>Drop here</div>}
+          </div>
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+function ActivityPage({activity}){
+  const[filter,setFilter]=useState("All");
+  const types=["All","email","reply","stage","demo","task"];
+  const filtered=filter==="All"?activity:activity.filter(a=>a.type===filter);
+  const tc={email:[C.blue,"#E6F1FB"],reply:["#0F6E56","#E1F5EE"],stage:["#854F0B","#FAEEDA"],demo:["#5B21B6","#EDE9FE"],task:["#065F46","#D1FAE5"]};
+  const fmtT=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Activity Feed</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Every touch, stage change, and task</div></div>
+    <div style={{display:"flex",gap:6,padding:"8px 20px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>{types.map(f=><button key={f} onClick={()=>setFilter(f)} style={{...B(filter===f?"primary":"secondary","sm"),borderRadius:20,textTransform:"capitalize"}}>{f}</button>)}<span style={{marginLeft:"auto",fontSize:12,color:C.textS,alignSelf:"center"}}>{filtered.length} events</span></div>
+    <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
+      <div style={{maxWidth:640,margin:"0 auto",display:"flex",flexDirection:"column",gap:0}}>
+        {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT}}>No activity yet.</div>}
+        {filtered.map((a,i)=>{const[tcolor,tbg]=tc[a.type]||[C.textS,C.bg];return <div key={a.id} style={{display:"flex",gap:12,paddingBottom:16,position:"relative"}}>{i<filtered.length-1&&<div style={{position:"absolute",left:13,top:28,bottom:0,width:1,background:C.border}}/>}<div style={{width:28,height:28,borderRadius:"50%",background:tbg,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0,zIndex:1}}>{a.icon}</div><div style={{flex:1,background:"white",border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontWeight:600,fontSize:12}}>{a.contactName}</span><span style={{fontSize:12,color:C.textS}}>{a.text}</span><Tag label={a.type} color={tcolor} bg={tbg} size={9}/><span style={{marginLeft:"auto",fontSize:10,color:C.textT}}>{fmtT(a.time)}</span></div>{a.detail&&<div style={{fontSize:11,color:C.textS,lineHeight:1.5}}>{a.detail}</div>}</div></div>;})}
+      </div>
+    </div>
+  </>;
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
 function App(){
   const[contacts,setContacts]=useState([]);
+  const[sequences,setSequences]=useState([]);
+  const[enrollments,setEnrollments]=useState([]);
+  const[seqLog,setSeqLog]=useState([]);
   const[loading,setLoading]=useState(true);
   const[loadErr,setLoadErr]=useState("");
   const[templates,setTemplates]=useState(TMPL);
   const[closeText,setCloseText]=useState(DEF_CLOSE);
   const[sig,setSig]=useState(DEF_SIG);
-  const[page,setPage]=useState("contacts");
+  const[page,setPage]=useState("dashboard");
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");
-  const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[addOpen,setAddOpen]=useState(false);
+  const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
+  const[addOpen,setAddOpen]=useState(false);
   const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});
   const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");
   const[subj,setSubj]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
   const[kbSt,setKbSt]=useState("idle");
   const[stab,setStab]=useState("STEM");const[saved,setSaved]=useState(false);
+  const[activity,setActivity]=useState([]);
+  const[selectedContact,setSelectedContact]=useState(null);
+  const actIdRef=useRef(1);const taskIdRef=useRef(1);
 
-  // ── Load contacts from Supabase ──
   useEffect(()=>{
     setLoading(true);
-    sbFetch("contacts?select=*&order=created_at.desc&limit=1000")
-      .then(rows=>{
-        setContacts(rows.map(mapRow));
-        setLoading(false);
-      })
-      .catch(e=>{
-        setLoadErr("Could not load contacts from Supabase: "+e.message);
-        setLoading(false);
-      });
+    Promise.all([
+      sbFetch("contacts?select=*&order=created_at.desc&limit=1000"),
+      sbFetch("sequences?select=*&order=created_at.desc"),
+      sbFetch("enrollments?select=*&order=enrolled_at.desc"),
+      sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
+    ]).then(([c,s,e,l])=>{setContacts(c.map(mapRow));setSequences(s);setEnrollments(e);setSeqLog(l);setLoading(false);})
+    .catch(err=>{setLoadErr("Could not load: "+err.message);setLoading(false);});
   },[]);
+
+  function addActivity(evt){setActivity(prev=>[{...evt,id:actIdRef.current++,time:new Date().toISOString()},...prev]);}
 
   const filtered=contacts.filter(c=>{
     if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
@@ -324,100 +1254,92 @@ function App(){
   function selectCC(c){setCc(c);setL2(templates[c.persona]?.roleBlurb||templates.General.roleBlurb);setL3(closeText);setL1("");setSubj("");setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");}
 
   async function genHook(){
-    if(!cc)return;
-    setAiSt("loading");setKbSt("loading");setL1("");
-    const kbFacts={
-      STEM:"• 7-14 day seed-to-harvest cycle for microgreens\n• NGSS-aligned curriculum with 6 structured lessons\n• 12 independent trays for simultaneous experiments\n• 75 sq ft growing canopy\n• 40+ annual grow cycles drive data-driven inquiry\n• Students seed, observe, adjust, and harvest within a single unit",
-      Nutrition:"• 100 fresh salads per week from a single system\n• 240–336 servings per harvest\n• Zero pesticides, no food miles\n• Closed-loop reservoir uses 95% less water than conventional growing\n• 'Growers become eaters' — students eat what they grow\n• Grant-aligned: farm-to-school, food deserts, nutritional literacy",
-      Sustainability:"• 95% less water than soil farming\n• Closed-loop reservoir — near-zero water waste\n• Zero pesticides, no food transportation\n• NASA-selected aeroponics technology\n• Students see the full local food system in action\n• Green team programs tracking growth data and environmental stewardship",
-      CTE:"• Students grow, harvest, and use fresh produce in culinary projects\n• Connects to AgEd and food science career pathways\n• 40+ annual grow cycles — rapid, real production\n• Commercial-grade equipment used in real Ag-Tech careers\n• 'Seed-to-Plate' project-based learning\n• Workforce development grant alignment",
-      General:"• 100 salads per week, every week, in as little as 7 days\n• 32 schools currently installed across NY and NJ\n• 75 sq ft footprint, fits standard classrooms\n• Connects to standard 15/20 amp outlets — no special plumbing\n• Founded by AeroFarms co-founder, former science teacher\n• Quote: 'Our students are learning how science, sustainability, and creativity come together' — Newark BOE President",
-    };
+    if(!cc)return;setAiSt("loading");setKbSt("loading");setL1("");
+    const kbFacts={STEM:"• 7-14 day seed-to-harvest cycle\n• NGSS-aligned curriculum\n• 75 sq ft growing canopy",Nutrition:"• 100 fresh salads per week\n• Zero pesticides, no food miles\n• Grant-aligned: farm-to-school",Sustainability:"• 95% less water than soil farming\n• NASA-selected aeroponics",CTE:"• Students grow, harvest, use fresh produce\n• AgEd and food science pathways",General:"• 100 salads/week in 7 days\n• 32 schools in NY and NJ\n• Founded by AeroFarms co-founder"};
     setKbSt("done");
     const facts=kbFacts[cc.persona]||kbFacts.General;
-    const sys=`You write one-sentence personalized cold email openers for Inspired Growing, an EdTech company selling aeroponic classroom farm systems to K-12 schools.\n\nWrite ONE sentence (max 30 words) opening a cold email to ${cc.name}, ${cc.role} at ${cc.school} in the ${cc.district} district (${cc.state}).\n\nReference something specific and plausible about ${cc.district} — a known initiative, grant, strategic plan, sustainability goal, or community fact that shows you did your homework on their district specifically.\n\nTone: warm, collegial. Do NOT mention Inspired Growing or the product. Just the hook about them.\n\nKEY FACTS FROM OUR KNOWLEDGE BASE:\n${facts}\n\nRESPOND WITH ONLY THE ONE SENTENCE. Nothing else.`;
-    try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:sys,messages:[{role:"user",content:"Write the opening sentence."}]})});
-      const d=await r.json();const t=(d.content?.[0]?.text||"").trim();
-      setL1(t);setSubj(`Quick note — aeroponic classroom farm for ${cc.district}`);setAiSt("done");
-    }catch(e){setAiSt("error");}
+    const sys=`Write ONE sentence (max 30 words) opening a cold email to ${cc.name}, ${cc.role} at ${cc.school||cc.district}. Reference something specific about ${cc.district}. Tone: warm. Do NOT mention Inspired Growing. RESPOND WITH ONLY THE ONE SENTENCE.`;
+    try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:sys,messages:[{role:"user",content:"Write the opening sentence."}]})});const d=await r.json();setL1((d.content?.[0]?.text||"").trim());setSubj(`Quick note — aeroponic classroom farm for ${cc.district}`);setAiSt("done");}
+    catch(e){setAiSt("error");}
   }
 
   const preview=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
 
   async function pushGmail(){
-    if(!subj||!preview||!cc)return;setGmSt("loading");setGmMsg("Pushing to Gmail draft folder...");
-    try{
-      const raw=`To: ${cc.email}\r\nSubject: ${subj}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${preview}`;
-      const enc=btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
-      const r=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:{raw:enc}})});
-      if(r.ok){
-        setGmSt("success");setGmMsg(`✓ Draft saved to Gmail for ${cc.email}`);
-        // Update stage in Supabase
-        await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});
-        setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Contacted",lastContact:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"})}:c));
-      } else throw new Error("OAuth token required in production");
-    }catch(e){setGmSt("error");setGmMsg(`Gmail push requires OAuth in production. Email ready to copy.`);}
+    if(!subj||!preview||!cc)return;setGmSt("loading");setGmMsg("Pushing to Gmail...");
+    try{const raw=`To: ${cc.email}\r\nSubject: ${subj}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${preview}`;const enc=btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");const r=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:{raw:enc}})});if(r.ok){setGmSt("success");setGmMsg(`✓ Draft saved for ${cc.email}`);await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Contacted"}:c));}else throw new Error();}
+    catch(e){setGmSt("error");setGmMsg("Gmail push requires OAuth. Email ready to copy.");}
   }
 
   function toggleSel(id){setSel(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});}
   function toggleAll(){sel.size===filtered.length&&filtered.length>0?setSel(new Set()):setSel(new Set(filtered.map(c=>c.id)));}
 
   async function saveContact(){
-    const{fname,lname,email,role,school,district,state,persona}=addF;
-    if(!fname||!lname)return;
-    try{
-      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:"Cold"})});
-      const newC=mapRow(rows[0]);
-      setContacts(p=>[newC,...p]);
-      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});setAddOpen(false);
-    }catch(e){alert("Error saving contact: "+e.message);}
+    const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname)return;
+    try{const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:"Cold"})});setContacts(p=>[mapRow(rows[0]),...p]);setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});setAddOpen(false);}
+    catch(e){alert("Error: "+e.message);}
   }
 
-  const NAV=[
-    {id:"contacts",icon:"👥",label:"Contacts"},
-    {id:"compose",icon:"✉️",label:"Compose"},
-    {id:"resources",icon:"📁",label:"Resources"},
-    {id:"settings",icon:"⚙️",label:"Email Templates"},
-  ];
+  async function deleteContact(c){
+    try{await sbFetch(`contacts?id=eq.${c.id}`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});setContacts(p=>p.filter(x=>x.id!==c.id));setDetail(null);setDeleteConfirm(false);}
+    catch(e){alert("Error deleting: "+e.message);}
+  }
 
-  return (
-    <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
-      {/* TOPBAR */}
-      <div style={{height:52,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,width:195,flexShrink:0}}>
-          <div style={{width:28,height:28,borderRadius:6,background:C.green,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:12}}>IG</div>
-          <div><div style={{fontWeight:700,fontSize:13}}>Inspired Growing</div><div style={{fontSize:10,color:C.textS}}>CRM · Phase 1</div></div>
-        </div>
-        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
-          {loading&&<div style={{fontSize:11,color:C.textS,display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Loading…</div>}
-          {!loading&&[[stats.total,"contacts"],[stats.cold,"cold"],[stats.active,"active"]].map(([v,l])=>(
-            <div key={l} style={{fontSize:12,color:C.textS,padding:"3px 10px",background:C.bg,borderRadius:20,border:`1px solid ${C.border}`}}><strong style={{color:C.text}}>{v}</strong> {l}</div>
-          ))}
-          <div style={{width:28,height:28,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:11,fontWeight:600}}>EW</div>
-        </div>
+  function handleStageChange(contactId,stage){
+    const c=contacts.find(x=>x.id===contactId);if(!c||c.stage===stage)return;
+    const prev=c.stage;setContacts(cs=>cs.map(x=>x.id===contactId?{...x,stage,stageEnteredAt:new Date().toISOString()}:x));
+    sbFetch(`contacts?id=eq.${contactId}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:stage})}).catch(console.error);
+    addActivity({type:"stage",contactId,contactName:c.name,text:`moved from ${prev} → ${stage}`,detail:c.district,icon:(STAGE_META[stage]||{icon:"•"}).icon});
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,stage,stageEnteredAt:new Date().toISOString()}));
+  }
+
+  function handleTaskAdd(contactId,task){
+    const t={...task,id:taskIdRef.current++,done:false};setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:[...(c.tasks||[]),t]}:c));
+    const c=contacts.find(x=>x.id===contactId);addActivity({type:"task",contactId,contactName:c?.name||"",text:"Task added",detail:task.text,icon:"✅"});
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:[...(p.tasks||[]),t]}));
+  }
+
+  function handleTaskToggle(contactId,taskId){
+    setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:(c.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}:c));
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:(p.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}));
+  }
+
+  const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
+
+  const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
+  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
+  const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
+
+  return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
+    <div style={{height:52,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,width:195,flexShrink:0}}>
+        <div style={{width:28,height:28,borderRadius:6,background:C.green,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:12}}>IG</div>
+        <div><div style={{fontWeight:700,fontSize:13}}>Inspired Growing</div><div style={{fontSize:10,color:C.textS}}>CRM</div></div>
       </div>
-
-      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-        {/* SIDEBAR */}
-        <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
-          <div style={SL()}>Pipeline</div>
-          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>📊</span>Dashboard</div>
-          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>📋</span>Pipeline</div>
-          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>⚡</span>Activity Feed</div>
-          <div style={SL()}>Outreach</div>
-          {NAV.map(item=>(
-            <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}}>
-              <span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}
-            </div>
-          ))}
-          <div style={SL()}>Automation</div>
-          <div onClick={()=>window.location.href='/sequences.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>🔄</span>Sequences</div>
-        </div>
-
-        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-
-          {/* ── CONTACTS ── */}
+      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+        {loading&&<div style={{fontSize:11,color:C.textS,display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Loading…</div>}
+        {!loading&&[[stats.total,"contacts"],[stats.cold,"cold"],[stats.active,"active"]].map(([v,l])=>(
+          <div key={l} style={{fontSize:12,color:C.textS,padding:"3px 10px",background:C.bg,borderRadius:20,border:`1px solid ${C.border}`}}><strong style={{color:C.text}}>{v}</strong> {l}</div>
+        ))}
+        <div style={{width:28,height:28,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:11,fontWeight:600}}>EW</div>
+      </div>
+    </div>
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
+        <div style={SL()}>Pipeline</div>
+        {NAV_PIPELINE.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
+        <div style={SL()}>Outreach</div>
+        {NAV_OUTREACH.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
+        <div style={SL()}>Automation</div>
+        {NAV_AUTO.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
+      </div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {loadErr&&<div style={{padding:"8px 16px",background:"#FEE2E2",fontSize:12,color:"#A32D2D",borderBottom:`1px solid #FECACA`,flexShrink:0}}>⚠ {loadErr}</div>}
+        {loading&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:C.textT}}><div style={{width:28,height:28,border:`3px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/><div>Loading from Supabase…</div></div>}
+        {!loading&&<>
+          {page==="dashboard"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Dashboard</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Live from Supabase · {contacts.length} contacts</div></div><DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
+          {page==="pipeline"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Pipeline</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance · Click for details</div></div><KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/></>}
+          {page==="activity"&&<ActivityPage activity={activity}/>}
           {page==="contacts"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
               <div><div style={{fontWeight:700,fontSize:16}}>Contacts</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>K-12 administrator database · live from Supabase</div></div>
@@ -425,267 +1347,149 @@ function App(){
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search name, school, district, email..." style={I(220)}/>
-              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}>
-                <option value="">All personas</option>
-                {Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}
-              </select>
-              <select value={fs} onChange={e=>setFs(e.target.value)} style={S()}>
-                <option value="">All stages</option>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}
-              </select>
-              <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}>
-                <option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option>
-              </select>
+              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}</select>
+              <select value={fs} onChange={e=>setFs(e.target.value)} style={S()}><option value="">All stages</option>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+              <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}><option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option></select>
               <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{filtered.length} of {contacts.length}</span>
             </div>
-
-            {loadErr&&<div style={{padding:"10px 16px",background:"#FEE2E2",fontSize:12,color:"#A32D2D",borderBottom:`1px solid #FECACA`}}>⚠ {loadErr}</div>}
-
-            {sel.size>0&&(
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12}}>
-                <span style={{fontWeight:600,color:C.gDark}}>{sel.size} selected</span>
-                <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("blue","sm")}>✉ Compose Email</button>
-                <button onClick={()=>setSel(new Set())} style={B("secondary","sm")}>✕ Clear</button>
-              </div>
-            )}
-
+            {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12}}><span style={{fontWeight:600,color:C.gDark}}>{sel.size} selected</span><button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("blue","sm")}>✉ Compose Email</button><button onClick={()=>setSel(new Set())} style={B("secondary","sm")}>✕ Clear</button></div>}
             <div style={{flex:1,overflowY:"auto"}}>
-              {loading?<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{width:24,height:24,border:`3px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",margin:"0 auto 12px"}}/>Loading contacts from Supabase…</div>:
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr style={{background:C.bg,borderBottom:`1px solid ${C.border}`}}>
                   <th style={TH(36)}><input type="checkbox" checked={sel.size===filtered.length&&filtered.length>0} onChange={toggleAll} style={{accentColor:C.green}}/></th>
-                  <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th>
-                  <th style={TH(48)}>State</th><th style={TH()}>Persona</th>
-                  <th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(90)}></th>
+                  <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th><th style={TH(48)}>State</th><th style={TH()}>Persona</th><th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(100)}></th>
                 </tr></thead>
                 <tbody>{filtered.map(c=>{
                   const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
-                  return(
-                    <tr key={c.id} onClick={()=>setDetail(c)}
-                      style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}}
-                      onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"}
-                      onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
-                      <td style={TD(36)} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggleSel(c.id)} style={{accentColor:C.green}}/></td>
-                      <td style={TD()}><div style={{fontWeight:500}}>{c.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{c.role}</div></td>
-                      <td style={TD()}><div style={{fontSize:12}}>{c.school||c.district}</div><div style={{fontSize:11,color:C.textT}}>{c.district}</div></td>
-                      <td style={TD(48)}><span style={{fontSize:11,color:C.textS}}>{c.state}</span></td>
-                      <td style={TD()}><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></td>
-                      <td style={TD()}><Tag label={c.stage} color={STAGE_C[c.stage]||"#6B7280"} bg={STAGE_BG[c.stage]||"#F3F4F6"}/></td>
-                      <td style={TD(90)}><span style={{fontSize:12,color:C.textS}}>{c.lastContact||"—"}</span></td>
-                      <td style={TD(90)} onClick={e=>e.stopPropagation()}>
-                        <button onClick={()=>{selectCC(c);setPage("compose");}} style={B("secondary","sm")}>✉ Compose</button>
-                      </td>
-                    </tr>
-                  );
+                  return <tr key={c.id} onClick={()=>{setDetail(c);setDeleteConfirm(false);}} style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}} onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
+                    <td style={TD(36)} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggleSel(c.id)} style={{accentColor:C.green}}/></td>
+                    <td style={TD()}><div style={{fontWeight:500}}>{c.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{c.role}</div></td>
+                    <td style={TD()}><div style={{fontSize:12}}>{c.school||c.district}</div><div style={{fontSize:11,color:C.textT}}>{c.district}</div></td>
+                    <td style={TD(48)}><span style={{fontSize:11,color:C.textS}}>{c.state}</span></td>
+                    <td style={TD()}><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></td>
+                    <td style={TD()}><Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/></td>
+                    <td style={TD(90)}><span style={{fontSize:12,color:C.textS}}>{c.lastContact||"—"}</span></td>
+                    <td style={TD(100)} onClick={e=>e.stopPropagation()}><div style={{display:"flex",gap:4}}><button onClick={()=>{selectCC(c);setPage("compose");}} style={B("secondary","sm")}>✉</button><button onClick={()=>{if(window.confirm(`Delete ${c.name}?`))deleteContact(c);}} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑</button></div></td>
+                  </tr>;
                 })}</tbody>
-              </table>}
-              {!loading&&filtered.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>🔍</div><div style={{fontWeight:500,color:C.textS}}>No contacts match filters</div></div>}
+              </table>
+              {filtered.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>🔍</div><div style={{fontWeight:500,color:C.textS}}>No contacts match filters</div></div>}
             </div>
           </>}
-
-          {/* ── COMPOSE ── */}
           {page==="compose"&&<>
-            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
-              <div style={{fontWeight:700,fontSize:16}}>Compose Email</div>
-              <div style={{fontSize:12,color:C.textS,marginTop:1}}>AI district hook · persona pitch · universal close</div>
-            </div>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Compose Email</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>AI district hook · persona pitch · universal close</div></div>
             <div style={{display:"flex",flex:1,overflow:"hidden"}}>
               <div style={{width:265,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
                 <div style={SL()}>Select contact</div>
-                {contacts.map(c=>{
-                  const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
-                  return(
-                    <div key={c.id} onClick={()=>selectCC(c)}
-                      style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:cc?.id===c.id?C.gBg:"white",borderLeft:cc?.id===c.id?`3px solid ${C.green}`:"3px solid transparent"}}
-                      onMouseEnter={e=>{if(cc?.id!==c.id)e.currentTarget.style.background=C.bg;}}
-                      onMouseLeave={e=>{if(cc?.id!==c.id)e.currentTarget.style.background="white";}}>
-                      <Av name={c.name} size={28} color={C.green}/>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                        <div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role} · {c.district}</div>
-                      </div>
-                      <Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/>
-                    </div>
-                  );
-                })}
+                {contacts.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];return <div key={c.id} onClick={()=>selectCC(c)} style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:cc?.id===c.id?C.gBg:"white",borderLeft:cc?.id===c.id?`3px solid ${C.green}`:"3px solid transparent"}} onMouseEnter={e=>{if(cc?.id!==c.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(cc?.id!==c.id)e.currentTarget.style.background="white";}}><Av name={c.name} size={28} color={C.green}/><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role} · {c.district}</div></div><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></div>;})}
               </div>
               <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:14}}>
-                {!cc?(
-                  <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,padding:40,textAlign:"center"}}>
-                    <div style={{fontSize:38,opacity:0.3}}>✉️</div>
-                    <div style={{fontWeight:500,color:C.textS}}>Select a contact to compose</div>
-                    <div style={{fontSize:12,maxWidth:280,lineHeight:1.7,marginTop:4}}>The AI reads your Knowledge Base docs first, then writes a one-sentence district hook. Your persona template and close snap in automatically.</div>
-                  </div>
-                ):<>
-                  <div style={{padding:"11px 14px",background:C.gBg,borderRadius:8,border:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:10}}>
-                    <Av name={cc.name} size={34} color={C.blue}/>
-                    <div>
-                      <div style={{fontWeight:600,fontSize:13}}>{cc.name}</div>
-                      <div style={{fontSize:11,color:C.textS,marginTop:1}}>{cc.role} · {cc.school} · {cc.district}, {cc.state}</div>
-                    </div>
-                    <div style={{marginLeft:"auto"}}>{(()=>{const[pc,pb]=PER_C[cc.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[cc.persona]?.label||cc.persona} color={pc} bg={pb}/>;})()}</div>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                    <label style={LBL()}>Subject line</label>
-                    <input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Auto-fills after generating hook..." style={I()}/>
-                  </div>
+                {!cc?<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,padding:40,textAlign:"center"}}><div style={{fontSize:38,opacity:0.3}}>✉️</div><div style={{fontWeight:500,color:C.textS}}>Select a contact to compose</div></div>:<>
+                  <div style={{padding:"11px 14px",background:C.gBg,borderRadius:8,border:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:10}}><Av name={cc.name} size={34} color={C.blue}/><div><div style={{fontWeight:600,fontSize:13}}>{cc.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{cc.role} · {cc.school||cc.district} · {cc.district}, {cc.state}</div></div><div style={{marginLeft:"auto"}}>{(()=>{const[pc,pb]=PER_C[cc.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[cc.persona]?.label||cc.persona} color={pc} bg={pb}/>;})()}</div></div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Subject line</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Auto-fills after generating hook..." style={I()}/></div>
                   <div style={{border:`1px solid #BAE6FD`,borderRadius:8,overflow:"hidden"}}>
                     <div style={{padding:"9px 12px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:8}}>
                       <div style={{width:22,height:22,borderRadius:"50%",background:"#378ADD",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>1</div>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:600,fontSize:12,color:"#0369A1"}}>District hook <span style={{fontWeight:400,color:"#0284C7"}}>— AI-generated + Knowledge Base facts</span></div>
-                        {kbSt==="loading"&&<div style={{fontSize:10,color:"#0284C7",marginTop:2}}>📁 Reading your Drive docs for {cc.persona} persona…</div>}
-                        {kbSt==="done"&&<div style={{fontSize:10,color:C.gDark,marginTop:2}}>✓ KB loaded · facts from your Drive docs used in generation</div>}
-                      </div>
-                      <button onClick={genHook} disabled={aiSt==="loading"} style={{...B("secondary","sm")}}>{aiSt==="loading"?"Generating…":l1?"↻ Regenerate":"✨ Generate Hook"}</button>
+                      <div style={{flex:1,fontWeight:600,fontSize:12,color:"#0369A1"}}>District hook — AI-generated{kbSt==="done"&&<span style={{fontWeight:400,color:C.gDark,marginLeft:6}}>✓ KB loaded</span>}</div>
+                      <button onClick={genHook} disabled={aiSt==="loading"} style={B("secondary","sm")}>{aiSt==="loading"?"Generating…":l1?"↻ Regen":"✨ Generate"}</button>
                     </div>
                     <div style={{padding:10,background:"white"}}>
-                      {aiSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.gDark,padding:"4px 2px"}}><div style={{width:12,height:12,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>Writing district opener for {cc.district}…</div>}
-                      {aiSt==="error"&&<div style={{fontSize:12,color:"#A32D2D",padding:"4px 2px"}}>⚠ Error. Check API and retry.</div>}
-                      {(aiSt==="done"||l1)?<textarea value={l1} onChange={e=>setL1(e.target.value)} rows={2} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
-                      :<div style={{fontSize:12,color:C.textT,padding:"4px 2px",fontStyle:"italic"}}>Click "Generate Hook" — AI writes a district-specific opener.</div>}
+                      {aiSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.gDark}}><div style={{width:12,height:12,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>Writing opener…</div>}
+                      {aiSt==="error"&&<div style={{fontSize:12,color:"#A32D2D"}}>⚠ Error. Retry.</div>}
+                      {(aiSt==="done"||l1)?<textarea value={l1} onChange={e=>setL1(e.target.value)} rows={2} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>:<div style={{fontSize:12,color:C.textT,fontStyle:"italic"}}>Click Generate to write a district-specific opener.</div>}
                     </div>
                   </div>
                   <div style={{border:`1px solid ${C.gBorder}`,borderRadius:8,overflow:"hidden"}}>
-                    <div style={{padding:"9px 12px",background:"#F0FDF4",borderBottom:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:22,height:22,borderRadius:"50%",background:C.green,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>2</div>
-                      <div><div style={{fontWeight:600,fontSize:12,color:C.gDark}}>Persona pitch <span style={{fontWeight:400,color:"#15803D"}}>— your template for {TMPL[cc.persona]?.label||"General"} contacts</span></div></div>
-                      <button onClick={()=>{setStab(cc.persona);setPage("settings");}} style={{marginLeft:"auto",...B("ghost","sm"),color:C.gDark}}>Edit ↗</button>
-                    </div>
+                    <div style={{padding:"9px 12px",background:"#F0FDF4",borderBottom:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.green,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>2</div><div style={{fontWeight:600,fontSize:12,color:C.gDark}}>Persona pitch — {TMPL[cc.persona]?.label||"General"}</div></div>
                     <div style={{padding:10,background:"white"}}><textarea value={l2} onChange={e=>setL2(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                   </div>
                   <div style={{border:`1px solid #FED7AA`,borderRadius:8,overflow:"hidden"}}>
-                    <div style={{padding:"9px 12px",background:"#FFF7ED",borderBottom:`1px solid #FED7AA`,display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:22,height:22,borderRadius:"50%",background:C.orange,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>3</div>
-                      <div><div style={{fontWeight:600,fontSize:12,color:"#92400E"}}>Universal close <span style={{fontWeight:400,color:"#B45309"}}>— same across all emails</span></div></div>
-                      <button onClick={()=>{setStab("close");setPage("settings");}} style={{marginLeft:"auto",...B("ghost","sm"),color:"#92400E"}}>Edit ↗</button>
-                    </div>
+                    <div style={{padding:"9px 12px",background:"#FFF7ED",borderBottom:`1px solid #FED7AA`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.orange,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>3</div><div style={{fontWeight:600,fontSize:12,color:"#92400E"}}>Universal close</div></div>
                     <div style={{padding:10,background:"white"}}><textarea value={l3} onChange={e=>setL3(e.target.value)} rows={2} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                   </div>
-                  {cc&&<SuggestedAttachments cc={cc} onViewAll={()=>setPage("resources")}/>}
-                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-                    <div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span>
-                      <button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(preview)} style={B("ghost","sm")}>Copy</button>
-                    </div>
-                    <div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif"}}>{preview}</div>
-                  </div>}
+                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(preview)} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif"}}>{preview}</div></div>}
                   {gmSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.bBg,borderRadius:8,fontSize:12,color:C.bDark}}><div style={{width:12,height:12,border:"2px solid #B5D4F4",borderTopColor:C.bDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>{gmMsg}</div>}
                   {gmSt==="success"&&<div style={{padding:"8px 12px",background:C.gBg,borderRadius:8,fontSize:12,color:C.gDark}}>{gmMsg}</div>}
                   {gmSt==="error"&&<div style={{padding:"8px 12px",background:"#FAEEDA",borderRadius:8,fontSize:12,color:"#854F0B"}}>{gmMsg}</div>}
-                  <div style={{display:"flex",gap:8,paddingBottom:8}}>
-                    <button onClick={pushGmail} disabled={!subj||!l1} style={{...B("blue"),opacity:(!subj||!l1)?0.4:1}}>📧 Push to Gmail Draft</button>
-                    <button onClick={genHook} style={B("secondary")}>↻ New Hook</button>
-                  </div>
+                  <div style={{display:"flex",gap:8,paddingBottom:8}}><button onClick={pushGmail} disabled={!subj||!l1} style={{...B("blue"),opacity:(!subj||!l1)?0.4:1}}>📧 Push to Gmail Draft</button><button onClick={genHook} style={B("secondary")}>↻ New Hook</button></div>
                 </>}
               </div>
             </div>
           </>}
-
           {page==="resources"&&<ResourcesPage/>}
-
           {page==="settings"&&<>
-            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
-              <div><div style={{fontWeight:700,fontSize:16}}>Email Templates</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Edit persona pitches and the universal close</div></div>
-              <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
-                {saved&&<span style={{fontSize:12,color:C.gDark,fontWeight:500}}>✓ Saved</span>}
-                <button onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2000);}} style={B("primary")}>Save Changes</button>
-              </div>
-            </div>
-            <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>
-              {[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"}].map(t=>(
-                <div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>
-              ))}
-            </div>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:16}}>Email Templates</div></div><div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>{saved&&<span style={{fontSize:12,color:C.gDark,fontWeight:500}}>✓ Saved</span>}<button onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2000);}} style={B("primary")}>Save Changes</button></div></div>
+            <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
             <div style={{flex:1,overflowY:"auto",padding:24}}>
-              {stab!=="close"&&templates[stab]&&<div style={{maxWidth:680}}>
-                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
-                  <label style={{...LBL(),fontSize:11}}>Persona pitch — {templates[stab].label}</label>
-                  <textarea value={templates[stab].roleBlurb} onChange={e=>setTemplates(p=>({...p,[stab]:{...p[stab],roleBlurb:e.target.value}}))} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
-                </div>
-              </div>}
-              {stab==="close"&&<div style={{maxWidth:680}}>
-                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
-                  <label style={{...LBL(),fontSize:11}}>Universal close</label>
-                  <textarea value={closeText} onChange={e=>setCloseText(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
-                  <label style={{...LBL(),fontSize:11}}>Signature</label>
-                  <textarea value={sig} onChange={e=>setSig(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
-                </div>
-              </div>}
+              {stab!=="close"&&templates[stab]&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Persona pitch — {templates[stab].label}</label><textarea value={templates[stab].roleBlurb} onChange={e=>setTemplates(p=>({...p,[stab]:{...p[stab],roleBlurb:e.target.value}}))} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
+              {stab==="close"&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Universal close</label><textarea value={closeText} onChange={e=>setCloseText(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Signature</label><textarea value={sig} onChange={e=>setSig(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
             </div>
           </>}
-
-        </div>
+          {page==="sequences"&&<SequencesPage contacts={contacts} sequences={sequences} setSequences={setSequences} enrollments={enrollments} setEnrollments={setEnrollments} seqLog={seqLog} setSeqLog={setSeqLog}/>}
+          {page==="review"&&<ReviewQueuePage contacts={contacts} enrollments={enrollments} seqLog={seqLog} setSeqLog={setSeqLog} sequences={sequences}/>}
+          {page==="unsub"&&<UnsubscribePage contacts={contacts} setContacts={setContacts}/>}
+        </>}
       </div>
-
-      {/* COLOR BAR */}
-      <div style={{height:4,display:"flex",flexShrink:0}}>
-        {[C.lavender,C.lightblue,C.blue,C.green,C.yellow,C.orange,C.coral].map(col=><div key={col} style={{flex:1,background:col}}/>)}
-      </div>
-
-      {/* DETAIL MODAL */}
-      {detail&&<div onClick={()=>setDetail(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:480,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:20}}>
-            <Av name={detail.name} size={44} color={C.blue}/>
-            <div><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div>
-            <button onClick={()=>setDetail(null)} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
-            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(
-              <div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>
-            ))}
-            <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
-            <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Stage</div><Tag label={detail.stage} color={STAGE_C[detail.stage]||"#6B7280"} bg={STAGE_BG[detail.stage]||"#F3F4F6"}/></div>
-          </div>
-          {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Alt Contact</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
-          <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
-          <div style={{fontSize:13,color:C.textS,lineHeight:1.6,marginBottom:20,minHeight:32}}>{detail.notes||"No notes yet."}</div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
-            <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
-          </div>
-        </div>
-      </div>}
-
-      {/* ADD MODAL */}
-      {addOpen&&<div onClick={()=>setAddOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:460,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-            <div style={{fontWeight:700,fontSize:16}}>Add Contact</div>
-            <button onClick={()=>setAddOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-            {[["fname","First Name","Jane"],["lname","Last Name","Smith"]].map(([k,l,ph])=>(
-              <div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>{l}</label><input value={addF[k]} onChange={e=>setAddF(f=>({...f,[k]:e.target.value}))} placeholder={ph} style={I()}/></div>
-            ))}
-            <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Email</label><input value={addF.email} onChange={e=>setAddF(f=>({...f,email:e.target.value}))} placeholder="j.smith@district.edu" style={I()}/></div>
-            {[["role","Role","Nutrition Director"],["school","Organization","Lincoln HS"],["district","District","Clarkstown CSD"]].map(([k,l,ph])=>(
-              <div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>{l}</label><input value={addF[k]} onChange={e=>setAddF(f=>({...f,[k]:e.target.value}))} placeholder={ph} style={I()}/></div>
-            ))}
-            <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>State</label>
-              <select value={addF.state} onChange={e=>setAddF(f=>({...f,state:e.target.value}))} style={S()}>
-                {["NY","NJ","CT","PA","MA","Other"].map(s=><option key={s} value={s}>{s}</option>)}
-              </select></div>
-            <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Persona</label>
-              <select value={addF.persona} onChange={e=>setAddF(f=>({...f,persona:e.target.value}))} style={S()}>
-                {Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}
-              </select></div>
-          </div>
-          <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-            <button onClick={()=>setAddOpen(false)} style={B("secondary")}>Cancel</button>
-            <button onClick={saveContact} style={B("primary")}>Add Contact</button>
-          </div>
-        </div>
-      </div>}
-
-      <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
     </div>
-  );
+    <div style={{height:4,display:"flex",flexShrink:0}}>{[C.lavender,C.lightblue,C.blue,C.green,C.yellow,C.orange,C.coral].map(col=><div key={col} style={{flex:1,background:col}}/>)}</div>
+    {detail&&<div onClick={()=>setDetail(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:480,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:20}}><Av name={detail.name} size={44} color={C.blue}/><div><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div><button onClick={()=>setDetail(null)} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+          {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
+          <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
+          <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Stage</div><Tag label={detail.stage} color={STAGE_META[detail.stage]?.color||"#6B7280"} bg={STAGE_META[detail.stage]?.bg||"#F3F4F6"}/></div>
+        </div>
+        {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Alt Contact</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
+        <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
+        <div style={{fontSize:13,color:C.textS,lineHeight:1.6,marginBottom:20,minHeight:32}}>{detail.notes||"No notes yet."}</div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
+          <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
+          <button onClick={()=>{if(window.confirm(`Delete ${detail.name}? This cannot be undone.`))deleteContact(detail);}} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
+        </div>
+      </div>
+    </div>}
+    {addOpen&&<div onClick={()=>setAddOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:460,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}><div style={{fontWeight:700,fontSize:16}}>Add Contact</div><button onClick={()=>setAddOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          {[["fname","First Name","Jane"],["lname","Last Name","Smith"]].map(([k,l,ph])=><div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>{l}</label><input value={addF[k]} onChange={e=>setAddF(f=>({...f,[k]:e.target.value}))} placeholder={ph} style={I()}/></div>)}
+          <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Email</label><input value={addF.email} onChange={e=>setAddF(f=>({...f,email:e.target.value}))} placeholder="j.smith@district.edu" style={I()}/></div>
+          {[["role","Role","Nutrition Director"],["school","Organization","Lincoln HS"],["district","District","Clarkstown CSD"]].map(([k,l,ph])=><div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>{l}</label><input value={addF[k]} onChange={e=>setAddF(f=>({...f,[k]:e.target.value}))} placeholder={ph} style={I()}/></div>)}
+          <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>State</label><select value={addF.state} onChange={e=>setAddF(f=>({...f,state:e.target.value}))} style={S()}>{["NY","NJ","CT","PA","MA","Other"].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Persona</label><select value={addF.persona} onChange={e=>setAddF(f=>({...f,persona:e.target.value}))} style={S()}>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}</select></div>
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button onClick={()=>setAddOpen(false)} style={B("secondary")}>Cancel</button><button onClick={saveContact} style={B("primary")}>Add Contact</button></div>
+      </div>
+    </div>}
+    {selectedContact&&<div onClick={()=>setSelectedContact(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:480,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:18}}><Av name={selectedContact.name} size={44} color={PER_C[selectedContact.persona]?.[0]||C.blue}/><div style={{flex:1}}><div style={{fontWeight:700,fontSize:17}}>{selectedContact.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{selectedContact.role} · {selectedContact.district}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{selectedContact.email}</div></div><button onClick={()=>setSelectedContact(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button></div>
+        <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+          {(()=>{const[pc,pb]=PER_C[selectedContact.persona]||["#6B7280","#F1EFE8"];return<Tag label={selectedContact.persona} color={pc} bg={pb}/>;})()}
+          <Tag label={selectedContact.stage} color={STAGE_META[selectedContact.stage]?.color||"#6B7280"} bg={STAGE_META[selectedContact.stage]?.bg||"#F3F4F6"}/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Move to stage</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{STAGES.map(s=>{const sm=STAGE_META[s]||{color:C.textS,bg:C.bg,icon:"•"};return <button key={s} onClick={()=>handleStageChange(selectedContact.id,s)} style={{...B("secondary","xs"),background:selectedContact.stage===s?sm.bg:"white",color:selectedContact.stage===s?sm.color:C.textS,border:`1px solid ${selectedContact.stage===s?sm.color:C.border}`,fontWeight:selectedContact.stage===s?600:400}}>{sm.icon} {s}</button>;})}</div>
+        </div>
+        {selectedContact.notes&&<div style={{marginBottom:16}}><div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Notes</div><div style={{fontSize:13,color:C.textS,lineHeight:1.6,background:C.bg,borderRadius:6,padding:"8px 10px"}}>{selectedContact.notes}</div></div>}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tasks</div>
+          {(selectedContact.tasks||[]).length===0&&<div style={{fontSize:12,color:C.textT,marginBottom:8}}>No tasks yet</div>}
+          {(selectedContact.tasks||[]).map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}><input type="checkbox" checked={t.done} onChange={()=>handleTaskToggle(selectedContact.id,t.id)} style={{accentColor:C.green,cursor:"pointer"}}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:500,textDecoration:t.done?"line-through":"none",color:t.done?C.textT:C.text}}>{t.text}</div><div style={{fontSize:10,color:C.textS}}>Due {new Date(t.due).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div></div></div>)}
+          {(()=>{const[nt,setNT]=useState("");const[nd,setND]=useState("");return <div style={{display:"flex",gap:6,marginTop:8}}><input value={nt} onChange={e=>setNT(e.target.value)} placeholder="Add a task..." style={{...I(),fontSize:12,padding:"5px 8px",flex:1}}/><input type="date" value={nd} onChange={e=>setND(e.target.value)} style={{...I("130px"),fontSize:12,padding:"5px 8px"}}/><button onClick={()=>{if(nt&&nd){handleTaskAdd(selectedContact.id,{text:nt,due:nd});setNT("");setND("");}}} style={B("primary","sm")}>Add</button></div>;})()}
+        </div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>{setSelectedContact(null);selectCC(selectedContact);setPage("compose");}} style={B("primary")}>✉ Compose Email</button><button onClick={()=>setSelectedContact(null)} style={B("secondary")}>Close</button></div>
+      </div>
+    </div>}
+    <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
+  </div>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
 </script>
 </body>
 </html>
