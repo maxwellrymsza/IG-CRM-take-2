@@ -655,8 +655,8 @@ function App(){
           {!deleteConfirm?<>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
-              <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
-              <button onClick={()=>setDeleteConfirm(true)} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
+<button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
+              <button onClick={()=>setDeleteConfirm(true)} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>              <button onClick={()=>setDeleteConfirm(true)} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
             </div>
           </>:<>
             <div style={{padding:"12px 14px",background:"#FEE2E2",borderRadius:8,border:"1px solid #FECACA",marginBottom:12}}>
