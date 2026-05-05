@@ -714,13 +714,6 @@ function UnsubscribePage({contacts,setContacts}){
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 
-function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
-  const[newOpen,setNewOpen]=useState(false);
-  const[newName,setNewName]=useState("Cold Outreach — Standard");
-  const[newInterval,setNewInterval]=useState(7);
-  const[newBrake,setNewBrake]=useState(50);
-  const[saving,setSaving]=useState(false);
-  const[enrollTarget,setEnrollTarget]=useState(null);
 
   async function createSeq(){
     const tmpl=SEQUENCE_TEMPLATES[newName];
