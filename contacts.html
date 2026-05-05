@@ -482,8 +482,10 @@ function App(){
                       <td style={TD()}><Tag label={c.stage} color={STAGE_C[c.stage]||"#6B7280"} bg={STAGE_BG[c.stage]||"#F3F4F6"}/></td>
                       <td style={TD(90)}><span style={{fontSize:12,color:C.textS}}>{c.lastContact||"—"}</span></td>
                       <td style={TD(90)} onClick={e=>e.stopPropagation()}>
-                        <button onClick={()=>{selectCC(c);setPage("compose");}} style={B("secondary","sm")}>✉ Compose</button>
-                      </td>
+<div style={{display:"flex",gap:4}}>
+  <button onClick={()=>{selectCC(c);setPage("compose");}} style={B("secondary","sm")}>✉</button>
+  <button onClick={e=>{e.stopPropagation();if(window.confirm("Delete "+c.name+"?"))deleteContact(c);}} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑</button>
+</div>                      </td>
                     </tr>
                   );
                 })}</tbody>
