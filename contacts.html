@@ -288,6 +288,7 @@ function App(){
   const[contacts,setContacts]=useState([]);
   const[loading,setLoading]=useState(true);
   const[loadErr,setLoadErr]=useState("");
+  const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[templates,setTemplates]=useState(TMPL);
   const[closeText,setCloseText]=useState(DEF_CLOSE);
   const[sig,setSig]=useState(DEF_SIG);
@@ -374,6 +375,15 @@ function App(){
     }catch(e){alert("Error saving contact: "+e.message);}
   }
 
+  async function deleteContact(c){
+    try{
+      await sbFetch(`contacts?id=eq.${c.id}`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
+      setContacts(p=>p.filter(x=>x.id!==c.id));
+      setDetail(null);
+      setDeleteConfirm(false);
+    }catch(e){alert("Error deleting contact: "+e.message);}
+  }
+
   const NAV=[
     {id:"contacts",icon:"👥",label:"Contacts"},
     {id:"compose",icon:"✉️",label:"Compose"},
@@ -402,9 +412,9 @@ function App(){
         {/* SIDEBAR */}
         <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
           <div style={SL()}>Pipeline</div>
-          <div onClick={()=>window.location.href='https://ig-crm-take-2.vercel.app/index.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>📊</span>Dashboard</div>
-          <div onClick={()=>window.location.href='https://ig-crm-take-2.vercel.app/index.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>📋</span>Pipeline</div>
-          <div onClick={()=>window.location.href='https://ig-crm-take-2.vercel.app/index.html'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>⚡</span>Activity Feed</div>
+          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>📊</span>Dashboard</div>
+          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>📋</span>Pipeline</div>
+          <div onClick={()=>window.location.href='/'} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:C.textS}} onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><span style={{fontSize:14,width:18,textAlign:"center"}}>⚡</span>Activity Feed</div>
           <div style={SL()}>Outreach</div>
           {NAV.map(item=>(
             <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}}>
@@ -460,7 +470,7 @@ function App(){
                 <tbody>{filtered.map(c=>{
                   const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
                   return(
-                    <tr key={c.id} onClick={()=>setDetail(c)}
+                    <tr key={c.id} onClick={()=>{setDetail(c);setDeleteConfirm(false);}}
                       style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}}
                       onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"}
                       onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
@@ -642,10 +652,22 @@ function App(){
           {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Alt Contact</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
           <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
           <div style={{fontSize:13,color:C.textS,lineHeight:1.6,marginBottom:20,minHeight:32}}>{detail.notes||"No notes yet."}</div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
-            <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
-          </div>
+          {!deleteConfirm?<>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
+              <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
+              <button onClick={()=>setDeleteConfirm(true)} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
+            </div>
+          </>:<>
+            <div style={{padding:"12px 14px",background:"#FEE2E2",borderRadius:8,border:"1px solid #FECACA",marginBottom:12}}>
+              <div style={{fontWeight:600,fontSize:13,color:"#A32D2D",marginBottom:4}}>Delete {detail.name}?</div>
+              <div style={{fontSize:12,color:"#C45252"}}>This will permanently remove them from Supabase and cannot be undone.</div>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>deleteContact(detail)} style={{...B("secondary"),background:"#A32D2D",color:"white",border:"1px solid #A32D2D",flex:1}}>Yes, Delete</button>
+              <button onClick={()=>setDeleteConfirm(false)} style={{...B("secondary"),flex:1}}>Cancel</button>
+            </div>
+          </>}
         </div>
       </div>}
 
