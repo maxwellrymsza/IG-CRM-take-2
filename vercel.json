@@ -1,17 +1,16 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "routes": [
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/contacts", "dest": "/contacts.html" },
-    { "src": "/sequences", "dest": "/sequences.html" },
-    { "src": "/unsubscribe", "dest": "/unsubscribe.html" }
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/contacts", "destination": "/contacts.html" },
+    { "source": "/sequences", "destination": "/sequences.html" },
+    { "source": "/unsubscribe", "destination": "/unsubscribe.html" }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Content-Type", "value": "text/html; charset=utf-8" },
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     }
