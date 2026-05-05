@@ -325,6 +325,7 @@ const STUCK_DAYS={Cold:14,Contacted:7,Replied:5,'Demo Scheduled':7,'Proposal Sen
 const NOW=Date.now();
 const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?'Today':d===1?'Yesterday':`${d}d ago`;};
 const fmtDate=iso=>new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+ const fmtDT=iso=>new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
  
 function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
   const[newOpen,setNewOpen]=useState(false);
