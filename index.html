@@ -991,7 +991,7 @@ function App(){
           </>}
           {page==="compose"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Compose Email</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>AI district hook · persona pitch · universal close</div></div>
-            <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+            <div style={{display:"flex",flex:1,minHeight:0}}>
               <div style={{width:265,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
                 <div style={SL()}>Select contact</div>
                 {contacts.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];return <div key={c.id} onClick={()=>selectCC(c)} style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:cc?.id===c.id?C.gBg:"white",borderLeft:cc?.id===c.id?`3px solid ${C.green}`:"3px solid transparent"}} onMouseEnter={e=>{if(cc?.id!==c.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(cc?.id!==c.id)e.currentTarget.style.background="white";}}><Av name={c.name} size={28} color={C.green}/><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role} · {c.district}</div></div><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></div>;})}
