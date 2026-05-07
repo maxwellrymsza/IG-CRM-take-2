@@ -23,13 +23,13 @@ input,select,textarea,button{font-family:inherit;}
 <body>
 <div id="root"></div>
 <script type="text/babel">
- 
+
 const {useState,useRef,useEffect} = React;
- 
+
 // ── Supabase Config ───────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://obluwsjebgsvyimgbvec.supabase.co";
 const SUPABASE_KEY = "sb_publishable_bDX96nrGsEngzarsT55NuA_NHWVeNp7";
- 
+
 async function sbFetch(path, opts={}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
@@ -45,7 +45,7 @@ async function sbFetch(path, opts={}) {
   const text = await res.text();
   return text ? JSON.parse(text) : [];
 }
- 
+
 function mapRow(c) {
   return {
     id: c.id,
@@ -65,9 +65,9 @@ function mapRow(c) {
     hunter_status: c.hunter_status || "",
   };
 }
- 
+
 const C={lavender:"#DFC4DF",lightblue:"#C2E8FB",blue:"#40ACE2",green:"#65C39D",yellow:"#FAEE36",orange:"#F9A139",coral:"#EB5665",gDark:"#2d8f68",gBg:"#edf7f2",gBorder:"#b6dfc9",bBg:"#e8f4fc",bDark:"#1e7db0",bg:"#F5F6F8",surface:"#fff",border:"#E4E7EC",text:"#111827",textS:"#6B7280",textT:"#9CA3AF"};
- 
+
 // ── Click Tracker ─────────────────────────────────────────────────────────────
 const TRACKER_URL = "https://ig-click-tracker.maxwellrymsza.workers.dev";
 const DOC_KEYS = {
@@ -89,7 +89,7 @@ function trackedLink(contactId, docId) {
   if (!docKey) return null;
   return `${TRACKER_URL}/t/${contactId}-${docKey}`;
 }
- 
+
 // ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
 function canSpamFooter(contact) {
   const unsubUrl = contact
@@ -97,7 +97,7 @@ function canSpamFooter(contact) {
     : `https://ig-crm-take-2.pages.dev/unsubscribe.html`;
   return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\nTo unsubscribe: ${unsubUrl}`;
 }
- 
+
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
 const KB_DOCS = [
 {id:"10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX",title:"General One-Pager",file:"Overview_Key_Features.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"Key outcomes, aeroponics advantage, grant-readiness. Best all-purpose attach for cold outreach.",personas:["General","STEM","Nutrition","CTE","Sustainability"],viewUrl:"https://drive.google.com/file/d/10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX/view"},
@@ -113,9 +113,9 @@ const KB_DOCS = [
 {id:"1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz",title:"Expanded Services Overview",file:"Premium_Services_Overview.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"Farming support, kids programs, workshops & events, enhanced cleaning. For current and prospective customers.",personas:["General","Nutrition"],viewUrl:"https://drive.google.com/file/d/1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz/view"},
 {id:"1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA",title:"Farm Cleaning & Maintenance",file:"Premium_Cleaning_Service.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"Maintenance services for non-IG systems — deep cleaning, preventive maintenance, troubleshooting.",personas:["General"],viewUrl:"https://drive.google.com/file/d/1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA/view"},
 ];
- 
+
 const KB_CATEGORIES = ["All", "Sales", "Education", "Technical", "Services"];
- 
+
 const TMPL={
 STEM:{label:"STEM",roleBlurb:"We work with STEM Coordinators to bring a live aeroponic farm into the classroom — students grow and harvest microgreens and leafy greens on a 7-day seed-to-harvest cycle, generating real data for plant science experiments. It's NGSS-aligned and fits in about 50 sq ft."},
 Nutrition:{label:"Nutrition",roleBlurb:"We partner with Nutrition Directors to put a live farm inside the school building — producing around 100 fresh 3oz salads per week from a compact aeroponic system. It's one of the most direct farm-to-school programs we've seen, and it runs without soil, pesticides, or food miles."},
@@ -123,27 +123,15 @@ Sustainability:{label:"Sustainability",roleBlurb:"We work with sustainability-mi
 CTE:{label:"CTE / Culinary",roleBlurb:"We work with CTE and culinary programs to turn a classroom into a working farm — students grow, harvest, and use fresh microgreens and greens in real culinary projects. It connects directly to AgEd and food science pathways, and several schools have built it into their career-connected learning tracks."},
 General:{label:"General",roleBlurb:"We install compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. We're currently in 32 schools across NY and NJ, and it's become one of the more memorable programs in the districts we work with."},
 };
- 
+
 const DEF_CLOSE="Would it be worth a quick 10-minute call to see if it could be a fit for your district? Happy to send a one-pager in the meantime.";
 const DEF_SIG="Eric Wagner\nInspired Growing\ninspiredgrowing.com | info@inspiredgrowing.com";
- 
+
 const STAGES=["Cold","Contacted","Replied","Demo Scheduled","Proposal Sent","Bounced","Declined","Closed/Lost"];
- const STAGE_META={
-  "Cold":          {color:"#9CA3AF", bg:"#F3F4F6",    icon:"❄️"},
-  "Contacted":     {color:"#185FA5", bg:"#E6F1FB",    icon:"📧"},
-  "Replied":       {color:"#0F6E56", bg:"#E1F5EE",    icon:"💬"},
-  "Demo Scheduled":{color:"#854F0B", bg:"#FAEEDA",    icon:"📅"},
-  "Proposal Sent": {color:"#5B21B6", bg:"#EDE9FE",    icon:"📋"},
-  "Bounced":       {color:"#A32D2D", bg:"#FEE2E2",    icon:"⚠️"},
-  "Declined":      {color:"#6B7280", bg:"#F3F4F6",    icon:"🚫"},
-  "Closed Won":    {color:"#065F46", bg:"#D1FAE5",    icon:"🏆"},
-  "Closed/Lost":   {color:"#A32D2D", bg:"#FEE2E2",    icon:"❌"},
-  "OOO":           {color:"#854F0B", bg:"#FAEEDA",    icon:"🏖"},
-};
 const STAGE_C={"Cold":"#9CA3AF","Contacted":"#185FA5","Replied":"#0F6E56","Demo Scheduled":"#854F0B","Proposal Sent":"#5B21B6","Bounced":"#A32D2D","Declined":"#6B7280","OOO":"#854F0B","Closed/Lost":"#A32D2D"};
 const STAGE_BG={"Cold":"#F3F4F6","Contacted":"#E6F1FB","Replied":"#E1F5EE","Demo Scheduled":"#FAEEDA","Proposal Sent":"#EDE9FE","Bounced":"#FEE2E2","Declined":"#F3F4F6","OOO":"#FAEEDA","Closed/Lost":"#FEE2E2"};
 const PER_C={STEM:["#185FA5","#E6F1FB"],Nutrition:["#0F6E56","#E1F5EE"],Sustainability:["#3B6D11","#EAF3DE"],CTE:["#854F0B","#FAEEDA"],General:["#5F5E5A","#F1EFE8"]};
- 
+
 const ini=n=>(n||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2);
 const B=(v="secondary",s="md")=>{const sz=s==="sm"?{padding:"4px 9px",fontSize:11}:{padding:"6px 12px",fontSize:12};const vs={primary:{background:C.green,color:"white",border:`1px solid ${C.green}`},secondary:{background:"white",color:C.text,border:`1px solid ${C.border}`},blue:{background:C.blue,color:"white",border:`1px solid ${C.blue}`},ghost:{background:"transparent",color:C.textS,border:"1px solid transparent"}};return{...sz,...(vs[v]||vs.secondary),borderRadius:6,cursor:"pointer",fontWeight:500};};
 const I=(w="100%")=>({width:w,padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,outline:"none",color:C.text,background:C.bg,boxSizing:"border-box"});
@@ -152,10 +140,10 @@ const TH=(w)=>({padding:"8px 12px",textAlign:"left",fontSize:10,fontWeight:600,c
 const TD=(w)=>({padding:"9px 12px",verticalAlign:"middle",...(w?{width:w}:{})});
 const LBL=()=>({fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"});
 const SL=()=>({fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.06em",padding:"10px 14px 4px"});
- 
+
 function Tag({label,color,bg}){return <span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,background:bg,color,whiteSpace:"nowrap"}}>{label}</span>;}
 function Av({name,size=32,color=C.blue}){return <div style={{width:size,height:size,borderRadius:size/4,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:size*0.38,flexShrink:0}}>{ini(name)}</div>;}
- 
+
 // ── Resources Page ────────────────────────────────────────────────────────────
 function ResourcesPage() {
   const [catFilter, setCatFilter] = useState("All");
@@ -233,7 +221,7 @@ function ResourcesPage() {
     </div>
   </>;
 }
- 
+
 // ── Doc sentence templates ────────────────────────────────────────────────────
 const DOC_SENTENCES = {
 "10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX": "I thought this might be useful — here's a quick overview of what the Inspired Growing system does and how it fits into schools like yours:",
@@ -249,7 +237,7 @@ const DOC_SENTENCES = {
 "1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz": "Here's a look at the expanded services we offer for schools that want additional support beyond the core program:",
 "1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA": "Here's information on our maintenance and cleaning service options:",
 };
- 
+
 // ── Suggested Attachments ─────────────────────────────────────────────────────
 function SuggestedAttachments({cc,onViewAll}){
   const[copiedId,setCopiedId]=useState(null);
@@ -299,9 +287,9 @@ function SuggestedAttachments({cc,onViewAll}){
     </div>
   </div>;
 }
- 
+
 // ── Main App ──────────────────────────────────────────────────────────────────
- 
+
 // ── Sequence Templates ────────────────────────────────────────────────────────
 const SEQUENCE_TEMPLATES={
   "Cold Outreach — Standard":{id:"cold_standard",description:"4-touch cold outreach sequence. Day 0 intro, follow-ups at 5, 12, 20.",steps:[
@@ -325,8 +313,7 @@ const STUCK_DAYS={Cold:14,Contacted:7,Replied:5,'Demo Scheduled':7,'Proposal Sen
 const NOW=Date.now();
 const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?'Today':d===1?'Yesterday':`${d}d ago`;};
 const fmtDate=iso=>new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
- const fmtDT=iso=>new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
- 
+
 function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
   const[newOpen,setNewOpen]=useState(false);
   const[newName,setNewName]=useState("Cold Outreach — Standard");
@@ -334,7 +321,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
   const[newBrake,setNewBrake]=useState(50);
   const[saving,setSaving]=useState(false);
   const[enrollTarget,setEnrollTarget]=useState(null);
- 
+
   async function createSeq(){
     const tmpl=SEQUENCE_TEMPLATES[newName];
     if(!tmpl)return;
@@ -350,23 +337,23 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
     }catch(e){alert("Error creating sequence: "+e.message);}
     setSaving(false);
   }
- 
+
   async function toggleStatus(seq){
     const newStatus=seq.status==="active"?"paused":"active";
     await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:newStatus})});
     setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:newStatus}:s));
   }
- 
+
   async function brakeSeq(seq){
     await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"braked"})});
     setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"braked"}:s));
   }
- 
+
   async function resetBrake(seq){
     await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
     setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"paused"}:s));
   }
- 
+
   async function handleEnroll(seqId, contactIds){
     const now=new Date().toISOString();
     const rows=contactIds.map(cid=>({
@@ -386,7 +373,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
       }
     }catch(e){alert("Error enrolling: "+e.message);}
   }
- 
+
   return <>
     <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
       <div><div style={{fontWeight:700,fontSize:16}}>Sequences</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Automated drip sequences · staggered sending · review queue</div></div>
@@ -400,13 +387,13 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
           <div style={{fontSize:12,color:"#0284C7",lineHeight:1.6}}>Emails send 1 at a time with a configurable gap (default: every 7 minutes). This mimics human sending behavior and avoids Gmail's automated spam filters. The Emergency Brake automatically pauses any sequence if bounce rate exceeds threshold or an API error is detected.</div>
         </div>
       </div>
- 
+
       {sequences.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT}}>
         <div style={{fontSize:32,marginBottom:8}}>🔄</div>
         <div style={{fontWeight:500,color:C.textS}}>No sequences yet</div>
         <div style={{fontSize:12,marginTop:4}}>Create your first sequence to start automating outreach</div>
       </div>}
- 
+
       {sequences.map(seq=>{
         const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id)||Object.values(SEQUENCE_TEMPLATES)[0];
         const seqEnrollments=enrollments.filter(e=>e.sequence_id===seq.id);
@@ -414,7 +401,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
         const sentCount=seqLog.filter(l=>l.sequence_id===seq.id).length;
         const recentLogs=seqLog.filter(l=>l.sequence_id===seq.id).slice(0,4);
         const sm={active:{color:C.gDark,bg:C.gBg,label:"● Active"},paused:{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"},braked:{color:"#A32D2D",bg:"#FEE2E2",label:"🛑 Emergency Brake"}}[seq.status]||{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"};
- 
+
         return <div key={seq.id} style={{background:"white",border:`1px solid ${seq.status==="braked"?"#FECACA":C.border}`,borderRadius:10,overflow:"hidden"}}>
           {seq.status==="braked"&&<div style={{background:"#FEE2E2",borderBottom:"1px solid #FECACA",padding:"8px 16px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#A32D2D"}}>
             <span>🛑</span><strong>Emergency Brake Triggered</strong> — Review logs before resuming.
@@ -435,7 +422,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
                 <button onClick={()=>brakeSeq(seq)} style={B("danger","sm")}>🛑 Brake</button>
               </div>
             </div>
- 
+
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
               {[["Enrolled",seqEnrollments.length,"#185FA5","#E6F1FB"],["Active",activeEnrollments.length,C.gDark,C.gBg],["Sent",sentCount,"#5B21B6","#EDE9FE"],["Completed",seqEnrollments.filter(e=>e.status==="completed").length,"#9CA3AF","#F3F4F6"]].map(([l,v,col,bg])=>(
                 <div key={l} style={{background:bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
@@ -444,7 +431,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
                 </div>
               ))}
             </div>
- 
+
             <div style={{display:"flex",gap:12,padding:"8px 10px",background:C.bg,borderRadius:8,fontSize:12,color:C.textS,marginBottom:12}}>
               <span>⏱ <strong style={{color:C.text}}>{seq.interval_minutes} min</strong> between sends</span>
               <span>·</span>
@@ -452,7 +439,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
               <span>·</span>
               <span>Started <strong style={{color:C.text}}>{fmtTime(seq.started_at||seq.created_at)}</strong></span>
             </div>
- 
+
             <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Sequence steps</div>
             <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:recentLogs.length>0?12:0}}>
               {tmpl?.steps.map((step,i)=>(
@@ -468,7 +455,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
                 </React.Fragment>
               ))}
             </div>
- 
+
             {recentLogs.length>0&&<>
               <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,marginTop:4}}>Recent sends</div>
               {recentLogs.map((l,i)=>(
@@ -484,7 +471,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
         </div>;
       })}
     </div>
- 
+
     {newOpen&&<div onClick={()=>setNewOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
         <div style={{fontWeight:700,fontSize:16,marginBottom:16,display:"flex",justifyContent:"space-between"}}>
@@ -523,7 +510,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
         </div>
       </div>
     </div>}
- 
+
     {enrollTarget&&<EnrollModal
       seq={enrollTarget}
       contacts={contacts}
@@ -533,13 +520,13 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
     />}
   </>;
 }
- 
+
 // ── Review Queue Page ─────────────────────────────────────────────────────────
- 
+
 function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
   const[selected,setSelected]=useState(null);
   const[approving,setApproving]=useState(false);
- 
+
   // Build a queue from active enrollments that need approval for their current step
   const queue = enrollments
     .filter(e=>e.status==="active")
@@ -562,9 +549,9 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
         body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
       };
     }).filter(Boolean);
- 
+
   const [editBodies, setEditBodies] = useState({});
- 
+
   async function approve(item){
     setApproving(true);
     try{
@@ -584,13 +571,13 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
     setApproving(false);
     setSelected(null);
   }
- 
+
   async function reject(item){
     // Mark enrollment as paused for this contact
     await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
     setSelected(null);
   }
- 
+
   return <>
     <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
       <div><div style={{fontWeight:700,fontSize:16}}>Review Queue</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Approve or reject emails before they send</div></div>
@@ -620,7 +607,7 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
           </div>
         ))}
       </div>
- 
+
       <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:12}}>
         {!selected?(
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,textAlign:"center"}}>
@@ -663,18 +650,18 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
     </div>
   </>;
 }
- 
+
 // ── Unsubscribe Page ──────────────────────────────────────────────────────────
- 
+
 function UnsubscribePage({contacts,setContacts}){
   const unsubs=contacts.filter(c=>c.isUnsubscribed);
   const bounced=contacts.filter(c=>c.bounced);
- 
+
   async function toggleUnsub(c, val){
     await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:val?"Cold":"Bounced"})}).catch(console.error);
     setContacts(p=>p.map(x=>x.id===c.id?{...x,isUnsubscribed:val}:x));
   }
- 
+
   return <>
     <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
       <div style={{fontWeight:700,fontSize:16}}>Unsubscribe & Suppression</div>
@@ -692,7 +679,7 @@ function UnsubscribePage({contacts,setContacts}){
           ))}
         </div>
       </div>
- 
+
       {unsubs.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
         <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
           <div style={{fontWeight:600,fontSize:13}}>Unsubscribed</div>
@@ -707,7 +694,7 @@ function UnsubscribePage({contacts,setContacts}){
           </div>
         );})}
       </div>}
- 
+
       {bounced.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
         <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
           <div style={{fontWeight:600,fontSize:13}}>Bounced</div>
@@ -724,7 +711,407 @@ function UnsubscribePage({contacts,setContacts}){
     </div>
   </>;
 }
- 
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+
+function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
+  const[newOpen,setNewOpen]=useState(false);
+  const[newName,setNewName]=useState("Cold Outreach — Standard");
+  const[newInterval,setNewInterval]=useState(7);
+  const[newBrake,setNewBrake]=useState(50);
+  const[saving,setSaving]=useState(false);
+  const[enrollTarget,setEnrollTarget]=useState(null);
+
+  async function createSeq(){
+    const tmpl=SEQUENCE_TEMPLATES[newName];
+    if(!tmpl)return;
+    setSaving(true);
+    try{
+      const rows=await sbFetch("sequences",{method:"POST",body:JSON.stringify({
+        name:newName, template_id:tmpl.id, status:"paused",
+        interval_minutes:newInterval, emergency_brake_threshold:newBrake,
+        started_at:new Date().toISOString()
+      })});
+      setSequences(p=>[...p,rows[0]]);
+      setNewOpen(false);
+    }catch(e){alert("Error creating sequence: "+e.message);}
+    setSaving(false);
+  }
+
+  async function toggleStatus(seq){
+    const newStatus=seq.status==="active"?"paused":"active";
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:newStatus})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:newStatus}:s));
+  }
+
+  async function brakeSeq(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"braked"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"braked"}:s));
+  }
+
+  async function resetBrake(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"paused"}:s));
+  }
+
+  async function handleEnroll(seqId, contactIds){
+    const now=new Date().toISOString();
+    const rows=contactIds.map(cid=>({
+      sequence_id:seqId, contact_id:cid,
+      current_step:0, status:"active",
+      enrolled_at:now, next_send_at:now
+    }));
+    try{
+      const inserted=await sbFetch("enrollments",{method:"POST",body:JSON.stringify(rows)});
+      setEnrollments(p=>[...p,...inserted]);
+      // Update pipeline stage to Contacted for Cold contacts
+      for(const cid of contactIds){
+        const c=contacts.find(x=>x.id===cid);
+        if(c&&c.stage==="Cold"){
+          await sbFetch(`contacts?id=eq.${cid}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted"})});
+        }
+      }
+    }catch(e){alert("Error enrolling: "+e.message);}
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Sequences</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Automated drip sequences · staggered sending · review queue</div></div>
+      <button onClick={()=>setNewOpen(true)} style={{...B("primary","sm"),marginLeft:"auto"}}>+ New Sequence</button>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:10,padding:"12px 16px",display:"flex",gap:10}}>
+        <span style={{fontSize:18,flexShrink:0}}>⏱</span>
+        <div>
+          <div style={{fontWeight:600,fontSize:13,color:"#0369A1",marginBottom:3}}>Slow Drip Mode — Active</div>
+          <div style={{fontSize:12,color:"#0284C7",lineHeight:1.6}}>Emails send 1 at a time with a configurable gap (default: every 7 minutes). This mimics human sending behavior and avoids Gmail's automated spam filters. The Emergency Brake automatically pauses any sequence if bounce rate exceeds threshold or an API error is detected.</div>
+        </div>
+      </div>
+
+      {sequences.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT}}>
+        <div style={{fontSize:32,marginBottom:8}}>🔄</div>
+        <div style={{fontWeight:500,color:C.textS}}>No sequences yet</div>
+        <div style={{fontSize:12,marginTop:4}}>Create your first sequence to start automating outreach</div>
+      </div>}
+
+      {sequences.map(seq=>{
+        const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id)||Object.values(SEQUENCE_TEMPLATES)[0];
+        const seqEnrollments=enrollments.filter(e=>e.sequence_id===seq.id);
+        const activeEnrollments=seqEnrollments.filter(e=>e.status==="active");
+        const sentCount=seqLog.filter(l=>l.sequence_id===seq.id).length;
+        const recentLogs=seqLog.filter(l=>l.sequence_id===seq.id).slice(0,4);
+        const sm={active:{color:C.gDark,bg:C.gBg,label:"● Active"},paused:{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"},braked:{color:"#A32D2D",bg:"#FEE2E2",label:"🛑 Emergency Brake"}}[seq.status]||{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"};
+
+        return <div key={seq.id} style={{background:"white",border:`1px solid ${seq.status==="braked"?"#FECACA":C.border}`,borderRadius:10,overflow:"hidden"}}>
+          {seq.status==="braked"&&<div style={{background:"#FEE2E2",borderBottom:"1px solid #FECACA",padding:"8px 16px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#A32D2D"}}>
+            <span>🛑</span><strong>Emergency Brake Triggered</strong> — Review logs before resuming.
+            <button onClick={()=>resetBrake(seq)} style={{marginLeft:"auto",...B("secondary","sm")}}>Reset</button>
+          </div>}
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:12}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{seq.name}</div>
+                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:10,background:sm.bg,color:sm.color}}>{sm.label}</span>
+                </div>
+                <div style={{fontSize:12,color:C.textS}}>{tmpl?.description}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>setEnrollTarget(seq)} style={B("secondary","sm")}>+ Enroll</button>
+                {seq.status!=="braked"&&<button onClick={()=>toggleStatus(seq)} style={B(seq.status==="active"?"warning":"primary","sm")}>{seq.status==="active"?"⏸ Pause":"▶ Resume"}</button>}
+                <button onClick={()=>brakeSeq(seq)} style={B("danger","sm")}>🛑 Brake</button>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
+              {[["Enrolled",seqEnrollments.length,"#185FA5","#E6F1FB"],["Active",activeEnrollments.length,C.gDark,C.gBg],["Sent",sentCount,"#5B21B6","#EDE9FE"],["Completed",seqEnrollments.filter(e=>e.status==="completed").length,"#9CA3AF","#F3F4F6"]].map(([l,v,col,bg])=>(
+                <div key={l} style={{background:bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:18,fontWeight:700,color:col,lineHeight:1}}>{v}</div>
+                  <div style={{fontSize:10,color:C.textS,marginTop:2}}>{l}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"flex",gap:12,padding:"8px 10px",background:C.bg,borderRadius:8,fontSize:12,color:C.textS,marginBottom:12}}>
+              <span>⏱ <strong style={{color:C.text}}>{seq.interval_minutes} min</strong> between sends</span>
+              <span>·</span>
+              <span>🛑 Brake at <strong style={{color:C.text}}>{seq.emergency_brake_threshold}</strong> sends</span>
+              <span>·</span>
+              <span>Started <strong style={{color:C.text}}>{fmtTime(seq.started_at||seq.created_at)}</strong></span>
+            </div>
+
+            <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Sequence steps</div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:recentLogs.length>0?12:0}}>
+              {tmpl?.steps.map((step,i)=>(
+                <React.Fragment key={i}>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:11}}>
+                    <div style={{fontWeight:600}}>Day {step.day}: {step.label}</div>
+                    <div style={{color:C.textS,marginTop:1,display:"flex",gap:4,alignItems:"center"}}>
+                      {step.approvalRequired&&<span style={{fontSize:9,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 5px",borderRadius:4}}>APPROVAL</span>}
+                      <span style={{fontSize:10}}>{step.type.replace(/_/g," ")}</span>
+                    </div>
+                  </div>
+                  {i<tmpl.steps.length-1&&<span style={{color:C.textT}}>→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {recentLogs.length>0&&<>
+              <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,marginTop:4}}>Recent sends</div>
+              {recentLogs.map((l,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:C.textS,marginBottom:3}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:C.green,flexShrink:0}}/>
+                  <strong style={{color:C.text}}>{l.contact_name}</strong>
+                  <span>{l.step_label}</span>
+                  <span style={{marginLeft:"auto",color:C.textT}}>{fmtTime(l.sent_at)}</span>
+                </div>
+              ))}
+            </>}
+          </div>
+        </div>;
+      })}
+    </div>
+
+    {newOpen&&<div onClick={()=>setNewOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{fontWeight:700,fontSize:16,marginBottom:16,display:"flex",justifyContent:"space-between"}}>
+          New Sequence
+          <button onClick={()=>setNewOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+          <div>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Template</label>
+            <select value={newName} onChange={e=>setNewName(e.target.value)} style={I()}>
+              {Object.keys(SEQUENCE_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+            </select>
+            <div style={{fontSize:11,color:C.textS,marginTop:4}}>{SEQUENCE_TEMPLATES[newName]?.description}</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Interval (minutes)</label>
+              <input type="number" value={newInterval} onChange={e=>setNewInterval(Number(e.target.value))} min={1} max={60} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Recommended: 5–10 min</div>
+            </div>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Emergency Brake</label>
+              <input type="number" value={newBrake} onChange={e=>setNewBrake(Number(e.target.value))} min={1} max={200} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Max sends before auto-pause</div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"10px 14px",background:"#FFF7ED",borderRadius:8,border:"1px solid #FED7AA",fontSize:12,color:"#92400E",marginBottom:16}}>
+          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a personalized unsubscribe link.
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={()=>setNewOpen(false)} style={B("secondary")}>Cancel</button>
+          <button onClick={createSeq} disabled={saving} style={{...B("primary"),opacity:saving?0.6:1}}>
+            {saving?<span style={{display:"flex",alignItems:"center",gap:6}}><Spinner/>Creating…</span>:"Create Sequence"}
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {enrollTarget&&<EnrollModal
+      seq={enrollTarget}
+      contacts={contacts}
+      enrollments={enrollments}
+      onClose={()=>setEnrollTarget(null)}
+      onEnroll={handleEnroll}
+    />}
+  </>;
+}
+
+// ── Review Queue Page ─────────────────────────────────────────────────────────
+
+function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
+  const[selected,setSelected]=useState(null);
+  const[approving,setApproving]=useState(false);
+
+  // Build a queue from active enrollments that need approval for their current step
+  const queue = enrollments
+    .filter(e=>e.status==="active")
+    .map(e=>{
+      const c=contacts.find(x=>x.id===e.contact_id);
+      const seq=sequences.find(x=>x.id===e.sequence_id);
+      if(!c||!seq)return null;
+      const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id);
+      const step=tmpl?.steps[e.current_step];
+      if(!step||!step.approvalRequired)return null;
+      const alreadySent=seqLog.find(l=>l.sequence_id===seq.id&&l.contact_id===c.id&&l.step_label===step.label);
+      if(alreadySent)return null;
+      return {
+        enrollmentId:e.id, sequenceId:seq.id, sequenceName:seq.name,
+        contactId:c.id, contactName:c.name, contactDistrict:c.district,
+        contactPersona:c.persona, stepLabel:step.label, stepIndex:e.current_step,
+        subject:`Quick note — aeroponic classroom farm for ${c.district}`,
+        scheduledFor:e.next_send_at||new Date().toISOString(),
+        status:"pending",
+        body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
+      };
+    }).filter(Boolean);
+
+  const [editBodies, setEditBodies] = useState({});
+
+  async function approve(item){
+    setApproving(true);
+    try{
+      // Log the send
+      const logRow={
+        sequence_id:item.sequenceId, contact_id:item.contactId,
+        contact_name:item.contactName, step_label:item.stepLabel,
+        subject:item.subject, status:"sent", sent_at:new Date().toISOString()
+      };
+      const inserted=await sbFetch("sequence_log",{method:"POST",body:JSON.stringify(logRow)});
+      setSeqLog(p=>[inserted[0],...p]);
+      // Advance enrollment step
+      await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({current_step:item.stepIndex+1})});
+      // Update contact pipeline stage
+      await sbFetch(`contacts?id=eq.${item.contactId}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});
+    }catch(e){alert("Error approving: "+e.message);}
+    setApproving(false);
+    setSelected(null);
+  }
+
+  async function reject(item){
+    // Mark enrollment as paused for this contact
+    await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSelected(null);
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Review Queue</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Approve or reject emails before they send</div></div>
+      {queue.length>0&&<span style={{marginLeft:"auto",fontSize:12,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"3px 10px",borderRadius:20,border:"1px solid #FDE68A"}}>{queue.length} awaiting approval</span>}
+    </div>
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{width:300,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
+        {queue.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT,fontSize:12}}>
+          <div style={{fontSize:28,marginBottom:8}}>📬</div>
+          No emails pending review
+        </div>}
+        {queue.map(q=>(
+          <div key={q.enrollmentId} onClick={()=>setSelected(q)}
+            style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.enrollmentId===q.enrollmentId?C.gBg:"white",borderLeft:selected?.enrollmentId===q.enrollmentId?`3px solid ${C.green}`:"3px solid transparent"}}
+            onMouseEnter={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background=C.bg;}}
+            onMouseLeave={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background="white";}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+              <Av name={q.contactName} size={22} color={PER_C[q.contactPersona]?.[0]||C.blue}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.contactName}</div>
+                <div style={{fontSize:10,color:C.textS}}>{q.contactDistrict}</div>
+              </div>
+              <span style={{width:7,height:7,borderRadius:"50%",background:C.orange,flexShrink:0}}/>
+            </div>
+            <div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.stepLabel} · {q.sequenceName}</div>
+            <div style={{fontSize:10,color:C.textT,marginTop:2}}>Scheduled: {fmtDT(q.scheduledFor)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:12}}>
+        {!selected?(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,textAlign:"center"}}>
+            <div style={{fontSize:36,opacity:0.3}}>📬</div>
+            <div style={{fontWeight:500,color:C.textS}}>Select an email to review</div>
+            <div style={{fontSize:12,maxWidth:260,lineHeight:1.6}}>Review and approve each email before it sends. You can edit the body before approving.</div>
+          </div>
+        ):<>
+          <div style={{padding:"11px 14px",background:C.gBg,border:`1px solid ${C.gBorder}`,borderRadius:8,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={selected.contactName} size={34} color={PER_C[selected.contactPersona]?.[0]||C.blue}/>
+            <div>
+              <div style={{fontWeight:600,fontSize:13}}>{selected.contactName}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:1}}>{selected.contactDistrict} · {selected.sequenceName} · {selected.stepLabel}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Subject</label>
+            <div style={{padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,background:C.bg}}>{selected.subject}</div>
+          </div>
+          <div style={{fontSize:12,color:C.textS}}>📅 Scheduled: <strong style={{color:C.text}}>{fmtDT(selected.scheduledFor)}</strong></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,flex:1}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Email Body</label>
+            <textarea
+              value={editBodies[selected.enrollmentId]??selected.body}
+              onChange={e=>setEditBodies(p=>({...p,[selected.enrollmentId]:e.target.value}))}
+              rows={12}
+              style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",fontFamily:"Georgia,serif",fontSize:12}}/>
+          </div>
+          <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>
+            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and personalized unsubscribe link.
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>approve(selected)} disabled={approving} style={{...B("primary"),flex:1,opacity:approving?0.6:1}}>
+              {approving?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Spinner/>Approving…</span>:"✓ Approve & Queue"}
+            </button>
+            <button onClick={()=>reject(selected)} style={{...B("danger"),flex:1}}>✗ Reject</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  </>;
+}
+
+// ── Unsubscribe Page ──────────────────────────────────────────────────────────
+
+function UnsubscribePage({contacts,setContacts}){
+  const unsubs=contacts.filter(c=>c.isUnsubscribed);
+  const bounced=contacts.filter(c=>c.bounced);
+
+  async function toggleUnsub(c, val){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:val?"Cold":"Bounced"})}).catch(console.error);
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,isUnsubscribed:val}:x));
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{fontWeight:700,fontSize:16}}>Unsubscribe & Suppression</div>
+      <div style={{fontSize:12,color:C.textS,marginTop:1}}>CAN-SPAM compliance · unsubscribed contacts skipped in all sequences</div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>Suppression summary</div>
+        <div style={{display:"flex",gap:12}}>
+          {[["Unsubscribed",unsubs.length,"#A32D2D","#FEE2E2"],["Bounced",bounced.length,"#854F0B","#FAEEDA"],["Eligible",contacts.length-unsubs.length-bounced.length,C.gDark,C.gBg]].map(([l,v,col,bg])=>(
+            <div key={l} style={{flex:1,background:bg,borderRadius:8,padding:"10px 14px",textAlign:"center"}}>
+              <div style={{fontSize:22,fontWeight:700,color:col}}>{v}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:2}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {unsubs.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Unsubscribed</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#A32D2D",background:"#FEE2E2",padding:"1px 7px",borderRadius:10}}>{unsubs.length}</span>
+        </div>
+        {unsubs.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Unsubscribed" color="#A32D2D" bg="#FEE2E2"/>
+            <button onClick={()=>toggleUnsub(c,false)} style={B("secondary","sm")}>Re-subscribe</button>
+          </div>
+        );})}
+      </div>}
+
+      {bounced.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Bounced</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 7px",borderRadius:10}}>{bounced.length}</span>
+        </div>
+        {bounced.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Bounced" color="#854F0B" bg="#FAEEDA"/>
+          </div>
+        );})}
+      </div>}
+    </div>
+  </>;
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 // ── Dashboard & Pipeline pages (inline) ──────────────────────────────────────
 function DashboardPage({contacts,activity,onNavigate}){
@@ -769,7 +1156,7 @@ function DashboardPage({contacts,activity,onNavigate}){
     </div>
   </div>;
 }
- 
+
 function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
   const[dragging,setDragging]=useState(null);
   const[dragOver,setDragOver]=useState(null);
@@ -801,7 +1188,7 @@ function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
     </div>
   </div>;
 }
- 
+
 function ActivityPage({activity}){
   const[filter,setFilter]=useState("All");
   const types=["All","email","reply","stage","demo","task"];
@@ -819,7 +1206,7 @@ function ActivityPage({activity}){
     </div>
   </>;
 }
- 
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 function App(){
   const[contacts,setContacts]=useState([]);
@@ -843,7 +1230,7 @@ function App(){
   const[activity,setActivity]=useState([]);
   const[selectedContact,setSelectedContact]=useState(null);
   const actIdRef=useRef(1);const taskIdRef=useRef(1);
- 
+
   useEffect(()=>{
     setLoading(true);
     Promise.all([
@@ -854,18 +1241,18 @@ function App(){
     ]).then(([c,s,e,l])=>{setContacts(c.map(mapRow));setSequences(s);setEnrollments(e);setSeqLog(l);setLoading(false);})
     .catch(err=>{setLoadErr("Could not load: "+err.message);setLoading(false);});
   },[]);
- 
+
   function addActivity(evt){setActivity(prev=>[{...evt,id:actIdRef.current++,time:new Date().toISOString()},...prev]);}
- 
+
   const filtered=contacts.filter(c=>{
     if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
     if(fp&&c.persona!==fp)return false;if(fs&&c.stage!==fs)return false;if(fst&&c.state!==fst)return false;return true;
   });
- 
+
   const stats={total:contacts.length,cold:contacts.filter(c=>c.stage==="Cold").length,active:contacts.filter(c=>!["Cold","Closed/Lost","Bounced","Declined"].includes(c.stage)).length};
- 
+
   function selectCC(c){setCc(c);setL2(templates[c.persona]?.roleBlurb||templates.General.roleBlurb);setL3(closeText);setL1("");setSubj("");setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");}
- 
+
   async function genHook(){
     if(!cc)return;setAiSt("loading");setKbSt("loading");setL1("");
     const kbFacts={STEM:"• 7-14 day seed-to-harvest cycle\n• NGSS-aligned curriculum\n• 75 sq ft growing canopy",Nutrition:"• 100 fresh salads per week\n• Zero pesticides, no food miles\n• Grant-aligned: farm-to-school",Sustainability:"• 95% less water than soil farming\n• NASA-selected aeroponics",CTE:"• Students grow, harvest, use fresh produce\n• AgEd and food science pathways",General:"• 100 salads/week in 7 days\n• 32 schools in NY and NJ\n• Founded by AeroFarms co-founder"};
@@ -875,29 +1262,29 @@ function App(){
     try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:sys,messages:[{role:"user",content:"Write the opening sentence."}]})});const d=await r.json();setL1((d.content?.[0]?.text||"").trim());setSubj(`Quick note — aeroponic classroom farm for ${cc.district}`);setAiSt("done");}
     catch(e){setAiSt("error");}
   }
- 
+
   const preview=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
- 
+
   async function pushGmail(){
     if(!subj||!preview||!cc)return;setGmSt("loading");setGmMsg("Pushing to Gmail...");
     try{const raw=`To: ${cc.email}\r\nSubject: ${subj}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${preview}`;const enc=btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");const r=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:{raw:enc}})});if(r.ok){setGmSt("success");setGmMsg(`✓ Draft saved for ${cc.email}`);await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Contacted"}:c));}else throw new Error();}
     catch(e){setGmSt("error");setGmMsg("Gmail push requires OAuth. Email ready to copy.");}
   }
- 
+
   function toggleSel(id){setSel(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});}
   function toggleAll(){sel.size===filtered.length&&filtered.length>0?setSel(new Set()):setSel(new Set(filtered.map(c=>c.id)));}
- 
+
   async function saveContact(){
     const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname)return;
     try{const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:"Cold"})});setContacts(p=>[mapRow(rows[0]),...p]);setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});setAddOpen(false);}
     catch(e){alert("Error: "+e.message);}
   }
- 
+
   async function deleteContact(c){
     try{await sbFetch(`contacts?id=eq.${c.id}`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});setContacts(p=>p.filter(x=>x.id!==c.id));setDetail(null);setDeleteConfirm(false);}
     catch(e){alert("Error deleting: "+e.message);}
   }
- 
+
   function handleStageChange(contactId,stage){
     const c=contacts.find(x=>x.id===contactId);if(!c||c.stage===stage)return;
     const prev=c.stage;setContacts(cs=>cs.map(x=>x.id===contactId?{...x,stage,stageEnteredAt:new Date().toISOString()}:x));
@@ -905,24 +1292,24 @@ function App(){
     addActivity({type:"stage",contactId,contactName:c.name,text:`moved from ${prev} → ${stage}`,detail:c.district,icon:(STAGE_META[stage]||{icon:"•"}).icon});
     if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,stage,stageEnteredAt:new Date().toISOString()}));
   }
- 
+
   function handleTaskAdd(contactId,task){
     const t={...task,id:taskIdRef.current++,done:false};setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:[...(c.tasks||[]),t]}:c));
     const c=contacts.find(x=>x.id===contactId);addActivity({type:"task",contactId,contactName:c?.name||"",text:"Task added",detail:task.text,icon:"✅"});
     if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:[...(p.tasks||[]),t]}));
   }
- 
+
   function handleTaskToggle(contactId,taskId){
     setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:(c.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}:c));
     if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:(p.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}));
   }
- 
+
   const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
- 
+
   const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
   const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
   const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
- 
+
   return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
     <div style={{height:52,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
       <div style={{display:"flex",alignItems:"center",gap:8,width:195,flexShrink:0}}>
@@ -991,7 +1378,7 @@ function App(){
           </>}
           {page==="compose"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Compose Email</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>AI district hook · persona pitch · universal close</div></div>
-            <div style={{display:"flex",flex:1,minHeight:0}}>
+            <div style={{display:"flex",flex:1,overflow:"hidden"}}>
               <div style={{width:265,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
                 <div style={SL()}>Select contact</div>
                 {contacts.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];return <div key={c.id} onClick={()=>selectCC(c)} style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:cc?.id===c.id?C.gBg:"white",borderLeft:cc?.id===c.id?`3px solid ${C.green}`:"3px solid transparent"}} onMouseEnter={e=>{if(cc?.id!==c.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(cc?.id!==c.id)e.currentTarget.style.background="white";}}><Av name={c.name} size={28} color={C.green}/><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role} · {c.district}</div></div><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></div>;})}
@@ -1009,18 +1396,18 @@ function App(){
                     <div style={{padding:10,background:"white"}}>
                       {aiSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.gDark}}><div style={{width:12,height:12,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>Writing opener…</div>}
                       {aiSt==="error"&&<div style={{fontSize:12,color:"#A32D2D"}}>⚠ Error. Retry.</div>}
-                      {(aiSt==="done"||l1)?<textarea value={l1} onChange={e=>setL1(e.target.value)} rows={6} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>:<div style={{fontSize:12,color:C.textT,fontStyle:"italic"}}>Click Generate to write a district-specific opener.</div>}
+                      {(aiSt==="done"||l1)?<textarea value={l1} onChange={e=>setL1(e.target.value)} rows={2} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>:<div style={{fontSize:12,color:C.textT,fontStyle:"italic"}}>Click Generate to write a district-specific opener.</div>}
                     </div>
                   </div>
-                  <div style={{border:`1px solid ${C.gBorder}`,borderRadius:8,overflow:"hidden"}}>
+                  <div style={{border:`1px solid ${C.gBorder}`,borderRadius:8}}>
                     <div style={{padding:"9px 12px",background:"#F0FDF4",borderBottom:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.green,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>2</div><div style={{fontWeight:600,fontSize:12,color:C.gDark}}>Persona pitch — {TMPL[cc.persona]?.label||"General"}</div></div>
-                    <div style={{padding:10,background:"white"}}><textarea value={l2} onChange={e=>setL2(e.target.value)} rows={6} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
+                    <div style={{padding:10,background:"white"}}><textarea value={l2} onChange={e=>setL2(e.target.value)} rows={6} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/></div>
                   </div>
-                  <div style={{border:`1px solid #FED7AA`,borderRadius:8,overflow:"hidden"}}>
+                  <div style={{border:`1px solid #FED7AA`,borderRadius:8}}>
                     <div style={{padding:"9px 12px",background:"#FFF7ED",borderBottom:`1px solid #FED7AA`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.orange,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>3</div><div style={{fontWeight:600,fontSize:12,color:"#92400E"}}>Universal close</div></div>
-                    <div style={{padding:10,background:"white"}}><textarea value={l3} onChange={e=>setL3(e.target.value)} rows={6} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
+                    <div style={{padding:10,background:"white"}}><textarea value={l3} onChange={e=>setL3(e.target.value)} rows={4} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/></div>
                   </div>
-                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(preview)} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif",maxHeight:300,overflowY:"auto"}}>{preview}</div></div>}
+                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(preview)} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif",maxHeight:320,overflowY:"auto"}}>{preview}</div></div>}
                   {gmSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.bBg,borderRadius:8,fontSize:12,color:C.bDark}}><div style={{width:12,height:12,border:"2px solid #B5D4F4",borderTopColor:C.bDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>{gmMsg}</div>}
                   {gmSt==="success"&&<div style={{padding:"8px 12px",background:C.gBg,borderRadius:8,fontSize:12,color:C.gDark}}>{gmMsg}</div>}
                   {gmSt==="error"&&<div style={{padding:"8px 12px",background:"#FAEEDA",borderRadius:8,fontSize:12,color:"#854F0B"}}>{gmMsg}</div>}
@@ -1100,9 +1487,9 @@ function App(){
     <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
   </div>;
 }
- 
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
- 
+
 </script>
 </body>
 </html>
