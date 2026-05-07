@@ -872,7 +872,7 @@ function App(){
     setKbSt("done");
     const facts=kbFacts[cc.persona]||kbFacts.General;
     const sys=`Write ONE sentence (max 30 words) opening a cold email to ${cc.name}, ${cc.role} at ${cc.school||cc.district}. Reference something specific about ${cc.district}. Tone: warm. Do NOT mention Inspired Growing. RESPOND WITH ONLY THE ONE SENTENCE.`;
-    try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:sys,messages:[{role:"user",content:"Write the opening sentence."}]})});const d=await r.json();setL1((d.content?.[0]?.text||"").trim());setSubj(`Quick note — aeroponic classroom farm for ${cc.district}`);setAiSt("done");}
+    tryconst r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:sys,messages:[{role:"user",content:"Write the opening sentence."}]})});const d=await r.json();setL1((d.content?.[0]?.text||"").trim());setSubj(`Quick note — aeroponic classroom farm for ${cc.district}`);setAiSt("done");}
     catch(e){setAiSt("error");}
   }
  
