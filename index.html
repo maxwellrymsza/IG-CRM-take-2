@@ -311,6 +311,9 @@ const SEQUENCE_TEMPLATES={
 };
 const STUCK_DAYS={Cold:14,Contacted:7,Replied:5,'Demo Scheduled':7,'Proposal Sent':14};
 const NOW=Date.now();
+const STAGE_META={"Cold":{color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️"},"Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬"},"Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅"},"Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄"},"Bounced":{color:"#A32D2D",bg:"#FEE2E2",icon:"↩️"},"Declined":{color:"#6B7280",bg:"#F3F4F6",icon:"✗"},"Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆"},"Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗"},"OOO":{color:"#854F0B",bg:"#FAEEDA",icon:"🌴"}};
+const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
+const fmtDate=iso=>new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"});
 const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?'Today':d===1?'Yesterday':`${d}d ago`;};
 const fmtDate=iso=>new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
