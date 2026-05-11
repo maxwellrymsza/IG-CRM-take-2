@@ -870,8 +870,8 @@ function App(){
 
 Write a 3-paragraph cold email to ${cc.name}, ${cc.role} at ${cc.school||cc.district} (${cc.district}, ${cc.state}).
 
-PARAGRAPH 1 — Personalized opener (2-3 sentences):
-Reference something specific and real about their school, district, or role that makes this email feel personally researched. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} Do not mention Inspired Growing yet. Make it feel like you did your homework on them specifically.
+PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):
+First, reference something specific and real about their school, district, or role that makes this email feel personally researched. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} Then end the paragraph with a bridge sentence that introduces why you are reaching out — something like "I wanted to introduce Inspired Growing while that planning is still in motion" or "That's part of why I wanted to reach out." Do not describe Inspired Growing yet — just bridge into it.
 
 PARAGRAPH 2 — What Inspired Growing does, angled to their role (3-4 sentences):
 ${pitch}
@@ -1020,16 +1020,15 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
                   <div style={{padding:"11px 14px",background:C.gBg,borderRadius:8,border:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:10}}><Av name={cc.name} size={34} color={C.blue}/><div><div style={{fontWeight:600,fontSize:13}}>{cc.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{cc.role} · {cc.school||cc.district} · {cc.district}, {cc.state}</div></div><div style={{marginLeft:"auto"}}>{(()=>{const[pc,pb]=PER_C[cc.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[cc.persona]?.label||cc.persona} color={pc} bg={pb}/>;})()}</div></div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Subject line</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Auto-fills after generating..." style={I()}/></div>
                   <button onClick={genHook} disabled={aiSt==="loading"} style={{...B("primary"),width:"100%",padding:"10px",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>{aiSt==="loading"?<><div style={{width:14,height:14,border:"2px solid rgba(255,255,255,0.4)",borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Generating full email…</>:l1?<>↻ Regenerate Full Email</>:<>✨ Generate Full Email</>}</button>
-                  <div style={{border:`1px solid #BAE6FD`,borderRadius:8,overflow:"hidden"}}>
+                  <div style={{border:`1px solid #BAE6FD`,borderRadius:8}}>
                     <div style={{padding:"9px 12px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:8}}>
                       <div style={{width:22,height:22,borderRadius:"50%",background:"#378ADD",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>1</div>
-                      <div style={{flex:1,fontWeight:600,fontSize:12,color:"#0369A1"}}>Opening — personalized to {cc.name.split(" ")[0]}{kbSt==="done"&&<span style={{fontWeight:400,color:C.gDark,marginLeft:6}}>✓ Generated</span>}</div>
-                      <button onClick={genHook} disabled={aiSt==="loading"} style={B("secondary","sm")}>{aiSt==="loading"?"Generating…":l1?"↻ Regenerate":"✨ Generate Full Email"}</button>
+                      <div style={{flex:1,fontWeight:600,fontSize:12,color:"#0369A1"}}>Personalized opener{kbSt==="done"&&<span style={{fontWeight:400,color:C.gDark,marginLeft:6}}>✓ Generated</span>}</div>
                     </div>
                     <div style={{padding:10,background:"white"}}>
-                      {aiSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.gDark}}><div style={{width:12,height:12,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>Writing opener…</div>}
-                      {aiSt==="error"&&<div style={{fontSize:12,color:"#A32D2D"}}>⚠ Error. Retry.</div>}
-                      {(aiSt==="done"||l1)?<textarea value={l1} onChange={e=>setL1(e.target.value)} rows={2} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>:<div style={{fontSize:12,color:C.textT,fontStyle:"italic"}}>Click Generate to write a district-specific opener.</div>}
+                      {aiSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.gDark,padding:"8px 2px"}}><div style={{width:12,height:12,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>Writing personalized email…</div>}
+                      {aiSt==="error"&&<div style={{fontSize:12,color:"#A32D2D",padding:"4px 2px"}}>⚠ Error connecting to AI. Check your Cloudflare worker and API key.</div>}
+                      {(aiSt==="done"||l1)?<textarea value={l1} onChange={e=>setL1(e.target.value)} rows={4} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/>:<div style={{fontSize:12,color:C.textT,fontStyle:"italic",padding:"8px 2px"}}>Click ✨ Generate Full Email above — AI will write a personalized opener referencing something specific about {cc.district}, then bridge into why you're reaching out.</div>}
                     </div>
                   </div>
                   <div style={{border:`1px solid ${C.gBorder}`,borderRadius:8}}>
