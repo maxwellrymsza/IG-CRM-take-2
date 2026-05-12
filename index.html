@@ -832,15 +832,34 @@ function App(){
   const[selectedContact,setSelectedContact]=useState(null);
   const actIdRef=useRef(1);const taskIdRef=useRef(1);
 
-  useEffect(()=>{
+useEffect(()=>{
     setLoading(true);
-    Promise.all([
-      sbFetch("contacts?select=*&order=created_at.desc&limit=5000"),
-      sbFetch("sequences?select=*&order=created_at.desc"),
-      sbFetch("enrollments?select=*&order=enrolled_at.desc"),
-      sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
-    ]).then(([c,s,e,l])=>{setContacts(c.map(mapRow));setSequences(s);setEnrollments(e);setSeqLog(l);setLoading(false);})
-    .catch(err=>{setLoadErr("Could not load: "+err.message);setLoading(false);});
+    async function loadAll() {
+      try {
+        // Paginate contacts in batches of 1000
+        let allContacts = [];
+        let from = 0;
+        const batchSize = 1000;
+        while(true) {
+          const batch = await sbFetch(`contacts?select=*&order=created_at.desc&limit=${batchSize}&offset=${from}`);
+          allContacts = allContacts.concat(batch);
+          if(batch.length < batchSize) break;
+          from += batchSize;
+        }
+        const [s,e,l] = await Promise.all([
+          sbFetch("sequences?select=*&order=created_at.desc"),
+          sbFetch("enrollments?select=*&order=enrolled_at.desc"),
+          sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
+        ]);
+        setContacts(allContacts.map(mapRow));
+        setSequences(s);setEnrollments(e);setSeqLog(l);
+        setLoading(false);
+      } catch(err) {
+        setLoadErr("Could not load: "+err.message);
+        setLoading(false);
+      }
+    }
+    loadAll();
   },[]);
 
   function addActivity(evt){setActivity(prev=>[{...evt,id:actIdRef.current++,time:new Date().toISOString()},...prev]);}
