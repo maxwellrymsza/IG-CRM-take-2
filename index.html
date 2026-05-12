@@ -835,7 +835,7 @@ function App(){
   useEffect(()=>{
     setLoading(true);
     Promise.all([
-      sbFetch("contacts?select=*&order=created_at.desc&limit=1000"),
+      sbFetch("contacts?select=*&order=created_at.desc&limit=5000"),
       sbFetch("sequences?select=*&order=created_at.desc"),
       sbFetch("enrollments?select=*&order=enrolled_at.desc"),
       sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
