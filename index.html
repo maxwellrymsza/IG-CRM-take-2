@@ -851,8 +851,13 @@ useEffect(()=>{
           sbFetch("enrollments?select=*&order=enrolled_at.desc"),
           sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
         ]);
-        setContacts(allContacts.map(mapRow));
-        setSequences(s);setEnrollments(e);setSeqLog(l);
+const seen = new Set();
+const deduped = allContacts.filter(c => {
+  if (seen.has(c.id)) return false;
+  seen.add(c.id);
+  return true;
+});
+setContacts(deduped.map(mapRow));        setSequences(s);setEnrollments(e);setSeqLog(l);
         setLoading(false);
       } catch(err) {
         setLoadErr("Could not load: "+err.message);
