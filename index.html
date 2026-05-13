@@ -1105,8 +1105,12 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
         </div>
         {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Alt Contact</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
         <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
-        <div style={{fontSize:13,color:C.textS,lineHeight:1.6,marginBottom:20,minHeight:32}}>{detail.notes||"No notes yet."}</div>
-        <div style={{display:"flex",gap:8}}>
+<textarea defaultValue={detail.notes||""} onBlur={async e=>{
+  const newNotes=e.target.value;
+  await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({notes:newNotes})});
+  setContacts(p=>p.map(c=>c.id===detail.id?{...c,notes:newNotes}:c));
+  setDetail(d=>({...d,notes:newNotes}));
+}} style={{...I(),fontSize:13,lineHeight:1.6,marginBottom:20,minHeight:60,resize:"vertical",background:"white"}} placeholder="Click to add notes..."/>        <div style={{display:"flex",gap:8}}>
           <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
           <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
           <button onClick={()=>{if(window.confirm(`Delete ${detail.name}? This cannot be undone.`))deleteContact(detail);}} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
