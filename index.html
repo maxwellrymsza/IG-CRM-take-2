@@ -1063,7 +1063,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
                     <div style={{padding:"9px 12px",background:"#FFF7ED",borderBottom:`1px solid #FED7AA`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.orange,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>3</div><div style={{fontWeight:600,fontSize:12,color:"#92400E"}}>Universal close</div></div>
                     <div style={{padding:10,background:"white"}}><textarea value={l3} onChange={e=>setL3(e.target.value)} rows={4} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/></div>
                   </div>
-                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(preview)} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif",maxHeight:320,overflowY:"auto"}}>{preview}</div></div>}
+                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={async()=>{
+  navigator.clipboard&&navigator.clipboard.writeText(preview);
+  if(cc){
+    const today=new Date().toISOString().split("T")[0];
+    await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(cc.stage==="Cold"?{pipeline_stage:"Contacted"}:{})})});
+    setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(c.stage==="Cold"?{stage:"Contacted"}:{})}:c));
+  }
+}} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif",maxHeight:320,overflowY:"auto"}}>{preview}</div></div>}
                   {gmSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.bBg,borderRadius:8,fontSize:12,color:C.bDark}}><div style={{width:12,height:12,border:"2px solid #B5D4F4",borderTopColor:C.bDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>{gmMsg}</div>}
                   {gmSt==="success"&&<div style={{padding:"8px 12px",background:C.gBg,borderRadius:8,fontSize:12,color:C.gDark}}>{gmMsg}</div>}
                   {gmSt==="error"&&<div style={{padding:"8px 12px",background:"#FAEEDA",borderRadius:8,fontSize:12,color:"#854F0B"}}>{gmMsg}</div>}
