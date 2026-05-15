@@ -857,6 +857,9 @@ function App(){
   const[activity,setActivity]=useState([]);
   const[selectedContact,setSelectedContact]=useState(null);
   const actIdRef=useRef(1);const taskIdRef=useRef(1);
+  const[batchRunning,setBatchRunning]=useState(false);
+  const[batchProgress,setBatchProgress]=useState(null); // {done,total,current,failed}
+  const[batchDone,setBatchDone]=useState(null);
 
   useEffect(()=>{
     setLoading(true);
@@ -992,6 +995,80 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     catch(e){alert("Error deleting: "+e.message);}
   }
 
+  const pitchByPersona={
+    STEM:"We build aeroponic classroom farm systems for K-12 schools — 12 independent growing trays running seed-to-harvest cycles as short as seven days across 75 square feet. Students run repeated experimental cycles within a single term, generating their own data and iterating on their own results. The curriculum is NGSS-aligned across plant science and experimental design.",
+    Nutrition:"We build 12-tray aeroponic lab systems for K-12 schools — industrial-grade, not the hobby kits that tend to collect dust. Students grow the greens, harvest them, and eat them. The farm-to-school distance is exactly zero. Our systems run a 7-day seed-to-harvest cycle and produce around 100 fresh 3oz salads per week.",
+    Sustainability:"We install aeroponic classroom farm systems in K-12 schools that use 95% less water than soil farming, zero pesticides, and eliminate food transportation entirely. Students grow, harvest, and eat real food grown inside the building — the farm-to-school distance is exactly zero.",
+    CTE:"We build aeroponic classroom farm systems for CTE and culinary programs — students grow, harvest, and use fresh microgreens and greens in real culinary projects. The systems run on 7-day seed-to-harvest cycles and connect directly to AgEd and food science career pathways.",
+    General:"Inspired Growing provides turnkey aeroponic classroom farm programs to K-12 schools. The systems run on seed-to-harvest cycles as short as seven days across 75 square feet of growing space. Because students grow real food in real volume, the program connects organically to the nutrition literacy and farm-to-school conversations most districts are already having."
+  };
+
+  async function generateEmailForContact(c){
+    const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
+    const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
+    const sys=`You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
+
+Write a 3-paragraph cold email to ${c.name}, ${c.role} at ${c.school||c.district} (${c.district}, ${c.state}).
+
+PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):
+Reference something specific and real about their school, district, or role. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} End with a bridge sentence like "I wanted to introduce Inspired Growing while that planning is still in motion."
+
+PARAGRAPH 2 — What Inspired Growing does (3-4 sentences):
+${pitch}
+
+Do NOT start with "I". Tone: warm, direct, collegial. Not salesy.
+Do not add a subject line, greeting, or signature.
+RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
+    const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,system:sys,messages:[{role:"user",content:"Write the email."}]})});
+    const d=await r.json();
+    const fullText=(d.content?.[0]?.text||"").trim();
+    const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
+    const l1=paras[0]||"";
+    const l2=paras[1]||pitch;
+    const l3=paras[2]||DEF_CLOSE;
+    const sig=DEF_SIG;
+    const body=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(c)}`].filter(Boolean).join("\n\n");
+    const subj=`${c.district} — aeroponic classroom farm`;
+    return{body,subj};
+  }
+
+  async function pushDraftForContact(c,body,subj,token){
+    const emailLines=[`To: ${c.email}`,`Subject: ${subj}`,`Content-Type: text/plain; charset=utf-8`,``,body].join("\r\n");
+    const enc=btoa(unescape(encodeURIComponent(emailLines))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+    const r=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({message:{raw:enc}})});
+    if(!r.ok){const err=await r.json();throw new Error(err.error?.message||"Gmail error");}
+    return true;
+  }
+
+  async function batchGenerateAndPush(){
+    const selectedContacts=[...sel].map(id=>contacts.find(c=>c.id===id)).filter(Boolean);
+    if(selectedContacts.length===0)return;
+    setBatchRunning(true);setBatchDone(null);
+    setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
+    let token;
+    try{token=await getGmailToken();}
+    catch(e){setBatchRunning(false);setBatchProgress(null);alert("Gmail sign-in required. Please try again.");return;}
+    let done=0,failed=0;const failedNames=[];
+    for(let i=0;i<selectedContacts.length;i++){
+      const c=selectedContacts[i];
+      setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
+      try{
+        const{body,subj}=await generateEmailForContact(c);
+        await pushDraftForContact(c,body,subj,token);
+        const today=new Date().toISOString().split("T")[0];
+        await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(c.stage==="Cold"?{pipeline_stage:"Contacted"}:{})})});
+        setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today,...(x.stage==="Cold"?{stage:"Contacted"}:{})}:x));
+        done++;
+      }catch(e){failed++;failedNames.push(c.name);}
+      // Small delay to avoid rate limits
+      if(i<selectedContacts.length-1)await new Promise(r=>setTimeout(r,1500));
+    }
+    setBatchRunning(false);
+    setBatchProgress(null);
+    setBatchDone({done,failed,failedNames});
+    setSel(new Set());
+  }
+
   function handleStageChange(contactId,stage){
     const c=contacts.find(x=>x.id===contactId);if(!c||c.stage===stage)return;
     const prev=c.stage;setContacts(cs=>cs.map(x=>x.id===contactId?{...x,stage,stageEnteredAt:new Date().toISOString()}:x));
@@ -1059,7 +1136,30 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
               <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}><option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option></select>
               <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{filtered.length} of {contacts.length}</span>
             </div>
-            {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12}}><span style={{fontWeight:600,color:C.gDark}}>{sel.size} selected</span><button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("blue","sm")}>✉ Compose Email</button><button onClick={()=>setSel(new Set())} style={B("secondary","sm")}>✕ Clear</button></div>}
+            {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
+              <span style={{fontWeight:600,color:C.gDark}}>{sel.size} contact{sel.size!==1?"s":""} selected</span>
+              {!batchRunning&&!batchDone&&<>
+                <button onClick={batchGenerateAndPush} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>
+                  ✨ Generate & Push All to Gmail Drafts
+                </button>
+                <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
+              </>}
+              {batchRunning&&batchProgress&&<>
+                <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
+                  <div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>
+                  <span style={{color:C.gDark,fontWeight:500}}>Generating for <strong>{batchProgress.current}</strong>…</span>
+                  <span style={{color:C.textS}}>{batchProgress.done} of {batchProgress.total} done{batchProgress.failed>0?` · ${batchProgress.failed} failed`:""}</span>
+                  <div style={{flex:1,height:4,background:C.gBorder,borderRadius:2,overflow:"hidden",maxWidth:200}}>
+                    <div style={{height:"100%",width:`${(batchProgress.done/batchProgress.total)*100}%`,background:C.gDark,borderRadius:2,transition:"width 0.3s"}}/>
+                  </div>
+                </div>
+              </>}
+              {batchDone&&<>
+                <span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} draft{batchDone.done!==1?"s":""} pushed to Gmail{batchDone.failed>0?` · ${batchDone.failed} failed (${batchDone.failedNames.join(", ")})`:""}</span>
+                <button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button>
+              </>}
+              {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);}} style={B("secondary","sm")}>✕ Clear</button>}
+            </div>}
             <div style={{flex:1,overflowY:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr style={{background:C.bg,borderBottom:`1px solid ${C.border}`}}>
