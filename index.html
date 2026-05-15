@@ -7,7 +7,6 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,-apple-system,sans-serif;background:#F5F6F8;color:#111827;font-size:13px;height:100vh;overflow:hidden;}
@@ -30,31 +29,6 @@ const {useState,useRef,useEffect} = React;
 // ── Supabase Config ───────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://obluwsjebgsvyimgbvec.supabase.co";
 const SUPABASE_KEY = "sb_publishable_bDX96nrGsEngzarsT55NuA_NHWVeNp7";
-
-// ── Google OAuth ──────────────────────────────────────────────────────────────
-const GOOGLE_CLIENT_ID = "513105773697-gogti1rnrtgjluira831og02imd5gfai.apps.googleusercontent.com";
-const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.compose";
-let googleAccessToken = null;
-
-function signInWithGoogle() {
-  return new Promise((resolve, reject) => {
-    const client = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: GMAIL_SCOPE,
-      callback: (response) => {
-        if (response.error) { reject(response.error); return; }
-        googleAccessToken = response.access_token;
-        resolve(response.access_token);
-      },
-    });
-    client.requestAccessToken();
-  });
-}
-
-async function getGmailToken() {
-  if (googleAccessToken) return googleAccessToken;
-  return await signInWithGoogle();
-}
 
 async function sbFetch(path, opts={}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -858,15 +832,39 @@ function App(){
   const[selectedContact,setSelectedContact]=useState(null);
   const actIdRef=useRef(1);const taskIdRef=useRef(1);
 
-  useEffect(()=>{
+useEffect(()=>{
     setLoading(true);
-    Promise.all([
-      sbFetch("contacts?select=*&order=created_at.desc&limit=1000"),
-      sbFetch("sequences?select=*&order=created_at.desc"),
-      sbFetch("enrollments?select=*&order=enrolled_at.desc"),
-      sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
-    ]).then(([c,s,e,l])=>{setContacts(c.map(mapRow));setSequences(s);setEnrollments(e);setSeqLog(l);setLoading(false);})
-    .catch(err=>{setLoadErr("Could not load: "+err.message);setLoading(false);});
+    async function loadAll() {
+      try {
+        // Paginate contacts in batches of 1000
+        let allContacts = [];
+        let from = 0;
+        const batchSize = 1000;
+        while(true) {
+          const batch = await sbFetch(`contacts?select=*&order=created_at.desc&limit=${batchSize}&offset=${from}`);
+          allContacts = allContacts.concat(batch);
+          if(batch.length < batchSize) break;
+          from += batchSize;
+        }
+        const [s,e,l] = await Promise.all([
+          sbFetch("sequences?select=*&order=created_at.desc"),
+          sbFetch("enrollments?select=*&order=enrolled_at.desc"),
+          sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
+        ]);
+const seen = new Set();
+const deduped = allContacts.filter(c => {
+  if (seen.has(c.id)) return false;
+  seen.add(c.id);
+  return true;
+});
+setContacts(deduped.map(mapRow));        setSequences(s);setEnrollments(e);setSeqLog(l);
+        setLoading(false);
+      } catch(err) {
+        setLoadErr("Could not load: "+err.message);
+        setLoading(false);
+      }
+    }
+    loadAll();
   },[]);
 
   function addActivity(evt){setActivity(prev=>[{...evt,id:actIdRef.current++,time:new Date().toISOString()},...prev]);}
@@ -924,43 +922,9 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   const preview=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
 
   async function pushGmail(){
-    if(!subj||!preview||!cc)return;
-    setGmSt("loading");setGmMsg("Connecting to Gmail...");
-    try{
-      const token = await getGmailToken();
-      setGmMsg("Pushing draft to Gmail...");
-      const emailLines = [
-        `To: ${cc.email}`,
-        `Subject: ${subj}`,
-        `Content-Type: text/plain; charset=utf-8`,
-        ``,
-        preview
-      ].join("\r\n");
-      const enc = btoa(unescape(encodeURIComponent(emailLines)))
-        .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
-      const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
-        body:JSON.stringify({message:{raw:enc}})
-      });
-      if(r.ok){
-        setGmSt("success");
-        setGmMsg(`✓ Draft saved to Gmail for ${cc.email} — go to Gmail to send`);
-        const today=new Date().toISOString().split("T")[0];
-        await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:today})});
-        setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Contacted",lastContact:today}:c));
-      } else {
-        const err = await r.json();
-        throw new Error(err.error?.message||"Gmail API error");
-      }
-    }
-    catch(e){
-      if(e==="popup_closed_by_user"||e==="access_denied"){
-        setGmSt("error");setGmMsg("Sign-in cancelled. Click Push to try again.");
-      } else {
-        setGmSt("error");setGmMsg(`Error: ${e.message||e}. Try again.`);
-      }
-    }
+    if(!subj||!preview||!cc)return;setGmSt("loading");setGmMsg("Pushing to Gmail...");
+    try{const raw=`To: ${cc.email}\r\nSubject: ${subj}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${preview}`;const enc=btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");const r=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:{raw:enc}})});if(r.ok){setGmSt("success");setGmMsg(`✓ Draft saved for ${cc.email}`);await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Contacted"}:c));}else throw new Error();}
+    catch(e){setGmSt("error");setGmMsg("Gmail push requires OAuth. Email ready to copy.");}
   }
 
   function toggleSel(id){setSel(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});}
@@ -1099,11 +1063,18 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
                     <div style={{padding:"9px 12px",background:"#FFF7ED",borderBottom:`1px solid #FED7AA`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.orange,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>3</div><div style={{fontWeight:600,fontSize:12,color:"#92400E"}}>Universal close</div></div>
                     <div style={{padding:10,background:"white"}}><textarea value={l3} onChange={e=>setL3(e.target.value)} rows={4} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/></div>
                   </div>
-                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(preview)} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif",maxHeight:320,overflowY:"auto"}}>{preview}</div></div>}
+                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={async()=>{
+  navigator.clipboard&&navigator.clipboard.writeText(preview);
+  if(cc){
+    const today=new Date().toISOString().split("T")[0];
+    await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(cc.stage==="Cold"?{pipeline_stage:"Contacted"}:{})})});
+    setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(c.stage==="Cold"?{stage:"Contacted"}:{})}:c));
+  }
+}} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif",maxHeight:320,overflowY:"auto"}}>{preview}</div></div>}
                   {gmSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.bBg,borderRadius:8,fontSize:12,color:C.bDark}}><div style={{width:12,height:12,border:"2px solid #B5D4F4",borderTopColor:C.bDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>{gmMsg}</div>}
                   {gmSt==="success"&&<div style={{padding:"8px 12px",background:C.gBg,borderRadius:8,fontSize:12,color:C.gDark}}>{gmMsg}</div>}
                   {gmSt==="error"&&<div style={{padding:"8px 12px",background:"#FAEEDA",borderRadius:8,fontSize:12,color:"#854F0B"}}>{gmMsg}</div>}
-                  <div style={{display:"flex",gap:8,paddingBottom:8}}><button onClick={pushGmail} disabled={!subj||!l1} style={{...B("blue"),opacity:(!subj||!l1)?0.4:1}}>{gmSt==="loading"?"Connecting…":"📧 Push to Gmail Draft"}</button><button onClick={genHook} style={B("secondary")}>↻ Regenerate</button></div>
+                  <div style={{display:"flex",gap:8,paddingBottom:8}}><button onClick={pushGmail} disabled={!subj||!l1} style={{...B("blue"),opacity:(!subj||!l1)?0.4:1}}>📧 Push to Gmail Draft</button><button onClick={genHook} style={B("secondary")}>↻ Regenerate</button></div>
                 </>}
               </div>
             </div>
@@ -1134,8 +1105,12 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
         </div>
         {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Alt Contact</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
         <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
-        <div style={{fontSize:13,color:C.textS,lineHeight:1.6,marginBottom:20,minHeight:32}}>{detail.notes||"No notes yet."}</div>
-        <div style={{display:"flex",gap:8}}>
+<textarea defaultValue={detail.notes||""} onBlur={async e=>{
+  const newNotes=e.target.value;
+  await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({notes:newNotes})});
+  setContacts(p=>p.map(c=>c.id===detail.id?{...c,notes:newNotes}:c));
+  setDetail(d=>({...d,notes:newNotes}));
+}} style={{...I(),fontSize:13,lineHeight:1.6,marginBottom:20,minHeight:60,resize:"vertical",background:"white"}} placeholder="Click to add notes..."/>        <div style={{display:"flex",gap:8}}>
           <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
           <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
           <button onClick={()=>{if(window.confirm(`Delete ${detail.name}? This cannot be undone.`))deleteContact(detail);}} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
