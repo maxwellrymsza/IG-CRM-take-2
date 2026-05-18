@@ -867,6 +867,8 @@ function App(){
   const[batchDone,setBatchDone]=useState(null);
   const[taskText,setTaskText]=useState("");
   const[taskDate,setTaskDate]=useState("");
+  const[editMode,setEditMode]=useState(false);
+  const[editF,setEditF]=useState({});
 
   useEffect(()=>{
     setLoading(true);
@@ -1279,27 +1281,60 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
       </div>
     </div>
     <div style={{height:4,display:"flex",flexShrink:0}}>{[C.lavender,C.lightblue,C.blue,C.green,C.yellow,C.orange,C.coral].map(col=><div key={col} style={{flex:1,background:col}}/>)}</div>
-    {detail&&<div onClick={()=>setDetail(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:480,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
-        <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:20}}><Av name={detail.name} size={44} color={C.blue}/><div><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div><button onClick={()=>setDetail(null)} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button></div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
-          {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
-          <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
-          <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Stage</div><Tag label={detail.stage} color={STAGE_META[detail.stage]?.color||"#6B7280"} bg={STAGE_META[detail.stage]?.bg||"#F3F4F6"}/></div>
+    {detail&&<div onClick={()=>{setDetail(null);setEditMode(false);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:500,maxHeight:"88vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:16}}>
+          <Av name={detail.name} size={44} color={C.blue}/>
+          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div>
+          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
+          <button onClick={()=>{setDetail(null);setEditMode(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
         </div>
-        {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Alt Contact</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
-        <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
-        <textarea defaultValue={detail.notes||""} onBlur={async e=>{
-  const newNotes=e.target.value;
-  await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({notes:newNotes})});
-  setContacts(p=>p.map(c=>c.id===detail.id?{...c,notes:newNotes}:c));
-  setDetail(d=>({...d,notes:newNotes}));
-}} style={{...I(),fontSize:13,lineHeight:1.6,marginBottom:20,minHeight:60,resize:"vertical",background:"white"}} placeholder="Click to add notes..."/>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>{setDetail(null);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
-          <button onClick={()=>setDetail(null)} style={B("secondary")}>Close</button>
-          <button onClick={()=>{if(window.confirm(`Delete ${detail.name}? This cannot be undone.`))deleteContact(detail);}} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
-        </div>
+        {!editMode?<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
+            <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
+            <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Stage</div><Tag label={detail.stage} color={STAGE_META[detail.stage]?.color||"#6B7280"} bg={STAGE_META[detail.stage]?.bg||"#F3F4F6"}/></div>
+          </div>
+          {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Alt Contact</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
+          <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
+          <textarea defaultValue={detail.notes||""} onBlur={async e=>{const newNotes=e.target.value;await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({notes:newNotes})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,notes:newNotes}:c));setDetail(d=>({...d,notes:newNotes}));}} style={{...I(),fontSize:13,lineHeight:1.6,marginBottom:20,minHeight:60,resize:"vertical",background:"white"}} placeholder="Click to add notes..."/>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>{setDetail(null);setEditMode(false);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
+            <button onClick={()=>{setDetail(null);setEditMode(false);}} style={B("secondary")}>Close</button>
+            <button onClick={()=>{if(window.confirm(`Delete ${detail.name}? This cannot be undone.`)){deleteContact(detail);setEditMode(false);}}} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
+          </div>
+        </>:<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+            {[["name","Name"],["email","Email"],["role","Role"],["school","Organization"],["district","District"],["state","State"],["lead_source","Lead Source"],["project_type","Project Type"],["alt_contact","Alt Contact"]].map(([k,l])=>(
+              <div key={k} style={{display:"flex",flexDirection:"column",gap:4}}>
+                <label style={LBL()}>{l}</label>
+                <input value={editF[k]||""} onChange={e=>setEditF(f=>({...f,[k]:e.target.value}))} style={I()}/>
+              </div>
+            ))}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={LBL()}>Persona</label>
+              <select value={editF.persona||"General"} onChange={e=>setEditF(f=>({...f,persona:e.target.value}))} style={S()}>
+                {Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}
+                <option value="Administrator">Administrator</option>
+              </select>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
+            <label style={LBL()}>Notes</label>
+            <textarea value={editF.notes||""} onChange={e=>setEditF(f=>({...f,notes:e.target.value}))} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={async()=>{
+              try{
+                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes})});
+                const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes};
+                setContacts(p=>p.map(c=>c.id===detail.id?updated:c));
+                setDetail(updated);setEditMode(false);
+              }catch(e){alert("Error saving: "+e.message);}
+            }} style={B("primary")}>💾 Save Changes</button>
+            <button onClick={()=>setEditMode(false)} style={B("secondary")}>Cancel</button>
+          </div>
+        </>}
       </div>
     </div>}
     {addOpen&&<div onClick={()=>setAddOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
