@@ -1079,6 +1079,16 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     setSel(new Set());
   }
 
+  async function bulkDelete(){
+    const ids=[...sel];
+    if(!window.confirm(`Delete ${ids.length} contacts? This cannot be undone.`))return;
+    try{
+      await sbFetch(`contacts?id=in.(${ids.join(",")})`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
+      setContacts(p=>p.filter(c=>!ids.includes(c.id)));
+      setSel(new Set());
+    }catch(e){alert("Error deleting: "+e.message);}
+  }
+
   function handleStageChange(contactId,stage){
     const c=contacts.find(x=>x.id===contactId);if(!c||c.stage===stage)return;
     const prev=c.stage;setContacts(cs=>cs.map(x=>x.id===contactId?{...x,stage,stageEnteredAt:new Date().toISOString()}:x));
@@ -1172,6 +1182,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                   ✨ Generate & Push All to Gmail Drafts
                 </button>
                 <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
+                <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
               </>}
               {batchRunning&&batchProgress&&<>
                 <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
