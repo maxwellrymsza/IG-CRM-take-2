@@ -940,7 +940,6 @@ function App(){
   const[taskDate,setTaskDate]=useState("");
   const[editMode,setEditMode]=useState(false);
   const[editF,setEditF]=useState({});
-  const[showLeadsBanner,setShowLeadsBanner]=useState(true);
 
   useEffect(()=>{
     setLoading(true);
@@ -1186,8 +1185,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
   const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
 
   const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
-  const unseenLeads=contacts.filter(c=>c.stageEnteredAt&&(Date.now()-new Date(c.stageEnteredAt).getTime())<7*24*60*60*1000);
-  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads",badge:unseenLeads.length},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
+  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads"},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
   const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
@@ -1218,18 +1216,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
         {loading&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:C.textT}}><div style={{width:28,height:28,border:`3px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/><div>Loading from Supabase…</div></div>}
         {!loading&&<>
           {page==="dashboard"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Dashboard</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Live from Supabase · {contacts.length} contacts</div></div>
-            {unseenLeads.length>0&&showLeadsBanner&&<div style={{margin:"12px 20px 0",background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"flex-start",gap:12,flexShrink:0}}>
-              <div style={{fontSize:22,flexShrink:0}}>🔔</div>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:13,color:"#065F46",marginBottom:4}}>{unseenLeads.length} new inbound lead{unseenLeads.length!==1?"s":""} since your last visit</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>
-                  {unseenLeads.slice(0,5).map(c=><div key={c.id} onClick={()=>setPage("new-leads")} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:"1px solid #86EFAC",borderRadius:8,padding:"5px 10px",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#F0FDF4"} onMouseLeave={e=>e.currentTarget.style.background="white"}><div style={{width:22,height:22,borderRadius:5,background:"#065F46",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:9}}>{(c.name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div><div><div style={{fontSize:12,fontWeight:500,color:"#065F46"}}>{c.name||c.email}</div><div style={{fontSize:10,color:"#16A34A"}}>{c.lead_source}</div></div></div>)}
-              {unseenLeads.length>5&&<div style={{fontSize:12,color:"#16A34A",alignSelf:"center"}}>+{unseenLeads.length-5} more → <span style={{textDecoration:"underline",cursor:"pointer"}} onClick={()=>setPage("new-leads")}>View all</span></div>}
-                </div>
-              </div>
-              <button onClick={()=>setShowLeadsBanner(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#86EFAC",flexShrink:0}}>✕</button>
-            </div>}
-            <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
+            
+                        <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
           {page==="new-leads"&&<NewLeadsPage contacts={contacts} onCompose={c=>{selectCC(c);setPage("compose");}}/>}
           {page==="contacts"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
