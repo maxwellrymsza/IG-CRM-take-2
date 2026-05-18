@@ -952,23 +952,35 @@ function App(){
           if(batch.length<batchSize)break;
           from+=batchSize;
         }
-        const[s,e,l]=await Promise.all([
+        const[s,e,l,al]=await Promise.all([
           sbFetch("sequences?select=*&order=created_at.desc"),
           sbFetch("enrollments?select=*&order=enrolled_at.desc"),
           sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
+          sbFetch("activity_log?select=*&order=created_at.desc&limit=100"),
         ]);
         const seen=new Set();
         const deduped=allContacts.filter(c=>{if(seen.has(c.id))return false;seen.add(c.id);return true;});
         const mapped=deduped.map(mapRow);
         setContacts(mapped);
         setSequences(s);setEnrollments(e);setSeqLog(l);
+        setActivity(al.map(a=>({...a,id:actIdRef.current++,time:a.created_at,contactId:a.contact_id})));
         setLoading(false);
       }catch(err){setLoadErr("Could not load: "+err.message);setLoading(false);}
     }
     loadAll();
   },[]);
 
-  function addActivity(evt){setActivity(prev=>[{...evt,id:actIdRef.current++,time:new Date().toISOString()},...prev]);}
+  async function addActivity(evt){
+    const entry={...evt,id:actIdRef.current++,time:new Date().toISOString()};
+    setActivity(prev=>[entry,...prev]);
+    try{
+      await sbFetch("activity_log",{method:"POST",body:JSON.stringify({
+        type:evt.type, contact_id:evt.contactId||null,
+        contact_name:evt.contactName||"", text:evt.text||"",
+        detail:evt.detail||"", icon:evt.icon||"•"
+      })});
+    }catch(e){console.error("Activity log failed:",e);}
+  }
 
   const filtered=contacts.filter(c=>{
     if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
@@ -1069,13 +1081,23 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
 
   async function saveContact(){
     const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname)return;
-    try{const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:"Cold"})});setContacts(p=>[mapRow(rows[0]),...p]);setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});setAddOpen(false);}
-    catch(e){alert("Error: "+e.message);}
+    try{
+      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:"Cold"})});
+      const newC=mapRow(rows[0]);
+      setContacts(p=>[newC,...p]);
+      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});
+      setAddOpen(false);
+      addActivity({type:"added",contactId:newC.id,contactName:newC.name,text:"was added as a new contact",detail:`${role} · ${school||district}`,icon:"➕"});
+    }catch(e){alert("Error: "+e.message);}
   }
 
   async function deleteContact(c){
-    try{await sbFetch(`contacts?id=eq.${c.id}`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});setContacts(p=>p.filter(x=>x.id!==c.id));setDetail(null);setDeleteConfirm(false);}
-    catch(e){alert("Error deleting: "+e.message);}
+    try{
+      await sbFetch(`contacts?id=eq.${c.id}`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
+      setContacts(p=>p.filter(x=>x.id!==c.id));
+      setDetail(null);setDeleteConfirm(false);
+      addActivity({type:"deleted",contactId:c.id,contactName:c.name,text:"was deleted",detail:`${c.role} · ${c.district}`,icon:"🗑"});
+    }catch(e){alert("Error deleting: "+e.message);}
   }
 
   const pitchByPersona={
@@ -1160,6 +1182,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
       await sbFetch(`contacts?id=in.(${ids.join(",")})`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
       setContacts(p=>p.filter(c=>!ids.includes(c.id)));
       setSel(new Set());
+      addActivity({type:"deleted",contactName:`${ids.length} contacts`,text:"were bulk deleted",detail:"",icon:"🗑"});
     }catch(e){alert("Error deleting: "+e.message);}
   }
 
