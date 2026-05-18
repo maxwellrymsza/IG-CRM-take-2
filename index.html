@@ -349,93 +349,43 @@ const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeri
 
 
 // ── New Leads Page ────────────────────────────────────────────────────────────
-function NewLeadsPage({leadsLog,setLeadsLog,viewerName,setViewerName,contacts,onNavigate}){
-  const[nameInput,setNameInput]=useState(viewerName||"");
-  const unseen=leadsLog.filter(l=>!l.seen_at);
-  const seen=leadsLog.filter(l=>l.seen_at);
-
-  async function markSeen(lead){
-    const name=viewerName||"Team";
-    const now=new Date().toISOString();
-    await sbFetch(`new_leads_log?id=eq.${lead.id}`,{method:"PATCH",body:JSON.stringify({seen_at:now,seen_by:name})});
-    setLeadsLog(p=>p.map(l=>l.id===lead.id?{...l,seen_at:now,seen_by:name}:l));
-  }
-
-  async function markAllSeen(){
-    const name=viewerName||"Team";
-    const now=new Date().toISOString();
-    for(const lead of unseen){
-      await sbFetch(`new_leads_log?id=eq.${lead.id}`,{method:"PATCH",body:JSON.stringify({seen_at:now,seen_by:name})});
-    }
-    setLeadsLog(p=>p.map(l=>!l.seen_at?{...l,seen_at:now,seen_by:name}:l));
-  }
-
-  function saveName(){
-    localStorage.setItem("ig_crm_viewer",nameInput);
-    setViewerName(nameInput);
-  }
-
-  const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
-
+function NewLeadsPage({contacts,onCompose}){
+  const inbound=contacts.filter(c=>c.lead_source==="Website"||c.lead_source==="Feb 27 Conf"||c.lead_source==="New Lead").sort((a,b)=>new Date(b.stageEnteredAt||0)-new Date(a.stageEnteredAt||0));
+  const fmtDT2=iso=>{try{return new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});}catch(e){return iso||"Unknown";}};
   return <>
     <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
-      <div><div style={{fontWeight:700,fontSize:16}}>New Leads</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Inbound contacts from your website and other sources</div></div>
-      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
-        {unseen.length>0&&<button onClick={markAllSeen} style={B("secondary","sm")}>✓ Mark all seen</button>}
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <input value={nameInput} onChange={e=>setNameInput(e.target.value)} placeholder="Your name..." style={{...I("130px"),fontSize:12,padding:"5px 8px"}}/>
-          <button onClick={saveName} style={B("primary","sm")}>Save</button>
-        </div>
-      </div>
+      <div><div style={{fontWeight:700,fontSize:16}}>New Leads</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Inbound contacts from your website and events · {inbound.length} total</div></div>
     </div>
-    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
-      {leadsLog.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:36,marginBottom:8}}>📬</div><div style={{fontWeight:500,color:C.textS}}>No new leads yet</div><div style={{fontSize:12,marginTop:4}}>New contacts from your Squarespace form will appear here automatically</div></div>}
-      {unseen.length>0&&<div>
-        <div style={{fontSize:11,fontWeight:700,color:C.textT,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
-          <span style={{width:8,height:8,borderRadius:"50%",background:C.coral,display:"inline-block"}}/>
-          Unseen ({unseen.length})
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {unseen.map(lead=>{
-            const contact=contacts.find(c=>c.id===lead.contact_id);
-            return <div key={lead.id} style={{background:"white",border:`1px solid #86EFAC`,borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
-              <div style={{width:40,height:40,borderRadius:10,background:"#F0FDF4",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🔔</div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:14,color:C.text}}>{lead.contact_name||lead.contact_email||"Unknown"}</div>
-                <div style={{fontSize:12,color:C.textS,marginTop:2}}>{lead.contact_email}</div>
-                <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
-                  <span style={{fontSize:10,fontWeight:600,color:"#065F46",background:"#D1FAE5",padding:"2px 8px",borderRadius:10}}>{lead.lead_source||"Website"}</span>
-                  <span style={{fontSize:11,color:C.textT}}>{fmtDT(lead.created_at)}</span>
-                </div>
-              </div>
-              <div style={{display:"flex",gap:8,flexShrink:0}}>
-                {contact&&<button onClick={()=>onNavigate("contacts")} style={B("secondary","sm")}>View Contact</button>}
-                <button onClick={()=>markSeen(lead)} style={B("primary","sm")}>✓ Mark Seen</button>
-              </div>
-            </div>;
-          })}
-        </div>
-      </div>}
-      {seen.length>0&&<div>
-        <div style={{fontSize:11,fontWeight:700,color:C.textT,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>History ({seen.length})</div>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {seen.map(lead=><div key={lead.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,opacity:0.8}}>
-            <div style={{width:36,height:36,borderRadius:9,background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>✓</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:500,fontSize:13,color:C.text}}>{lead.contact_name||lead.contact_email||"Unknown"}</div>
-              <div style={{fontSize:11,color:C.textS,marginTop:2}}>{lead.contact_email}</div>
-              <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
-                <span style={{fontSize:10,fontWeight:600,color:C.textS,background:C.bg,padding:"2px 8px",borderRadius:10,border:`1px solid ${C.border}`}}>{lead.lead_source||"Website"}</span>
-                <span style={{fontSize:11,color:C.textT}}>Received {fmtDT(lead.created_at)}</span>
-                {lead.seen_by&&<span style={{fontSize:11,color:C.textT}}>· Seen by {lead.seen_by} at {fmtDT(lead.seen_at)}</span>}
-              </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:10}}>
+      {inbound.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:36,marginBottom:8}}>📬</div><div style={{fontWeight:500,color:C.textS}}>No inbound leads yet</div><div style={{fontSize:12,marginTop:4}}>Contacts from your Squarespace form will appear here automatically</div></div>}
+      {inbound.map(c=>{
+        const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
+        const isNew=c.stageEnteredAt&&(Date.now()-new Date(c.stageEnteredAt).getTime())<7*24*60*60*1000;
+        return <div key={c.id} style={{background:"white",border:`1px solid ${isNew?"#86EFAC":C.border}`,borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:40,height:40,borderRadius:10,background:isNew?"#F0FDF4":C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{isNew?"🔔":"✓"}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+              <div style={{fontWeight:600,fontSize:14,color:C.text}}>{c.name||c.email||"Unknown"}</div>
+              {isNew&&<span style={{fontSize:10,fontWeight:700,color:"#065F46",background:"#D1FAE5",padding:"2px 8px",borderRadius:10}}>NEW</span>}
             </div>
-          </div>)}
-        </div>
-      </div>}
+            <div style={{fontSize:12,color:C.textS,marginBottom:4}}>{c.email}</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontSize:10,fontWeight:600,color:pc,background:pb,padding:"2px 8px",borderRadius:10}}>{c.persona}</span>
+              <span style={{fontSize:10,fontWeight:600,color:"#065F46",background:"#D1FAE5",padding:"2px 8px",borderRadius:10}}>{c.lead_source}</span>
+              <Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/>
+              <span style={{fontSize:11,color:C.textT}}>{fmtDT2(c.stageEnteredAt)}</span>
+            </div>
+            {c.notes&&<div style={{fontSize:12,color:C.textS,marginTop:6,padding:"6px 10px",background:C.bg,borderRadius:6,fontStyle:"italic"}}>"{c.notes}"</div>}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+            <button onClick={()=>onCompose(c)} style={B("primary","sm")}>✉ Compose</button>
+          </div>
+        </div>;
+      })}
     </div>
   </>;
 }
+
 
 function Spinner({size=12}){return <div style={{width:size,height:size,border:`2px solid rgba(255,255,255,0.4)`,borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>;}
 
@@ -989,10 +939,7 @@ function App(){
   const[taskDate,setTaskDate]=useState("");
   const[editMode,setEditMode]=useState(false);
   const[editF,setEditF]=useState({});
-  const[newLeads,setNewLeads]=useState([]);
-  const[leadsLog,setLeadsLog]=useState([]);
   const[showLeadsBanner,setShowLeadsBanner]=useState(true);
-  const[viewerName,setViewerName]=useState(()=>localStorage.getItem("ig_crm_viewer")||"");
 
   useEffect(()=>{
     setLoading(true);
@@ -1005,19 +952,16 @@ function App(){
           if(batch.length<batchSize)break;
           from+=batchSize;
         }
-        const[s,e,l,ll]=await Promise.all([
+        const[s,e,l]=await Promise.all([
           sbFetch("sequences?select=*&order=created_at.desc"),
           sbFetch("enrollments?select=*&order=enrolled_at.desc"),
           sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
-          sbFetch("new_leads_log?select=*&order=created_at.desc&limit=100"),
         ]);
         const seen=new Set();
         const deduped=allContacts.filter(c=>{if(seen.has(c.id))return false;seen.add(c.id);return true;});
         const mapped=deduped.map(mapRow);
         setContacts(mapped);
-        // New leads = entries in new_leads_log not yet seen
-        // Will be set after leadsLog loads
-        setSequences(s);setEnrollments(e);setSeqLog(l);setLeadsLog(ll);
+        setSequences(s);setEnrollments(e);setSeqLog(l);
         setLoading(false);
       }catch(err){setLoadErr("Could not load: "+err.message);setLoading(false);}
     }
@@ -1241,7 +1185,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
   const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
 
   const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
-  const unseenLeads=leadsLog.filter(l=>!l.seen_at);
+  const unseenLeads=contacts.filter(c=>(c.lead_source==="Website"||c.lead_source==="New Lead"||c.lead_source==="Feb 27 Conf")&&c.stageEnteredAt&&(Date.now()-new Date(c.stageEnteredAt).getTime())<7*24*60*60*1000);
   const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads",badge:unseenLeads.length},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
   const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
 
@@ -1278,14 +1222,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               <div style={{flex:1}}>
                 <div style={{fontWeight:700,fontSize:13,color:"#065F46",marginBottom:4}}>{unseenLeads.length} new inbound lead{unseenLeads.length!==1?"s":""} since your last visit</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>
-                  {unseenLeads.slice(0,5).map(c=><div key={c.id} onClick={()=>setPage("new-leads")} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:"1px solid #86EFAC",borderRadius:8,padding:"5px 10px",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#F0FDF4"} onMouseLeave={e=>e.currentTarget.style.background="white"}><div style={{width:22,height:22,borderRadius:5,background:"#065F46",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:9}}>{(c.contact_name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div><div><div style={{fontSize:12,fontWeight:500,color:"#065F46"}}>{c.contact_name||c.contact_email}</div><div style={{fontSize:10,color:"#16A34A"}}>{c.lead_source}</div></div></div>)}
+                  {unseenLeads.slice(0,5).map(c=><div key={c.id} onClick={()=>setPage("new-leads")} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:"1px solid #86EFAC",borderRadius:8,padding:"5px 10px",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#F0FDF4"} onMouseLeave={e=>e.currentTarget.style.background="white"}><div style={{width:22,height:22,borderRadius:5,background:"#065F46",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:9}}>{(c.name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div><div><div style={{fontSize:12,fontWeight:500,color:"#065F46"}}>{c.name||c.email}</div><div style={{fontSize:10,color:"#16A34A"}}>{c.lead_source}</div></div></div>)}
               {unseenLeads.length>5&&<div style={{fontSize:12,color:"#16A34A",alignSelf:"center"}}>+{unseenLeads.length-5} more → <span style={{textDecoration:"underline",cursor:"pointer"}} onClick={()=>setPage("new-leads")}>View all</span></div>}
                 </div>
               </div>
               <button onClick={()=>setShowLeadsBanner(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#86EFAC",flexShrink:0}}>✕</button>
             </div>}
             <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
-          {page==="new-leads"&&<NewLeadsPage leadsLog={leadsLog} setLeadsLog={setLeadsLog} viewerName={viewerName} setViewerName={setViewerName} contacts={contacts} onNavigate={setPage}/>}
+          {page==="new-leads"&&<NewLeadsPage contacts={contacts} onCompose={c=>{selectCC(c);setPage("compose");}}/>}
           {page==="contacts"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
               <div><div style={{fontWeight:700,fontSize:16}}>Contacts</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>K-12 administrator database · live from Supabase</div></div>
