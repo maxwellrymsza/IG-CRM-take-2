@@ -345,6 +345,36 @@ const NOW=Date.now();
 const STAGE_META={"Cold":{color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️"},"Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬"},"Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅"},"Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄"},"Bounced":{color:"#A32D2D",bg:"#FEE2E2",icon:"↩️"},"Declined":{color:"#6B7280",bg:"#F3F4F6",icon:"✗"},"Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆"},"Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗"},"OOO":{color:"#854F0B",bg:"#FAEEDA",icon:"🌴"}};
 const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
 const fmtDate=iso=>new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+
+function Spinner({size=12}){return <div style={{width:size,height:size,border:`2px solid rgba(255,255,255,0.4)`,borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>;}
+
+function EnrollModal({seq,contacts,enrollments,onClose,onEnroll}){
+  const[search,setSearch]=useState("");
+  const[sel,setSel]=useState(new Set());
+  const alreadyEnrolled=new Set(enrollments.filter(e=>e.sequence_id===seq.id).map(e=>e.contact_id));
+  const eligible=contacts.filter(c=>!c.isUnsubscribed&&!c.bounced&&!alreadyEnrolled.has(c.id)&&(!search||`${c.name} ${c.district} ${c.role}`.toLowerCase().includes(search.toLowerCase())));
+  function toggle(id){setSel(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});}
+  return <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:520,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",overflow:"hidden"}}>
+      <div style={{padding:"16px 20px",borderBottom:`1px solid #E4E7EC`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div><div style={{fontWeight:700,fontSize:15}}>Enroll Contacts</div><div style={{fontSize:12,color:"#6B7280",marginTop:2}}>into "{seq.name}"</div></div>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#9CA3AF"}}>✕</button>
+      </div>
+      <div style={{padding:"10px 16px",borderBottom:`1px solid #E4E7EC`}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search contacts..." style={{width:"100%",padding:"7px 10px",border:`1px solid #E4E7EC`,borderRadius:6,fontSize:13,outline:"none"}}/>
+      </div>
+      <div style={{flex:1,overflowY:"auto"}}>
+        {eligible.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];const chk=sel.has(c.id);return <div key={c.id} onClick={()=>toggle(c.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px",cursor:"pointer",background:chk?"#edf7f2":"white",borderBottom:`1px solid #E4E7EC`}} onMouseEnter={e=>e.currentTarget.style.background=chk?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=chk?"#edf7f2":"white"}><input type="checkbox" checked={chk} onChange={()=>{}} style={{accentColor:"#65C39D",cursor:"pointer",flexShrink:0}}/><div style={{width:28,height:28,borderRadius:7,background:pc,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:11,flexShrink:0}}>{(c.name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role} · {c.district}</div></div><span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,background:pb,color:pc,whiteSpace:"nowrap"}}>{c.persona}</span></div>;})}
+        {eligible.length===0&&<div style={{padding:40,textAlign:"center",color:"#9CA3AF",fontSize:12}}>No eligible contacts found</div>}
+      </div>
+      <div style={{padding:"12px 16px",borderTop:`1px solid #E4E7EC`,display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontSize:12,color:"#6B7280"}}>{sel.size} selected · {eligible.length} eligible</span>
+        <button onClick={()=>{onEnroll(seq.id,[...sel]);onClose();}} disabled={sel.size===0} style={{marginLeft:"auto",padding:"6px 16px",fontSize:12,background:"#65C39D",color:"white",border:"1px solid #65C39D",borderRadius:6,cursor:sel.size===0?"not-allowed":"pointer",opacity:sel.size===0?0.4:1,fontWeight:500}}>Enroll {sel.size>0?sel.size:""} Contact{sel.size!==1?"s":""}</button>
+      </div>
+    </div>
+  </div>;
+}
 
 function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
   const[newOpen,setNewOpen]=useState(false);
