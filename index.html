@@ -1284,7 +1284,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               </div>
               <button onClick={()=>setShowLeadsBanner(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#86EFAC",flexShrink:0}}>✕</button>
             </div>}
-            <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/>
+            <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
           {page==="new-leads"&&<NewLeadsPage leadsLog={leadsLog} setLeadsLog={setLeadsLog} viewerName={viewerName} setViewerName={setViewerName} contacts={contacts} onNavigate={setPage}/>}
           {page==="contacts"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
