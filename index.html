@@ -89,6 +89,10 @@ function mapRow(c) {
     project_type: c.project_type || "",
     alt_contact: c.alt_contact || "",
     hunter_status: c.hunter_status || "",
+    stageEnteredAt: c.created_at || new Date().toISOString(),
+    tasks: [],
+    isUnsubscribed: false,
+    bounced: c.pipeline_stage === "Bounced" || c.hunter_status === "bounced",
   };
 }
 
