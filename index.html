@@ -347,6 +347,96 @@ const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);r
 const fmtDate=iso=>new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"});
 const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 
+
+// ── New Leads Page ────────────────────────────────────────────────────────────
+function NewLeadsPage({leadsLog,setLeadsLog,viewerName,setViewerName,contacts,onNavigate}){
+  const[nameInput,setNameInput]=useState(viewerName||"");
+  const unseen=leadsLog.filter(l=>!l.seen_at);
+  const seen=leadsLog.filter(l=>l.seen_at);
+
+  async function markSeen(lead){
+    const name=viewerName||"Team";
+    const now=new Date().toISOString();
+    await sbFetch(`new_leads_log?id=eq.${lead.id}`,{method:"PATCH",body:JSON.stringify({seen_at:now,seen_by:name})});
+    setLeadsLog(p=>p.map(l=>l.id===lead.id?{...l,seen_at:now,seen_by:name}:l));
+  }
+
+  async function markAllSeen(){
+    const name=viewerName||"Team";
+    const now=new Date().toISOString();
+    for(const lead of unseen){
+      await sbFetch(`new_leads_log?id=eq.${lead.id}`,{method:"PATCH",body:JSON.stringify({seen_at:now,seen_by:name})});
+    }
+    setLeadsLog(p=>p.map(l=>!l.seen_at?{...l,seen_at:now,seen_by:name}:l));
+  }
+
+  function saveName(){
+    localStorage.setItem("ig_crm_viewer",nameInput);
+    setViewerName(nameInput);
+  }
+
+  const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>New Leads</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Inbound contacts from your website and other sources</div></div>
+      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+        {unseen.length>0&&<button onClick={markAllSeen} style={B("secondary","sm")}>✓ Mark all seen</button>}
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <input value={nameInput} onChange={e=>setNameInput(e.target.value)} placeholder="Your name..." style={{...I("130px"),fontSize:12,padding:"5px 8px"}}/>
+          <button onClick={saveName} style={B("primary","sm")}>Save</button>
+        </div>
+      </div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+      {leadsLog.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:36,marginBottom:8}}>📬</div><div style={{fontWeight:500,color:C.textS}}>No new leads yet</div><div style={{fontSize:12,marginTop:4}}>New contacts from your Squarespace form will appear here automatically</div></div>}
+      {unseen.length>0&&<div>
+        <div style={{fontSize:11,fontWeight:700,color:C.textT,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+          <span style={{width:8,height:8,borderRadius:"50%",background:C.coral,display:"inline-block"}}/>
+          Unseen ({unseen.length})
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {unseen.map(lead=>{
+            const contact=contacts.find(c=>c.id===lead.contact_id);
+            return <div key={lead.id} style={{background:"white",border:`1px solid #86EFAC`,borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+              <div style={{width:40,height:40,borderRadius:10,background:"#F0FDF4",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🔔</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:14,color:C.text}}>{lead.contact_name||lead.contact_email||"Unknown"}</div>
+                <div style={{fontSize:12,color:C.textS,marginTop:2}}>{lead.contact_email}</div>
+                <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,fontWeight:600,color:"#065F46",background:"#D1FAE5",padding:"2px 8px",borderRadius:10}}>{lead.lead_source||"Website"}</span>
+                  <span style={{fontSize:11,color:C.textT}}>{fmtDT(lead.created_at)}</span>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,flexShrink:0}}>
+                {contact&&<button onClick={()=>onNavigate("contacts")} style={B("secondary","sm")}>View Contact</button>}
+                <button onClick={()=>markSeen(lead)} style={B("primary","sm")}>✓ Mark Seen</button>
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>}
+      {seen.length>0&&<div>
+        <div style={{fontSize:11,fontWeight:700,color:C.textT,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>History ({seen.length})</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {seen.map(lead=><div key={lead.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,opacity:0.8}}>
+            <div style={{width:36,height:36,borderRadius:9,background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>✓</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:500,fontSize:13,color:C.text}}>{lead.contact_name||lead.contact_email||"Unknown"}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:2}}>{lead.contact_email}</div>
+              <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
+                <span style={{fontSize:10,fontWeight:600,color:C.textS,background:C.bg,padding:"2px 8px",borderRadius:10,border:`1px solid ${C.border}`}}>{lead.lead_source||"Website"}</span>
+                <span style={{fontSize:11,color:C.textT}}>Received {fmtDT(lead.created_at)}</span>
+                {lead.seen_by&&<span style={{fontSize:11,color:C.textT}}>· Seen by {lead.seen_by} at {fmtDT(lead.seen_at)}</span>}
+              </div>
+            </div>
+          </div>)}
+        </div>
+      </div>}
+    </div>
+  </>;
+}
+
 function Spinner({size=12}){return <div style={{width:size,height:size,border:`2px solid rgba(255,255,255,0.4)`,borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>;}
 
 function EnrollModal({seq,contacts,enrollments,onClose,onEnroll}){
@@ -899,6 +989,10 @@ function App(){
   const[taskDate,setTaskDate]=useState("");
   const[editMode,setEditMode]=useState(false);
   const[editF,setEditF]=useState({});
+  const[newLeads,setNewLeads]=useState([]);
+  const[leadsLog,setLeadsLog]=useState([]);
+  const[showLeadsBanner,setShowLeadsBanner]=useState(true);
+  const[viewerName,setViewerName]=useState(()=>localStorage.getItem("ig_crm_viewer")||"");
 
   useEffect(()=>{
     setLoading(true);
@@ -911,15 +1005,19 @@ function App(){
           if(batch.length<batchSize)break;
           from+=batchSize;
         }
-        const[s,e,l]=await Promise.all([
+        const[s,e,l,ll]=await Promise.all([
           sbFetch("sequences?select=*&order=created_at.desc"),
           sbFetch("enrollments?select=*&order=enrolled_at.desc"),
           sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
+          sbFetch("new_leads_log?select=*&order=created_at.desc&limit=100"),
         ]);
         const seen=new Set();
         const deduped=allContacts.filter(c=>{if(seen.has(c.id))return false;seen.add(c.id);return true;});
-        setContacts(deduped.map(mapRow));
-        setSequences(s);setEnrollments(e);setSeqLog(l);
+        const mapped=deduped.map(mapRow);
+        setContacts(mapped);
+        // New leads = entries in new_leads_log not yet seen
+        // Will be set after leadsLog loads
+        setSequences(s);setEnrollments(e);setSeqLog(l);setLeadsLog(ll);
         setLoading(false);
       }catch(err){setLoadErr("Could not load: "+err.message);setLoading(false);}
     }
@@ -1143,7 +1241,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
   const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
 
   const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
-  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
+  const unseenLeads=leadsLog.filter(l=>!l.seen_at);
+  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads",badge:unseenLeads.length},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
   const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
@@ -1165,7 +1264,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
         <div style={SL()}>Pipeline</div>
         {NAV_PIPELINE.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
         <div style={SL()}>Outreach</div>
-        {NAV_OUTREACH.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
+        {NAV_OUTREACH.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span><span style={{flex:1}}>{item.label}</span>{item.badge>0&&<span style={{fontSize:9,fontWeight:700,background:C.coral,color:"white",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{item.badge}</span>}</div>)}
         <div style={SL()}>Automation</div>
         {NAV_AUTO.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
       </div>
@@ -1173,84 +1272,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
         {loadErr&&<div style={{padding:"8px 16px",background:"#FEE2E2",fontSize:12,color:"#A32D2D",borderBottom:`1px solid #FECACA`,flexShrink:0}}>⚠ {loadErr}</div>}
         {loading&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:C.textT}}><div style={{width:28,height:28,border:`3px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/><div>Loading from Supabase…</div></div>}
         {!loading&&<>
-          {page==="dashboard"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Dashboard</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Live from Supabase · {contacts.length} contacts</div></div><DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
-          {page==="pipeline"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Pipeline</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance · Click for details</div></div><KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/></>}
-          {page==="activity"&&<ActivityPage activity={activity}/>}
-          {page==="contacts"&&<>
-            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
-              <div><div style={{fontWeight:700,fontSize:16}}>Contacts</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>K-12 administrator database · live from Supabase</div></div>
-              <div style={{marginLeft:"auto"}}><button onClick={()=>setAddOpen(true)} style={B("secondary","sm")}>+ Add Contact</button></div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search name, school, district, email..." style={I(220)}/>
-              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}<option value="__hide_admin__">Hide Administrators</option></select>
-              <select value={fs} onChange={e=>setFs(e.target.value)} style={S()}><option value="">All stages</option>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select>
-              <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}><option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option></select>
-              <select value={fls} onChange={e=>setFls(e.target.value)} style={S()}>
-                <option value="">All sources</option>
-                <option value="NJ_Public">NJ Public Schools (2,398)</option>
-                <option value="NJ_Private">NJ Private Schools (887)</option>
-                <option value="k12_prospects">K-12 Prospects (447)</option>
-                <option value="New Lead">New Leads (144)</option>
-                <option value="NJ_Charters">NJ Charter Schools (74)</option>
-                <option value="Mission-Identity">Mission-Identity (70)</option>
-                <option value="Pvt Schl Expansion">Pvt School Expansion (56)</option>
-                <option value="STEM_Leaders">STEM Leaders (53)</option>
-                <option value="VARS">VARS (45)</option>
-                <option value="Public Expansion">Public Expansion (38)</option>
-                <option value="Public New Construction">Public New Construction (32)</option>
-                <option value="Email Bridge Import">Email Bridge Import (29)</option>
-                <option value="Special Needs Schools">Special Needs Schools (19)</option>
-                <option value="Feb 27 Conf">Feb 27 Conference (12)</option>
-                <option value="Food Service">Food Service (6)</option>
-                <option value="Website">Website (2)</option>
-              </select>
-              <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{filtered.length} of {contacts.length}</span>
-            </div>
-            {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
-              <span style={{fontWeight:600,color:C.gDark}}>{sel.size} contact{sel.size!==1?"s":""} selected</span>
-              {!batchRunning&&!batchDone&&<>
-                <button onClick={batchGenerateAndPush} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>
-                  ✨ Generate & Push All to Gmail Drafts
-                </button>
-                <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
-                <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
-              </>}
-              {batchRunning&&batchProgress&&<>
-                <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
-                  <div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>
-                  <span style={{color:C.gDark,fontWeight:500}}>Generating for <strong>{batchProgress.current}</strong>…</span>
-                  <span style={{color:C.textS}}>{batchProgress.done} of {batchProgress.total} done{batchProgress.failed>0?` · ${batchProgress.failed} failed`:""}</span>
-                  <div style={{flex:1,height:4,background:C.gBorder,borderRadius:2,overflow:"hidden",maxWidth:200}}>
-                    <div style={{height:"100%",width:`${(batchProgress.done/batchProgress.total)*100}%`,background:C.gDark,borderRadius:2,transition:"width 0.3s"}}/>
-                  </div>
-                </div>
-              </>}
-              {batchDone&&<>
-                <span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} draft{batchDone.done!==1?"s":""} pushed to Gmail{batchDone.failed>0?` · ${batchDone.failed} failed (${batchDone.failedNames.join(", ")})`:""}</span>
-                <button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button>
-              </>}
-              {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);}} style={B("secondary","sm")}>✕ Clear</button>}
-            </div>}
-            <div style={{flex:1,overflowY:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead><tr style={{background:C.bg,borderBottom:`1px solid ${C.border}`}}>
-                  <th style={TH(36)}><input type="checkbox" checked={sel.size===filtered.length&&filtered.length>0} onChange={toggleAll} style={{accentColor:C.green}}/></th>
-                  <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th><th style={TH(48)}>State</th><th style={TH()}>Persona</th><th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(100)}></th>
-                </tr></thead>
-                <tbody>{filtered.map(c=>{
-                  const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
-                  return <tr key={c.id} onClick={()=>{setDetail(c);setDeleteConfirm(false);}} style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}} onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
-                    <td style={TD(36)} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggleSel(c.id)} style={{accentColor:C.green}}/></td>
-                    <td style={TD()}><div style={{fontWeight:500}}>{c.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{c.role}</div></td>
-                    <td style={TD()}><div style={{fontSize:12}}>{c.school||c.district}</div><div style={{fontSize:11,color:C.textT}}>{c.district}</div></td>
-                    <td style={TD(48)}><span style={{fontSize:11,color:C.textS}}>{c.state}</span></td>
-                    <td style={TD()}><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></td>
-                    <td style={TD()}><Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/></td>
-                    <td style={TD(90)}><span style={{fontSize:12,color:C.textS}}>{c.lastContact||"—"}</span></td>
-                    <td style={TD(100)} onClick={e=>e.stopPropagation()}><div style={{display:"flex",gap:4}}><button onClick={()=>{selectCC(c);setPage("compose");}} style={B("secondary","sm")}>✉</button><button onClick={()=>{if(window.confirm(`Delete ${c.name}?`))deleteContact(c);}} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑</button></div></td>
-                  </tr>;
-                })}</tbody>
+          {page==="dashboard"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Dashboard</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Live from Supabase · {contacts.length} contacts</div></div>
+            {unseenLeads.length>0&&showLeadsBanner&&<div style={{margin:"12px 20px 0",background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"flex-start",gap:12,flexShrink:0}}>
+              <div style={{fontSize:22,flexShrink:0}}>🔔</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#065F46",marginBottom:4}}>{unseenLeads.length} new inbound lead{unseenLeads.length!==1?"s":""} since your last visit</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>
+                  {unseenLeads.slice(0,5).map(c=><div key={c.id} onClick={()=>setPage("new-leads")} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:"1px solid #86EFAC",borderRadius:8,padding:"5px 10px",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#F0FDF4"} onMouseLeave={e=>e.currentTarget.style.background="white"}><div style={{width:22,height:22,borderRadius:5,background:"#065F46",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:9}}>{(c.contact_name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div><div><div style={{fontSize:12,fontWeight:500,color:"#065F46"}}>{c.contact_name||c.contact_email}</div><div style={{fontSize:10,color:"#16A34A"}}>{c.lead_source}</div></div></div>)}
+              {unseenLeads.length>5&&<div style={{fontSize:12,color:"#16A34A",alignSelf:"center"}}>+{unseenLeads.length-5} more → <span style={{textDecoration:"underline",cursor:"pointer"}} onClick={()=>setPage("new-leads")}>View all</span></div>}</tbody>
               </table>
               {filtered.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>🔍</div><div style={{fontWeight:500,color:C.textS}}>No contacts match filters</div></div>}
             </div>
