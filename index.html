@@ -847,7 +847,7 @@ function App(){
   const[closeText,setCloseText]=useState(DEF_CLOSE);
   const[sig,setSig]=useState(DEF_SIG);
   const[page,setPage]=useState("dashboard");
-  const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");
+  const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
   const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});
@@ -892,7 +892,8 @@ function App(){
 
   const filtered=contacts.filter(c=>{
     if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
-    if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp&&fp!=="__hide_admin__"&&c.persona!==fp)return false;if(fs&&c.stage!==fs)return false;if(fst&&c.state!==fst)return false;return true;
+    if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp&&fp!=="__hide_admin__"&&c.persona!==fp)return false;
+    if(fls&&c.lead_source!==fls)return false;if(fs&&c.stage!==fs)return false;if(fst&&c.state!==fst)return false;return true;
   });
 
   const stats={total:contacts.length,cold:contacts.filter(c=>c.stage==="Cold").length,active:contacts.filter(c=>!["Cold","Closed/Lost","Bounced","Declined"].includes(c.stage)).length};
@@ -1137,6 +1138,25 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}<option value="__hide_admin__">Hide Administrators</option></select>
               <select value={fs} onChange={e=>setFs(e.target.value)} style={S()}><option value="">All stages</option>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select>
               <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}><option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option></select>
+              <select value={fls} onChange={e=>setFls(e.target.value)} style={S()}>
+                <option value="">All sources</option>
+                <option value="NJ_Public">NJ Public Schools (2,398)</option>
+                <option value="NJ_Private">NJ Private Schools (887)</option>
+                <option value="k12_prospects">K-12 Prospects (447)</option>
+                <option value="New Lead">New Leads (144)</option>
+                <option value="NJ_Charters">NJ Charter Schools (74)</option>
+                <option value="Mission-Identity">Mission-Identity (70)</option>
+                <option value="Pvt Schl Expansion">Pvt School Expansion (56)</option>
+                <option value="STEM_Leaders">STEM Leaders (53)</option>
+                <option value="VARS">VARS (45)</option>
+                <option value="Public Expansion">Public Expansion (38)</option>
+                <option value="Public New Construction">Public New Construction (32)</option>
+                <option value="Email Bridge Import">Email Bridge Import (29)</option>
+                <option value="Special Needs Schools">Special Needs Schools (19)</option>
+                <option value="Feb 27 Conf">Feb 27 Conference (12)</option>
+                <option value="Food Service">Food Service (6)</option>
+                <option value="Website">Website (2)</option>
+              </select>
               <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{filtered.length} of {contacts.length}</span>
             </div>
             {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
