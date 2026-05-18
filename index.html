@@ -1285,6 +1285,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               <button onClick={()=>setShowLeadsBanner(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#86EFAC",flexShrink:0}}>✕</button>
             </div>}
             <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/>
+          {page==="new-leads"&&<NewLeadsPage leadsLog={leadsLog} setLeadsLog={setLeadsLog} viewerName={viewerName} setViewerName={setViewerName} contacts={contacts} onNavigate={setPage}/>}
           {page==="contacts"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
               <div><div style={{fontWeight:700,fontSize:16}}>Contacts</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>K-12 administrator database · live from Supabase</div></div>
