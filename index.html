@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inspired Growing CRM</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -1249,7 +1249,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search name, school, district, email..." style={I(220)}/>
-              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}<option value="Administrator">Administrator</option><option value="__hide_admin__">Hide Administrators</option></select>
+              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}<option value="__hide_admin__">Hide Administrators</option></select>
               <select value={fs} onChange={e=>setFs(e.target.value)} style={S()}><option value="">All stages</option>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select>
               <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}><option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option></select>
               <select value={fls} onChange={e=>setFls(e.target.value)} style={S()}>
@@ -1397,7 +1397,6 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               <label style={LBL()}>Persona</label>
               <select value={editF.persona||"General"} onChange={e=>setEditF(f=>({...f,persona:e.target.value}))} style={S()}>
                 {Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}
-                <option value="Administrator">Administrator</option>
               </select>
             </div>
           </div>
