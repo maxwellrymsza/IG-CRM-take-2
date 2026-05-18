@@ -1350,7 +1350,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               {filtered.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>🔍</div><div style={{fontWeight:500,color:C.textS}}>No contacts match filters</div></div>}
             </div>
           </>}
-          {page==="compose"&&<><div style={{fontSize:12,color:C.textS,marginTop:1}}>AI district hook · persona pitch · universal close</div></div>
+          {page==="compose"&&<>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Compose Email</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>AI district hook · persona pitch · universal close</div></div>
             <div style={{display:"flex",flex:1,overflow:"hidden"}}>
               <div style={{width:265,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
                 <div style={SL()}>Select contact</div>
