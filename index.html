@@ -350,14 +350,15 @@ const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeri
 
 // ── New Leads Page ────────────────────────────────────────────────────────────
 function NewLeadsPage({contacts,onCompose}){
-  const inbound=contacts.filter(c=>c.lead_source==="Website"||c.lead_source==="Feb 27 Conf"||c.lead_source==="New Lead").sort((a,b)=>new Date(b.stageEnteredAt||0)-new Date(a.stageEnteredAt||0));
+  const sevenDaysAgo=Date.now()-7*24*60*60*1000;
+  const inbound=contacts.filter(c=>new Date(c.stageEnteredAt||0).getTime()>sevenDaysAgo).sort((a,b)=>new Date(b.stageEnteredAt||0)-new Date(a.stageEnteredAt||0));
   const fmtDT2=iso=>{try{return new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});}catch(e){return iso||"Unknown";}};
   return <>
     <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
-      <div><div style={{fontWeight:700,fontSize:16}}>New Leads</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Inbound contacts from your website and events · {inbound.length} total</div></div>
+      <div><div style={{fontWeight:700,fontSize:16}}>New Leads</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>All new contacts added in the last 7 days · {inbound.length} total</div></div>
     </div>
     <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:10}}>
-      {inbound.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:36,marginBottom:8}}>📬</div><div style={{fontWeight:500,color:C.textS}}>No inbound leads yet</div><div style={{fontSize:12,marginTop:4}}>Contacts from your Squarespace form will appear here automatically</div></div>}
+      {inbound.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:36,marginBottom:8}}>📬</div><div style={{fontWeight:500,color:C.textS}}>No new contacts in the last 7 days</div><div style={{fontSize:12,marginTop:4}}>New contacts added manually or from your website will appear here</div></div>}
       {inbound.map(c=>{
         const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
         const isNew=c.stageEnteredAt&&(Date.now()-new Date(c.stageEnteredAt).getTime())<7*24*60*60*1000;
@@ -1185,7 +1186,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
   const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
 
   const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
-  const unseenLeads=contacts.filter(c=>(c.lead_source==="Website"||c.lead_source==="New Lead"||c.lead_source==="Feb 27 Conf")&&c.stageEnteredAt&&(Date.now()-new Date(c.stageEnteredAt).getTime())<7*24*60*60*1000);
+  const unseenLeads=contacts.filter(c=>c.stageEnteredAt&&(Date.now()-new Date(c.stageEnteredAt).getTime())<7*24*60*60*1000);
   const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads",badge:unseenLeads.length},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
   const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
 
