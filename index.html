@@ -125,7 +125,7 @@ function canSpamFooter(contact) {
   const unsubUrl = contact
     ? `https://ig-crm-take-2.pages.dev/unsubscribe.html?id=${contact.id}`
     : `https://ig-crm-take-2.pages.dev/unsubscribe.html`;
-  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\nTo unsubscribe: ${unsubUrl}`;
+  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\n<a href="${unsubUrl}">Unsubscribe</a>`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -1028,14 +1028,15 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       setL1(paras[0]||"");
       setL2(paras[1]||pitch);
       setL3(paras[2]||"");
-      setSubj(`${cc.district} — aeroponic classroom farm`);
+const subj=`${c.district} - aeroponic classroom farm`;     
       setAiSt("done");
     }
     catch(e){setAiSt("error");}
   }
 
-  const preview=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
-
+const firstName=cc?.name?.split(" ")[0]||"there";
+const preview=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
+  
   async function pushGmail(){
     if(!subj||!preview||!cc)return;
     setGmSt("loading");setGmMsg("Connecting to Gmail...");
@@ -1134,8 +1135,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const l3=paras[2]||DEF_CLOSE;
     const sig=DEF_SIG;
     const body=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(c)}`].filter(Boolean).join("\n\n");
-    const subj=`${c.district} — aeroponic classroom farm`;
-    return{body,subj};
+const subj=`${c.district} - aeroponic classroom farm`;    return{body,subj};
   }
 
   async function pushDraftForContact(c,body,subj,token){
