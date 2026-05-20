@@ -874,15 +874,20 @@ function DashboardPage({contacts,activity,onNavigate}){
 function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
   const[dragging,setDragging]=useState(null);
   const[dragOver,setDragOver]=useState(null);
+  const[kanbanSearch,setKanbanSearch]=useState("");
   const shownStages=["Contacted","Replied","Demo Scheduled","Proposal Sent","Closed Won","Closed Lost"];
   const daysInStage=c=>Math.floor((NOW-new Date(c.stageEnteredAt||NOW).getTime())/86400000);
   const isStuck=c=>{const d=STUCK_DAYS[c.stage];return d&&daysInStage(c)>=d;};
   const coldCount=contacts.filter(c=>c.stage==="Cold").length;
   return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-    <div style={{padding:"8px 20px",background:"#F9FAFB",borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.textS,flexShrink:0}}>❄️ <strong style={{color:C.text}}>{coldCount} Cold</strong> not shown · Drag cards to advance · $50,000 per deal</div>
+    <div style={{padding:"8px 20px",background:"#F9FAFB",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+      <span style={{fontSize:11,color:C.textS}}>❄️ <strong style={{color:C.text}}>{coldCount} Cold</strong> not shown · Drag to advance</span>
+      <input value={kanbanSearch} onChange={e=>setKanbanSearch(e.target.value)} placeholder="🔍 Search pipeline..." style={{...I("220px"),fontSize:12,padding:"5px 10px",background:"white"}}/>
+      {kanbanSearch&&<button onClick={()=>setKanbanSearch("")} style={{...B("ghost","sm"),fontSize:11}}>✕ Clear</button>}
+    </div>
     <div style={{flex:1,overflowX:"auto",overflowY:"hidden",padding:"16px 20px",display:"flex",gap:10}}>
       {shownStages.map(stage=>{
-        const cols=contacts.filter(c=>c.stage===stage);
+        const cols=contacts.filter(c=>c.stage===stage&&(!kanbanSearch||`${c.name} ${c.district} ${c.school} ${c.role}`.toLowerCase().includes(kanbanSearch.toLowerCase())));
         const m=STAGE_META[stage]||{color:C.textS,bg:C.bg,icon:"•"};
         const isTarget=dragOver===stage;
         return <div key={stage} className="kanban-col"
