@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inspired Growing CRM</title>
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -125,7 +125,7 @@ function canSpamFooter(contact) {
   const unsubUrl = contact
     ? `https://ig-crm-take-2.pages.dev/unsubscribe.html?id=${contact.id}`
     : `https://ig-crm-take-2.pages.dev/unsubscribe.html`;
-  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\n<a href="${unsubUrl}">Unsubscribe</a>`;
+  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\nTo unsubscribe: ${unsubUrl}`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -922,7 +922,7 @@ function App(){
   const[closeText,setCloseText]=useState(DEF_CLOSE);
   const[sig,setSig]=useState(DEF_SIG);
   const[page,setPage]=useState("dashboard");
-  const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");
+  const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
   const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});
@@ -982,6 +982,7 @@ function App(){
     }catch(e){console.error("Activity log failed:",e);}
   }
 
+  useEffect(()=>setContactsShown(100),[search,fp,fs,fst,fls]);
   const filtered=contacts.filter(c=>{
     if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
     if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp&&fp!=="__hide_admin__"&&c.persona!==fp)return false;
@@ -1028,15 +1029,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       setL1(paras[0]||"");
       setL2(paras[1]||pitch);
       setL3(paras[2]||"");
-const subj=`${c.district} - aeroponic classroom farm`;     
+      setSubj(`${cc.district} — aeroponic classroom farm`);
       setAiSt("done");
     }
     catch(e){setAiSt("error");}
   }
 
-const firstName=cc?.name?.split(" ")[0]||"there";
-const preview=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
-  
+  const preview=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
+
   async function pushGmail(){
     if(!subj||!preview||!cc)return;
     setGmSt("loading");setGmMsg("Connecting to Gmail...");
@@ -1135,7 +1135,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const l3=paras[2]||DEF_CLOSE;
     const sig=DEF_SIG;
     const body=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(c)}`].filter(Boolean).join("\n\n");
-const subj=`${c.district} - aeroponic classroom farm`;    return{body,subj};
+    const subj=`${c.district} — aeroponic classroom farm`;
+    return{body,subj};
   }
 
   async function pushDraftForContact(c,body,subj,token){
@@ -1239,6 +1240,9 @@ const subj=`${c.district} - aeroponic classroom farm`;    return{body,subj};
         {loading&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:C.textT}}><div style={{width:28,height:28,border:`3px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/><div>Loading from Supabase…</div></div>}
         {!loading&&<>
           {page==="dashboard"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Dashboard</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Live from Supabase · {contacts.length} contacts</div></div>
+            <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
+          {page==="pipeline"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Pipeline</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance · Click for details</div></div><KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/></>}
+          {page==="activity"&&<ActivityPage activity={activity}/>}
             
                         <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
           {page==="new-leads"&&<NewLeadsPage contacts={contacts} onCompose={c=>{selectCC(c);setPage("compose");}}/>}
@@ -1290,7 +1294,7 @@ const subj=`${c.district} - aeroponic classroom farm`;    return{body,subj};
                   <th style={TH(36)}><input type="checkbox" checked={sel.size===filtered.length&&filtered.length>0} onChange={toggleAll} style={{accentColor:C.green}}/></th>
                   <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th><th style={TH(48)}>State</th><th style={TH()}>Persona</th><th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(100)}></th>
                 </tr></thead>
-                <tbody>{filtered.map(c=>{
+                <tbody>{filtered.slice(0,contactsShown).map(c=>{
                   const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
                   return <tr key={c.id} onClick={()=>{setDetail(c);setEditMode(false);}} style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}} onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
                     <td style={TD(36)} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggleSel(c.id)} style={{accentColor:C.green}}/></td>
@@ -1305,6 +1309,7 @@ const subj=`${c.district} - aeroponic classroom farm`;    return{body,subj};
                 })}</tbody>
               </table>
               {filtered.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>🔍</div><div style={{fontWeight:500,color:C.textS}}>No contacts match filters</div></div>}
+              {filtered.length>contactsShown&&<div style={{padding:"16px",textAlign:"center",borderTop:`1px solid ${C.border}`}}><button onClick={()=>setContactsShown(p=>p+100)} style={{...B("secondary"),fontSize:12}}>Load more ({filtered.length-contactsShown} remaining)</button></div>}
             </div>
           </>}
           {page==="compose"&&<>
