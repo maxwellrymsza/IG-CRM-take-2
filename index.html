@@ -646,7 +646,7 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
         enrollmentId:e.id, sequenceId:seq.id, sequenceName:seq.name,
         contactId:c.id, contactName:c.name, contactDistrict:c.district,
         contactPersona:c.persona, stepLabel:step.label, stepIndex:e.current_step,
-        subject:`Quick note — aeroponic classroom farm for ${c.district}`,
+        subject:`${c.district} - Aeroponic Classroom Farm`,
         scheduledFor:e.next_send_at||new Date().toISOString(),
         status:"pending",
         body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
@@ -1029,13 +1029,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       setL1(paras[0]||"");
       setL2(paras[1]||pitch);
       setL3(paras[2]||"");
-      setSubj(`${cc.district} — aeroponic classroom farm`);
+      setSubj(`${cc.district} - Aeroponic Classroom Farm`);
       setAiSt("done");
     }
     catch(e){setAiSt("error");}
   }
 
-  const preview=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
+  const firstName=cc?.name?.split(" ")[0]||"there";
+  const preview=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
 
   async function pushGmail(){
     if(!subj||!preview||!cc)return;
@@ -1134,8 +1135,9 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const l2=paras[1]||pitch;
     const l3=paras[2]||DEF_CLOSE;
     const sig=DEF_SIG;
-    const body=[l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(c)}`].filter(Boolean).join("\n\n");
-    const subj=`${c.district} — aeroponic classroom farm`;
+    const firstName=c.name?.split(" ")[0]||"there";
+    const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(c)}`].filter(Boolean).join("\n\n");
+    const subj=`${c.district} - Aeroponic Classroom Farm`;
     return{body,subj};
   }
 
