@@ -927,7 +927,7 @@ function App(){
   const[addOpen,setAddOpen]=useState(false);
   const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM"});
   const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");
-  const[subj,setSubj]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
+  const[subj,setSubj]=useState("");const[greeting,setGreeting]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
   const[kbSt,setKbSt]=useState("idle");
   const[stab,setStab]=useState("STEM");const[saved,setSaved]=useState(false);
   const[activity,setActivity]=useState([]);
@@ -991,7 +991,7 @@ function App(){
 
   const stats={total:contacts.length,cold:contacts.filter(c=>c.stage==="Cold").length,active:contacts.filter(c=>!["Cold","Closed/Lost","Bounced","Declined"].includes(c.stage)).length};
 
-  function selectCC(c){setCc(c);setL2(templates[c.persona]?.roleBlurb||templates.General.roleBlurb);setL3(closeText);setL1("");setSubj("");setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");}
+  function selectCC(c){setCc(c);setL2(templates[c.persona]?.roleBlurb||templates.General.roleBlurb);setL3(closeText);setL1("");setSubj("");setGreeting(`Dear ${c.name?.split(" ")[0]||"there"},`);setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");}
 
   async function genHook(){
     if(!cc)return;setAiSt("loading");setKbSt("loading");setL1("");setL2("");setL3("");
@@ -1035,8 +1035,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     catch(e){setAiSt("error");}
   }
 
-  const firstName=cc?.name?.split(" ")[0]||"there";
-  const preview=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
+  const preview=[greeting,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
 
   async function pushGmail(){
     if(!subj||!preview||!cc)return;
@@ -1323,6 +1322,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                 {!cc?<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,padding:40,textAlign:"center"}}><div style={{fontSize:38,opacity:0.3}}>✉️</div><div style={{fontWeight:500,color:C.textS}}>Select a contact to compose</div></div>:<>
                   <div style={{padding:"11px 14px",background:C.gBg,borderRadius:8,border:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:10}}><Av name={cc.name} size={34} color={C.blue}/><div><div style={{fontWeight:600,fontSize:13}}>{cc.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{cc.role} · {cc.school||cc.district} · {cc.district}, {cc.state}</div></div><div style={{marginLeft:"auto"}}>{(()=>{const[pc,pb]=PER_C[cc.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[cc.persona]?.label||cc.persona} color={pc} bg={pb}/>;})()}</div></div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Subject line</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Auto-fills after generating..." style={I()}/></div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Greeting</label><input value={greeting} onChange={e=>setGreeting(e.target.value)} placeholder="Dear [Name]," style={I()}/></div>
                   <button onClick={genHook} disabled={aiSt==="loading"} style={{...B("primary"),width:"100%",padding:"10px",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>{aiSt==="loading"?<><div style={{width:14,height:14,border:"2px solid rgba(255,255,255,0.4)",borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Generating full email…</>:l1?<>↻ Regenerate Full Email</>:<>✨ Generate Full Email</>}</button>
                   <div style={{border:`1px solid #BAE6FD`,borderRadius:8}}>
                     <div style={{padding:"9px 12px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:8}}>
