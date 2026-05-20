@@ -123,9 +123,9 @@ function trackedLink(contactId, docId) {
 // ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
 function canSpamFooter(contact) {
   const unsubUrl = contact
-    ? `https://ig-crm-take-2.pages.dev/unsubscribe.html?id=${contact.id}`
-    : `https://ig-crm-take-2.pages.dev/unsubscribe.html`;
-  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\nTo unsubscribe: ${unsubUrl}`;
+    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
+    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
+  return `--\nInspired Growing | 123 Innovation Way, Newark, NJ 07102\ninspiredgrowing.com | info@inspiredgrowing.com\n\nYou're receiving this because of your role in K-12 education.\nUnsubscribe: ${unsubUrl}`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -156,7 +156,7 @@ Administrator:{label:"Administrator",roleBlurb:"We work with school and district
 };
 
 const DEF_CLOSE="I'd be happy to send along more detailed information, and I can also speak to the grant funding opportunities that districts across New Jersey and the country are using to help finance these programs. If this sounds interesting, I'm happy to start a conversation.";
-const DEF_SIG="Eric Wagner\nInspired Growing\ninspiredgrowing.com | info@inspiredgrowing.com";
+const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com | info@inspiredgrowing.com";
 
 const STAGES=["Cold","Contacted","Replied","Demo Scheduled","Proposal Sent","Bounced","Declined","Closed/Lost"];
 const STAGE_C={"Cold":"#9CA3AF","Contacted":"#185FA5","Replied":"#0F6E56","Demo Scheduled":"#854F0B","Proposal Sent":"#5B21B6","Bounced":"#A32D2D","Declined":"#6B7280","OOO":"#854F0B","Closed/Lost":"#A32D2D"};
