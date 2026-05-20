@@ -941,7 +941,7 @@ function App(){
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
-  const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:""});
+  const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold"});
   const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");
   const[subj,setSubj]=useState("");const[greeting,setGreeting]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
   const[kbSt,setKbSt]=useState("idle");
@@ -1106,10 +1106,10 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   async function saveContact(){
     const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname)return;
     try{
-      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:"Cold",alt_contact:addF.phone||""})});
+      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||""})});
       const newC=mapRow(rows[0]);
       setContacts(p=>[newC,...p]);
-      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:""});
+      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold"});
       setAddOpen(false);
       addActivity({type:"added",contactId:newC.id,contactName:newC.name,text:"was added as a new contact",detail:`${role} · ${school||district}`,icon:"➕"});
     }catch(e){alert("Error: "+e.message);}
@@ -1408,7 +1408,9 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
             {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
             <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
-            <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Stage</div><Tag label={detail.stage} color={STAGE_META[detail.stage]?.color||"#6B7280"} bg={STAGE_META[detail.stage]?.bg||"#F3F4F6"}/></div>
+            <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Stage</div>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{STAGES.map(s=>{const sm=STAGE_META[s]||{color:C.textS,bg:C.bg,icon:"•"};return <button key={s} onClick={async()=>{await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:s})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,stage:s}:c));setDetail(d=>({...d,stage:s}));addActivity({type:"stage",contactId:detail.id,contactName:detail.name,text:`moved to ${s}`,detail:detail.district,icon:sm.icon});}} style={{fontSize:11,padding:"3px 8px",borderRadius:6,cursor:"pointer",fontWeight:detail.stage===s?700:400,background:detail.stage===s?sm.bg:"white",color:detail.stage===s?sm.color:C.textS,border:`1px solid ${detail.stage===s?sm.color:C.border}`}}>{sm.icon} {s}</button>;})}
+            </div></div>
           </div>
           {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Phone</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
           <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
@@ -1432,6 +1434,12 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                 {Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}
               </select>
             </div>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={LBL()}>Stage</label>
+              <select value={editF.stage||detail.stage||"Cold"} onChange={e=>setEditF(f=>({...f,stage:e.target.value}))} style={S()}>
+                {STAGES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
             <label style={LBL()}>Notes</label>
@@ -1440,7 +1448,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           <div style={{display:"flex",gap:8}}>
             <button onClick={async()=>{
               try{
-                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes})});
+                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes})});
                 const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes};
                 setContacts(p=>p.map(c=>c.id===detail.id?updated:c));
                 setDetail(updated);setEditMode(false);
@@ -1461,6 +1469,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           <div style={{display:"flex",flexDirection:"column",gap:4,gridColumn:"1/-1"}}><label style={LBL()}>Phone Number</label><input value={addF.phone||""} onChange={e=>setAddF(f=>({...f,phone:e.target.value}))} placeholder="(555) 555-5555" style={I()}/></div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>State</label><select value={addF.state} onChange={e=>setAddF(f=>({...f,state:e.target.value}))} style={S()}>{["NY","NJ","CT","PA","MA","Other"].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Persona</label><select value={addF.persona} onChange={e=>setAddF(f=>({...f,persona:e.target.value}))} style={S()}>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}</select></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Pipeline Stage</label><select value={addF.stage||"Cold"} onChange={e=>setAddF(f=>({...f,stage:e.target.value}))} style={S()}>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button onClick={()=>setAddOpen(false)} style={B("secondary")}>Cancel</button><button onClick={saveContact} style={B("primary")}>Add Contact</button></div>
       </div>
