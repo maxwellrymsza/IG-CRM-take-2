@@ -1406,7 +1406,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
         </div>
         {!editMode?<>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
-            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Lead Source",detail.lead_source]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
+            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
             <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
             <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Stage</div><Tag label={detail.stage} color={STAGE_META[detail.stage]?.color||"#6B7280"} bg={STAGE_META[detail.stage]?.bg||"#F3F4F6"}/></div>
           </div>
