@@ -1243,8 +1243,6 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
             <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
           {page==="pipeline"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Pipeline</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance · Click for details</div></div><KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/></>}
           {page==="activity"&&<ActivityPage activity={activity}/>}
-            
-                        <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
           {page==="new-leads"&&<NewLeadsPage contacts={contacts} onCompose={c=>{selectCC(c);setPage("compose");}}/>}
           {page==="contacts"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
