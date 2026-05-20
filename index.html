@@ -1225,10 +1225,18 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,stage,stageEnteredAt:new Date().toISOString()}));
   }
 
-  function handleTaskAdd(contactId,task){
-    const t={...task,id:taskIdRef.current++,done:false};setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:[...(c.tasks||[]),t]}:c));
-    const c=contacts.find(x=>x.id===contactId);addActivity({type:"task",contactId,contactName:c?.name||"",text:"Task added",detail:task.text,icon:"✅"});
-    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:[...(p.tasks||[]),t]}));
+  async function handleTaskAdd(contactId,task){
+    const t={...task,id:taskIdRef.current++,done:false};
+    const c=contacts.find(x=>x.id===contactId);
+    const existingSteps=c?.next_steps||"";
+    const dueStr=task.due?` (due ${new Date(task.due).toLocaleDateString("en-US",{month:"short",day:"numeric"})})`:""
+    const newStep=`${task.text}${dueStr}`;
+    const updated=existingSteps?`${existingSteps}\n${newStep}`:newStep;
+    // Save to Supabase next_steps
+    await sbFetch(`contacts?id=eq.${contactId}`,{method:"PATCH",body:JSON.stringify({next_steps:updated})}).catch(console.error);
+    setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:[...(c.tasks||[]),t],next_steps:updated}:c));
+    addActivity({type:"task",contactId,contactName:c?.name||"",text:"Next step added",detail:task.text,icon:"⚡"});
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:[...(p.tasks||[]),t],next_steps:updated}));
   }
 
   function handleTaskToggle(contactId,taskId){
@@ -1501,7 +1509,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
         {selectedContact.notes&&<div style={{marginBottom:16}}><div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Notes</div><div style={{fontSize:13,color:C.textS,lineHeight:1.6,background:C.bg,borderRadius:6,padding:"8px 10px"}}>{selectedContact.notes}</div></div>}
         <div style={{marginBottom:16}}>
           <div style={{fontSize:10,fontWeight:600,color:"#854F0B",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>⚡ Next Steps</div>
-          {(selectedContact.tasks||[]).length===0&&<div style={{fontSize:12,color:C.textT,marginBottom:8}}>No next steps yet</div>}
+          <textarea defaultValue={selectedContact.next_steps||""} onBlur={async e=>{const v=e.target.value;await sbFetch(`contacts?id=eq.${selectedContact.id}`,{method:"PATCH",body:JSON.stringify({next_steps:v})});setContacts(p=>p.map(c=>c.id===selectedContact.id?{...c,next_steps:v}:c));setSelectedContact(p=>({...p,next_steps:v}));}} style={{...I(),fontSize:12,lineHeight:1.6,marginBottom:8,minHeight:50,resize:"vertical",background:"#FFFBEB",border:"1px solid #FED7AA"}} placeholder="What's the next step with this contact?"/>
+          {(selectedContact.tasks||[]).length===0&&<div style={{fontSize:11,color:C.textT,marginBottom:6}}>Or add a tracked step with a due date below:</div>}
           {(selectedContact.tasks||[]).map(t=><div key={t.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 8px",marginBottom:4,background:t.done?"#F9FAFB":"#FFFBEB",border:`1px solid ${t.done?C.border:"#FED7AA"}`,borderRadius:6}}><input type="checkbox" checked={t.done} onChange={()=>handleTaskToggle(selectedContact.id,t.id)} style={{accentColor:C.green,cursor:"pointer",marginTop:2}}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:500,textDecoration:t.done?"line-through":"none",color:t.done?C.textT:C.text}}>{t.text}</div>{t.due&&<div style={{fontSize:10,color:"#854F0B",marginTop:2}}>Due {new Date(t.due).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>}</div></div>)}
           <div style={{display:"flex",gap:6,marginTop:8}}>
             <input value={taskText} onChange={e=>setTaskText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&taskText){handleTaskAdd(selectedContact.id,{text:taskText,due:taskDate||""});setTaskText("");setTaskDate("");}}} placeholder="Add a next step... (press Enter)" style={{...I(),fontSize:12,padding:"5px 8px",flex:1,background:"#FFFBEB",border:"1px solid #FED7AA"}}/>
