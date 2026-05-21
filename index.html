@@ -951,8 +951,9 @@ function App(){
   const[selectedContact,setSelectedContact]=useState(null);
   const actIdRef=useRef(1);const taskIdRef=useRef(1);
   const[batchRunning,setBatchRunning]=useState(false);
-  const[batchProgress,setBatchProgress]=useState(null); // {done,total,current,failed}
+  const[batchProgress,setBatchProgress]=useState(null);
   const[batchDone,setBatchDone]=useState(null);
+  const[batchMode,setBatchMode]=useState("send");
   const[taskText,setTaskText]=useState("");
   const[taskDate,setTaskDate]=useState("");
   const[editMode,setEditMode]=useState(false);
@@ -980,7 +981,7 @@ function App(){
         const mapped=deduped.map(mapRow);
         setContacts(mapped);
         setSequences(s);setEnrollments(e);setSeqLog(l);
-        setActivity(al.map(a=>({...a,id:actIdRef.current++,time:a.created_at,contactId:a.contact_id})));
+        setActivity(al.map(a=>({...a,id:actIdRef.current++,time:a.created_at,contactId:a.contact_id,contactName:a.contact_name})));
         setLoading(false);
       }catch(err){setLoadErr("Could not load: "+err.message);setLoading(false);}
     }
@@ -1054,32 +1055,59 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
 
   const preview=[greeting,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
 
-  async function pushGmail(){
+  async function pushGmail(mode="send"){
     if(!subj||!preview||!cc)return;
-    setGmSt("loading");setGmMsg("Sending email...");
+    setGmSt("loading");setGmMsg(mode==="send"?"Sending email...":"Saving draft...");
     try{
       const htmlBody=preview
         .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
         .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
         .replace(/\n/g,"<br>");
       const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${canSpamFooterHtml(cc)}</div>`;
-      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({to:cc.email,subject:subj,html:fullHtml,contactId:cc.id})
-      });
-      const d=await r.json();
-      if(d.ok){
-        setGmSt("success");
-        setGmMsg(`✓ Email sent to ${cc.email} from eric.wagner@inspiredgrowing.com`);
-        const today=new Date().toISOString().split("T")[0];
-        setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Emailed",lastContact:today}:c));
-        addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"was emailed",detail:subj,icon:"📧"});
+      if(mode==="draft"){
+        // Save as Gmail draft via OAuth popup
+        const token=await getGmailToken();
+        const emailLines=[
+          `From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,
+          `To: ${cc.email}`,
+          `Subject: ${subj}`,
+          `MIME-Version: 1.0`,
+          `Content-Type: text/html; charset=utf-8`,
+          ``,
+          fullHtml
+        ].join("\r\n");
+        const enc=btoa(unescape(encodeURIComponent(emailLines))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+        const r=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+          body:JSON.stringify({message:{raw:enc}})
+        });
+        if(r.ok){
+          setGmSt("success");
+          setGmMsg(`✓ Draft saved in Eric's Gmail — review and send when ready`);
+        } else throw new Error("Draft save failed");
       } else {
-        throw new Error(d.error||"Send failed");
+        // Send immediately via Cloudflare Worker
+        const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({to:cc.email,subject:subj,html:fullHtml,contactId:cc.id})
+        });
+        const d=await r.json();
+        if(d.ok){
+          setGmSt("success");
+          setGmMsg(`✓ Email sent to ${cc.email} from eric.wagner@inspiredgrowing.com`);
+          const today=new Date().toISOString().split("T")[0];
+          setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Emailed",lastContact:today}:c));
+          addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"was emailed",detail:subj,icon:"📧"});
+        } else throw new Error(d.error||"Send failed");
       }
     }catch(e){
-      setGmSt("error");setGmMsg(`Error: ${e.message}. Try again.`);
+      if(e==="popup_closed_by_user"||e==="access_denied"){
+        setGmSt("error");setGmMsg("Sign-in cancelled. Try again.");
+      } else {
+        setGmSt("error");setGmMsg(`Error: ${e.message}. Try again.`);
+      }
     }
   }
 
@@ -1162,7 +1190,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     return true;
   }
 
-  async function batchGenerateAndPush(){
+  async function batchGenerateAndPush(mode="send"){
     const selectedContacts=[...sel].map(id=>contacts.find(c=>c.id===id)).filter(Boolean);
     if(selectedContacts.length===0)return;
     setBatchRunning(true);setBatchDone(null);
@@ -1174,7 +1202,18 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
       setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
       try{
         const{body,subj}=await generateEmailForContact(c);
-        await pushDraftForContact(c,body,subj);
+        if(mode==="draft"){
+          // Save as Gmail draft via OAuth
+          const tok=await getGmailToken();
+          const htmlBody2=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
+          const fullHtml2=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody2}</p>${canSpamFooterHtml(c)}</div>`;
+          const emailLines2=[`From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,`To: ${c.email}`,`Subject: ${subj}`,`MIME-Version: 1.0`,`Content-Type: text/html; charset=utf-8`,``,fullHtml2].join("\r\n");
+          const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+          const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
+          if(!dr.ok)throw new Error("Draft save failed");
+        } else {
+          await pushDraftForContact(c,body,subj);
+        }
         const today=new Date().toISOString().split("T")[0];
         await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(c.stage==="Cold"?{pipeline_stage:"Contacted"}:{})})});
         setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today,...(x.stage==="Cold"?{stage:"Contacted"}:{})}:x));
@@ -1185,7 +1224,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     }
     setBatchRunning(false);
     setBatchProgress(null);
-    setBatchDone({done,failed,failedNames});
+    setBatchDone({done,failed,failedNames,mode});
     setSel(new Set());
   }
 
@@ -1299,12 +1338,13 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
             {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
               <span style={{fontWeight:600,color:C.gDark}}>{sel.size} contact{sel.size!==1?"s":""} selected</span>
               {!batchRunning&&!batchDone&&<>
-                <button onClick={batchGenerateAndPush} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>✨ Generate & Send All</button>
+                <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Generate & Send All</button>
+                <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Generate & Save All as Drafts</button>
                 <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
                 <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
               </>}
               {batchRunning&&batchProgress&&<div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/><span style={{color:C.gDark,fontWeight:500}}>Generating for <strong>{batchProgress.current}</strong>…</span><span style={{color:C.textS}}>{batchProgress.done} of {batchProgress.total} done{batchProgress.failed>0?` · ${batchProgress.failed} failed`:""}</span><div style={{flex:1,height:4,background:C.gBorder,borderRadius:2,overflow:"hidden",maxWidth:200}}><div style={{height:"100%",width:`${(batchProgress.done/batchProgress.total)*100}%`,background:C.gDark,borderRadius:2,transition:"width 0.3s"}}/></div></div>}
-              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} sent{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
+              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
               {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);}} style={B("secondary","sm")}>✕ Clear</button>}
             </div>}
             <div style={{flex:1,overflowY:"auto"}}>
@@ -1367,7 +1407,15 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                   {gmSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.bBg,borderRadius:8,fontSize:12,color:C.bDark}}><div style={{width:12,height:12,border:"2px solid #B5D4F4",borderTopColor:C.bDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>{gmMsg}</div>}
                   {gmSt==="success"&&<div style={{padding:"8px 12px",background:C.gBg,borderRadius:8,fontSize:12,color:C.gDark}}>{gmMsg}</div>}
                   {gmSt==="error"&&<div style={{padding:"8px 12px",background:"#FAEEDA",borderRadius:8,fontSize:12,color:"#854F0B"}}>{gmMsg}</div>}
-                  <div style={{display:"flex",gap:8,paddingBottom:8}}><button onClick={pushGmail} disabled={!subj||!l1} style={{...B("blue"),opacity:(!subj||!l1)?0.4:1}}>{gmSt==="loading"?"Sending…":"📧 Send Email"}</button><button onClick={genHook} style={B("secondary")}>↻ Regenerate</button></div>
+                  <div style={{display:"flex",gap:8,paddingBottom:8,flexWrap:"wrap"}}>
+                  <button onClick={()=>pushGmail("send")} disabled={!subj||!l1||gmSt==="loading"} style={{...B("blue"),opacity:(!subj||!l1)?0.4:1,display:"flex",alignItems:"center",gap:6}}>
+                    {gmSt==="loading"&&gmMsg.includes("Sending")?"Sending…":"📧 Send Now"}
+                  </button>
+                  <button onClick={()=>pushGmail("draft")} disabled={!subj||!l1||gmSt==="loading"} style={{...B("secondary"),opacity:(!subj||!l1)?0.4:1,display:"flex",alignItems:"center",gap:6}}>
+                    {gmSt==="loading"&&gmMsg.includes("draft")?"Saving…":"💾 Save as Draft"}
+                  </button>
+                  <button onClick={genHook} disabled={gmSt==="loading"} style={B("secondary")}>↻ Regenerate</button>
+                </div>
                 </>}
               </div>
             </div>
