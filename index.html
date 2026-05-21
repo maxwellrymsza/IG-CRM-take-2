@@ -1082,15 +1082,6 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       setGmSt("error");setGmMsg(`Error: ${e.message}. Try again.`);
     }
   }
-    }
-    catch(e){
-      if(e==="popup_closed_by_user"||e==="access_denied"){
-        setGmSt("error");setGmMsg("Sign-in cancelled. Click Push to try again.");
-      } else {
-        setGmSt("error");setGmMsg(`Error: ${e.message||e}. Try again.`);
-      }
-    }
-  }
 
   function toggleSel(id){setSel(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});}
   function toggleAll(){sel.size===filtered.length&&filtered.length>0?setSel(new Set()):setSel(new Set(filtered.map(c=>c.id)));}
