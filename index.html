@@ -1355,7 +1355,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr style={{background:C.bg,borderBottom:`1px solid ${C.border}`}}>
                   <th style={TH(36)}><input type="checkbox" checked={sel.size===filtered.length&&filtered.length>0} onChange={toggleAll} style={{accentColor:C.green}}/></th>
-                  <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th><th style={TH(48)}>State</th><th style={TH()}>Persona</th><th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(100)}></th>
+                  <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th><th style={TH(48)}>State</th><th style={TH(110)}>Org Type</th><th style={TH()}>Persona</th><th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(100)}></th>
                 </tr></thead>
                 <tbody>{filtered.slice(0,contactsShown).map(c=>{
                   const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
@@ -1364,6 +1364,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                     <td style={TD()}><div style={{fontWeight:500}}>{c.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{c.role}</div></td>
                     <td style={TD()}><div style={{fontSize:12}}>{c.school||c.district}</div><div style={{fontSize:11,color:C.textT}}>{c.district}</div></td>
                     <td style={TD(48)}><span style={{fontSize:11,color:C.textS}}>{c.state}</span></td>
+                    <td style={TD(110)}><span style={{fontSize:11,color:C.textS}}>{c.org_type||"K-12 School"}</span></td>
                     <td style={TD()}><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></td>
                     <td style={TD()}><Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/></td>
                     <td style={TD(90)}><span style={{fontSize:12,color:C.textS}}>{c.lastContact||"—"}</span></td>
