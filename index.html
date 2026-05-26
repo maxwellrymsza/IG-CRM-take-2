@@ -1195,9 +1195,9 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   function toggleAll(){sel.size===filtered.length&&filtered.length>0?setSel(new Set()):setSel(new Set(filtered.map(c=>c.id)));}
 
   async function saveContact(){
-    const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname)return;
+    const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname){alert("First and last name are required.");return;}
     try{
-      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||"",org_type:addF.org_type||"K-12 School",is_strategic:addF.is_strategic||false,project_type:addF.project_type||""})});
+      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email:email||null,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||"",org_type:addF.org_type||"K-12 School",is_strategic:addF.is_strategic||false,project_type:addF.project_type||""})});
       const newC=mapRow(rows[0]);
       setContacts(p=>[newC,...p]);
       setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
