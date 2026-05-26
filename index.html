@@ -91,6 +91,8 @@ function mapRow(c) {
     hunter_status: c.hunter_status || "",
     next_steps: c.next_steps || "",
     org_type: c.org_type || "K-12 School",
+    is_strategic: c.is_strategic || false,
+    relationship_goal: c.relationship_goal || "",
     stageEnteredAt: c.created_at || new Date().toISOString(),
     tasks: [],
     isUnsubscribed: false,
@@ -828,6 +830,82 @@ function UnsubscribePage({contacts,setContacts}){
   </>;
 }
 
+// ── Strategic Relationships Page ─────────────────────────────────────────────
+function StrategicPage({contacts,setContacts,onCompose,onEdit}){
+  const[search,setSearch]=useState("");
+  const[addingGoal,setAddingGoal]=useState(null);
+  const strategic=contacts.filter(c=>c.is_strategic).filter(c=>
+    !search||`${c.name} ${c.school} ${c.district} ${c.role}`.toLowerCase().includes(search.toLowerCase())
+  );
+  const fmtD=iso=>iso?new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"—";
+
+  async function toggleStrategic(c,val){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({is_strategic:val})});
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,is_strategic:val}:x));
+  }
+  async function saveGoal(c,goal){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({relationship_goal:goal})});
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,relationship_goal:goal}:x));
+    setAddingGoal(null);
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>⭐ Strategic Relationships</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>High-value contacts tracked separately · excluded from bulk campaigns · {strategic.length} contacts</div></div>
+    </div>
+    <div style={{padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search strategic contacts..." style={I(260)}/>
+      <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{strategic.length} contacts</span>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:10}}>
+      {strategic.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}>
+        <div style={{fontSize:36,marginBottom:8}}>⭐</div>
+        <div style={{fontWeight:500,color:C.textS,marginBottom:6}}>No strategic contacts yet</div>
+        <div style={{fontSize:12,color:C.textT,maxWidth:340,margin:"0 auto",lineHeight:1.6}}>Open any contact, click ✏️ Edit, and check "Strategic Relationship" to add them here. These contacts won't receive bulk campaign emails.</div>
+      </div>}
+      {strategic.map(c=>{
+        const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
+        const sm=STAGE_META[c.stage]||{color:C.textS,bg:C.bg};
+        return <div key={c.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16,display:"flex",gap:14,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+          <div style={{width:44,height:44,borderRadius:11,background:pc,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:16,flexShrink:0}}>{(c.name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+              <div style={{fontWeight:700,fontSize:14,color:C.text}}>{c.name}</div>
+              <Tag label={c.persona} color={pc} bg={pb}/>
+              <Tag label={c.stage} color={sm.color} bg={sm.bg}/>
+              <span style={{fontSize:10,fontWeight:600,color:"#854F0B",background:"#FFF7ED",border:"1px solid #FED7AA",padding:"2px 7px",borderRadius:10}}>⭐ Strategic</span>
+            </div>
+            <div style={{fontSize:12,color:C.textS,marginBottom:4}}>{c.role} · {c.school||c.district} · {c.org_type||"K-12 School"}</div>
+            <div style={{fontSize:11,color:C.textT,marginBottom:8}}>{c.email}{c.alt_contact?` · ${c.alt_contact}`:""}</div>
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:10,fontWeight:600,color:"#5B21B6",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>🎯 Relationship Goal</div>
+              {addingGoal===c.id?(
+                <div style={{display:"flex",gap:6}}>
+                  <input autoFocus defaultValue={c.relationship_goal||""} id={`goal-${c.id}`} style={{...I(),fontSize:12,flex:1}} placeholder="What are we trying to achieve with this person?"/>
+                  <button onClick={()=>saveGoal(c,document.getElementById(`goal-${c.id}`).value)} style={B("primary","sm")}>Save</button>
+                  <button onClick={()=>setAddingGoal(null)} style={B("secondary","sm")}>✕</button>
+                </div>
+              ):(
+                <div onClick={()=>setAddingGoal(c.id)} style={{fontSize:12,color:c.relationship_goal?C.text:C.textT,fontStyle:c.relationship_goal?"normal":"italic",cursor:"pointer",padding:"5px 8px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:6,minHeight:28}}>
+                  {c.relationship_goal||"Click to set relationship goal..."}
+                </div>
+              )}
+            </div>
+            {c.notes&&<div style={{fontSize:12,color:C.textS,background:C.bg,borderRadius:6,padding:"6px 10px",marginBottom:8,fontStyle:"italic"}}>📝 {c.notes}</div>}
+            {c.next_steps&&<div style={{fontSize:12,color:"#854F0B",background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:6,padding:"6px 10px",marginBottom:8}}>⚡ {c.next_steps}</div>}
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <span style={{fontSize:10,color:C.textT}}>Last touch: {fmtD(c.lastContact)}</span>
+              <button onClick={()=>onCompose(c)} style={{...B("primary","sm"),marginLeft:"auto"}}>✉ Compose</button>
+              <button onClick={()=>onEdit(c)} style={B("secondary","sm")}>✏️ Edit</button>
+              <button onClick={()=>toggleStrategic(c,false)} style={{...B("secondary","sm"),color:"#6B7280",fontSize:10}}>Remove</button>
+            </div>
+          </div>
+        </div>;
+      })}
+    </div>
+  </>;
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 function DashboardPage({contacts,activity,onNavigate}){
@@ -1193,7 +1271,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
   }
 
   async function batchGenerateAndPush(mode="send"){
-    const selectedContacts=[...sel].map(id=>contacts.find(c=>c.id===id)).filter(Boolean);
+    const selectedContacts=[...sel].map(id=>contacts.find(c=>c.id===id)).filter(Boolean).filter(c=>!c.is_strategic);
     if(selectedContacts.length===0)return;
     setBatchRunning(true);setBatchDone(null);
     setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
@@ -1271,7 +1349,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
   const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
 
   const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
-  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads"},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
+  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads"},{id:"strategic",icon:"⭐",label:"Strategic"},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
   const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
 
   return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
@@ -1306,6 +1384,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           {page==="pipeline"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Pipeline</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance · Click for details</div></div><KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/></>}
           {page==="activity"&&<ActivityPage activity={activity}/>}
           {page==="new-leads"&&<NewLeadsPage contacts={contacts} onCompose={c=>{selectCC(c);setPage("compose");}}/>}
+          {page==="strategic"&&<StrategicPage contacts={contacts} setContacts={setContacts} onCompose={c=>{selectCC(c);setPage("compose");}} onEdit={c=>{setDetail(c);setEditMode(true);setEditF({name:c.name,email:c.email,role:c.role,school:c.school,district:c.district,state:c.state,persona:c.persona,org_type:c.org_type||"K-12 School",is_strategic:c.is_strategic||false,relationship_goal:c.relationship_goal||"",lead_source:c.lead_source,project_type:c.project_type,alt_contact:c.alt_contact,notes:c.notes,next_steps:c.next_steps||"",lastContact:c.lastContact||""});}}/>}
           {page==="contacts"&&<>
             <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
               <div><div style={{fontWeight:700,fontSize:16}}>Contacts</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>K-12 administrator database · live from Supabase</div></div>
@@ -1446,7 +1525,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
         <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:16}}>
           <Av name={detail.name} size={44} color={C.blue}/>
           <div style={{flex:1}}><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div>
-          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,org_type:detail.org_type||"K-12 School",lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes,next_steps:detail.next_steps||"",lastContact:detail.lastContact||""});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
+          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,org_type:detail.org_type||"K-12 School",is_strategic:detail.is_strategic||false,relationship_goal:detail.relationship_goal||"",lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes,next_steps:detail.next_steps||"",lastContact:detail.lastContact||""});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
           <button onClick={()=>{setDetail(null);setEditMode(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
         </div>
         {!editMode?<>
@@ -1494,6 +1573,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               <select value={editF.org_type||"K-12 School"} onChange={e=>setEditF(f=>({...f,org_type:e.target.value}))} style={S()}><option value="K-12 School">K-12 School</option><option value="Charter School">Charter School</option><option value="Private School">Private School</option><option value="Community Org">Community Org</option><option value="JCC / YMCA">JCC / YMCA</option><option value="Higher Ed">Higher Ed</option><option value="Corporate">Corporate</option><option value="Government">Government</option><option value="Healthcare">Healthcare</option><option value="Nonprofit">Nonprofit</option><option value="Vendor / Partner">Vendor / Partner</option><option value="Media">Media</option><option value="Other">Other</option></select>
             </div>
           </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"10px 12px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8}}>
+            <input type="checkbox" checked={editF.is_strategic||false} onChange={e=>setEditF(f=>({...f,is_strategic:e.target.checked}))} style={{accentColor:"#7C3AED",cursor:"pointer",width:16,height:16}}/>
+            <div><div style={{fontSize:12,fontWeight:600,color:"#5B21B6"}}>⭐ Strategic Relationship</div><div style={{fontSize:11,color:"#7C3AED"}}>Excluded from bulk campaigns · tracked in Strategic Relationships page</div></div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
+            <label style={{...LBL(),color:"#5B21B6"}}>🎯 Relationship Goal</label>
+            <input value={editF.relationship_goal||""} onChange={e=>setEditF(f=>({...f,relationship_goal:e.target.value}))} placeholder="What are we trying to achieve with this person?" style={I()}/>
+          </div>
           <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
             <label style={LBL()}>Notes</label>
             <textarea value={editF.notes||""} onChange={e=>setEditF(f=>({...f,notes:e.target.value}))} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
@@ -1509,8 +1596,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           <div style={{display:"flex",gap:8}}>
             <button onClick={async()=>{
               try{
-                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",last_touch:editF.lastContact||null})});
-                const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",lastContact:editF.lastContact||detail.lastContact};
+                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",last_touch:editF.lastContact||null})});
+                const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",lastContact:editF.lastContact||detail.lastContact};
                 setContacts(p=>p.map(c=>c.id===detail.id?updated:c));
                 setDetail(updated);setEditMode(false);
               }catch(e){alert("Error saving: "+e.message);}
