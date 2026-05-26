@@ -1021,7 +1021,7 @@ function App(){
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
-  const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School"});
+  const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false});
   const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");
   const[subj,setSubj]=useState("");const[greeting,setGreeting]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
   const[kbSt,setKbSt]=useState("idle");
@@ -1197,10 +1197,10 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   async function saveContact(){
     const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname)return;
     try{
-      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||"",org_type:addF.org_type||"K-12 School"})});
+      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||"",org_type:addF.org_type||"K-12 School",is_strategic:addF.is_strategic||false})});
       const newC=mapRow(rows[0]);
       setContacts(p=>[newC,...p]);
-      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School"});
+      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false});
       setAddOpen(false);
       addActivity({type:"added",contactId:newC.id,contactName:newC.name,text:"was added as a new contact",detail:`${role} · ${school||district}`,icon:"➕"});
     }catch(e){alert("Error: "+e.message);}
