@@ -1021,7 +1021,7 @@ function App(){
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
-  const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false});
+  const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
   const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");
   const[subj,setSubj]=useState("");const[greeting,setGreeting]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
   const[kbSt,setKbSt]=useState("idle");
@@ -1197,10 +1197,10 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   async function saveContact(){
     const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname)return;
     try{
-      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||"",org_type:addF.org_type||"K-12 School",is_strategic:addF.is_strategic||false})});
+      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||"",org_type:addF.org_type||"K-12 School",is_strategic:addF.is_strategic||false,project_type:addF.project_type||""})});
       const newC=mapRow(rows[0]);
       setContacts(p=>[newC,...p]);
-      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false});
+      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
       setAddOpen(false);
       addActivity({type:"added",contactId:newC.id,contactName:newC.name,text:"was added as a new contact",detail:`${role} · ${school||district}`,icon:"➕"});
     }catch(e){alert("Error: "+e.message);}
@@ -1615,6 +1615,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Email</label><input value={addF.email} onChange={e=>setAddF(f=>({...f,email:e.target.value}))} placeholder="j.smith@district.edu" style={I()}/></div>
           {[["role","Role","Nutrition Director"],["school","Organization","Lincoln HS"],["district","District","Clarkstown CSD"]].map(([k,l,ph])=><div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>{l}</label><input value={addF[k]} onChange={e=>setAddF(f=>({...f,[k]:e.target.value}))} placeholder={ph} style={I()}/></div>)}
           <div style={{display:"flex",flexDirection:"column",gap:4,gridColumn:"1/-1"}}><label style={LBL()}>Phone Number</label><input value={addF.phone||""} onChange={e=>setAddF(f=>({...f,phone:e.target.value}))} placeholder="(555) 555-5555" style={I()}/></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,gridColumn:"1/-1"}}><label style={LBL()}>Project Type / Notes</label><input value={addF.project_type||""} onChange={e=>setAddF(f=>({...f,project_type:e.target.value}))} placeholder="e.g. STEM lab expansion, nutrition program..." style={I()}/></div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>State</label><select value={addF.state} onChange={e=>setAddF(f=>({...f,state:e.target.value}))} style={S()}>{["NY","NJ","CT","PA","MA","Other"].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Persona</label><select value={addF.persona} onChange={e=>setAddF(f=>({...f,persona:e.target.value}))} style={S()}>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}</select></div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Pipeline Stage</label><select value={addF.stage||"Cold"} onChange={e=>setAddF(f=>({...f,stage:e.target.value}))} style={S()}>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
