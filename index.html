@@ -1082,7 +1082,7 @@ function App(){
   useEffect(()=>setContactsShown(100),[search,fp,fs,fst,fls,fOrgType]);
   const filtered=contacts.filter(c=>{
     if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
-    if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp&&fp!=="__hide_admin__"&&c.persona!==fp)return false;
+    if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp==="__strategic__"&&!c.is_strategic)return false;else if(fp&&fp!=="__hide_admin__"&&fp!=="__strategic__"&&c.persona!==fp)return false;
     if(fls&&c.lead_source!==fls)return false;
     if(fOrgType&&c.org_type!==fOrgType)return false;if(fs&&c.stage!==fs)return false;if(fst&&c.state!==fst)return false;return true;
   });
@@ -1392,7 +1392,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search name, school, district, email..." style={I(220)}/>
-              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}<option value="__hide_admin__">Hide Administrators</option></select>
+              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}<option value="__hide_admin__">Hide Administrators</option><option value="__strategic__">⭐ Strategic only</option></select>
               <select value={fs} onChange={e=>setFs(e.target.value)} style={S()}><option value="">All stages</option>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select>
               <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}><option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option></select>
               <select value={fOrgType||""} onChange={e=>setFOrgType(e.target.value)} style={S()}>
@@ -1440,7 +1440,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                   const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
                   return <tr key={c.id} onClick={()=>{setDetail(c);setEditMode(false);}} style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}} onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
                     <td style={TD(36)} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggleSel(c.id)} style={{accentColor:C.green}}/></td>
-                    <td style={TD()}><div style={{fontWeight:500}}>{c.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{c.role}</div></td>
+                    <td style={TD()}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontWeight:500}}>{c.name}</div>{c.is_strategic&&<span style={{fontSize:9,fontWeight:700,color:"#5B21B6",background:"#F5F3FF",border:"1px solid #DDD6FE",padding:"1px 5px",borderRadius:8,flexShrink:0}}>⭐ Strategic</span>}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{c.role}</div></td>
                     <td style={TD()}><div style={{fontSize:12}}>{c.school||c.district}</div><div style={{fontSize:11,color:C.textT}}>{c.district}</div></td>
                     <td style={TD(48)}><span style={{fontSize:11,color:C.textS}}>{c.state}</span></td>
                     <td style={TD(110)}><span style={{fontSize:11,color:C.textS}}>{c.org_type||"K-12 School"}</span></td>
