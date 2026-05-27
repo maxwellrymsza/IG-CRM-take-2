@@ -173,6 +173,42 @@ Administrator:{label:"Administrator",roleBlurb:"We work with school and district
 const DEF_CLOSE="I'd be happy to send along more detailed information, and I can also speak to the grant funding opportunities that districts across New Jersey and the country are using to help finance these programs. If this sounds interesting, I'm happy to start a conversation.";
 const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com | info@inspiredgrowing.com";
 
+const CAMPAIGNS={
+  cold:{
+    id:"cold",
+    label:"Cold Outreach",
+    icon:"❄️",
+    description:"AI personalized intro · district hook · persona pitch",
+    subjectFn:(c)=>`${c.district||c.school} - Aeroponic Classroom Farm`,
+    ai:true,
+  },
+  customer:{
+    id:"customer",
+    label:"Customer Update",
+    icon:"🌱",
+    description:"Summer reconnection · new features · premium services",
+    subjectFn:(c)=>`A personal update from Inspired Growing`,
+    ai:false,
+    templateFn:(c)=>{
+      const first=(c.name||"there").split(" ")[0];
+      const org=c.school||c.district||"your organization";
+      return {
+        l1:`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching ${org} grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`,
+        l2:`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`,
+        l3:`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the ${org} community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`
+      };
+    }
+  },
+  followup:{
+    id:"followup",
+    label:"Follow-Up",
+    icon:"📬",
+    description:"Check in after no response · low pressure nudge",
+    subjectFn:(c)=>`Re: ${c.district||c.school} - Aeroponic Classroom Farm`,
+    ai:true,
+  },
+};
+
 const STAGES=["Cold","Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Bounced","Declined","Closed/Lost"];
 const STAGE_C={"Cold":"#9CA3AF","Contacted":"#185FA5","Replied":"#0F6E56","Demo Scheduled":"#854F0B","Proposal Sent":"#5B21B6","Bounced":"#A32D2D","Declined":"#6B7280","OOO":"#854F0B","Closed/Lost":"#A32D2D"};
 const STAGE_BG={"Cold":"#F3F4F6","Contacted":"#E6F1FB","Replied":"#E1F5EE","Demo Scheduled":"#FAEEDA","Proposal Sent":"#EDE9FE","Bounced":"#FEE2E2","Declined":"#F3F4F6","OOO":"#FAEEDA","Closed/Lost":"#FEE2E2"};
@@ -1022,7 +1058,7 @@ function App(){
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
   const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
-  const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");
+  const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");const[campaign,setCampaign]=useState("cold");
   const[subj,setSubj]=useState("");const[greeting,setGreeting]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
   const[kbSt,setKbSt]=useState("idle");
   const[stab,setStab]=useState("STEM");const[saved,setSaved]=useState(false);
@@ -1089,10 +1125,31 @@ function App(){
 
   const stats={total:contacts.length,cold:contacts.filter(c=>c.stage==="Cold").length,active:contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined"].includes(c.stage)).length};
 
-  function selectCC(c){setCc(c);setL2(templates[c.persona]?.roleBlurb||templates.General.roleBlurb);setL3(closeText);setL1("");setSubj("");setGreeting(`Dear ${c.name?.split(" ")[0]||"there"},`);setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");}
+  function selectCC(c,camp){
+    const activeCampaign=camp||campaign;
+    setCc(c);
+    setGreeting(`Dear ${c.name?.split(" ")[0]||"there"},`);
+    setSubj(CAMPAIGNS[activeCampaign]?.subjectFn(c)||"");
+    setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");
+    if(activeCampaign==="customer"){
+      const t=CAMPAIGNS.customer.templateFn(c);
+      setL1(t.l1);setL2(t.l2);setL3(t.l3);
+    } else {
+      setL1("");setL2(templates[c.persona]?.roleBlurb||templates.General.roleBlurb);setL3(closeText);
+    }
+  }
 
   async function genHook(){
-    if(!cc)return;setAiSt("loading");setKbSt("loading");setL1("");setL2("");setL3("");
+    if(!cc)return;
+    // Customer Update uses static template - no AI needed
+    if(campaign==="customer"){
+      const t=CAMPAIGNS.customer.templateFn(cc);
+      setL1(t.l1);setL2(t.l2);setL3(t.l3);
+      setSubj(CAMPAIGNS.customer.subjectFn(cc));
+      setAiSt("done");setKbSt("done");
+      return;
+    }
+    setAiSt("loading");setKbSt("loading");setL1("");setL2("");setL3("");
     const pitchByPersona={
       STEM:"We build aeroponic classroom farm systems for K-12 schools — 12 independent growing trays running seed-to-harvest cycles as short as seven days across 75 square feet. Students run repeated experimental cycles within a single term, generating their own data and iterating on their own results. The curriculum is NGSS-aligned across plant science and experimental design.",
       Nutrition:"We build 12-tray aeroponic lab systems for K-12 schools — industrial-grade, not the hobby kits that tend to collect dust. Students grow the greens, harvest them, and eat them. The farm-to-school distance is exactly zero. Our systems run a 7-day seed-to-harvest cycle and produce around 100 fresh 3oz salads per week.",
@@ -1104,12 +1161,12 @@ function App(){
     setKbSt("done");
     const pitch=pitchByPersona[cc.persona]||pitchByPersona.General;
     const contactContext=[cc.notes?`Notes: ${cc.notes}`:"",cc.project_type?`Project focus: ${cc.project_type}`:"",cc.org_type&&cc.org_type!=="K-12 School"?`Organization type: ${cc.org_type} (not a school — adjust opener accordingly)`:""].filter(Boolean).join(". ");
-    const sys=`You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
+    const isFollowUp=campaign==="followup";
+    const sys=`You write short, personalized ${isFollowUp?"follow-up":"cold outreach"} emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
 
 Write a 3-paragraph cold email to ${cc.name}, ${cc.role} at ${cc.school||cc.district} (${cc.district}, ${cc.state}).
 
-PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):
-First, reference something specific and real about their school, district, or role that makes this email feel personally researched. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} Then end the paragraph with a bridge sentence that introduces why you are reaching out — something like "I wanted to introduce Inspired Growing while that planning is still in motion" or "That's part of why I wanted to reach out." Do not describe Inspired Growing yet — just bridge into it.
+${isFollowUp?"PARAGRAPH 1 — Follow-up opener (2 sentences):\nAcknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.":"PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):\nFirst, reference something specific and real about their school, district, or role"} that makes this email feel personally researched. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} Then end the paragraph with a bridge sentence that introduces why you are reaching out — something like "I wanted to introduce Inspired Growing while that planning is still in motion" or "That's part of why I wanted to reach out." Do not describe Inspired Growing yet — just bridge into it.
 
 PARAGRAPH 2 — What Inspired Growing does, angled to their role (3-4 sentences):
 ${pitch}
@@ -1227,7 +1284,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   async function generateEmailForContact(c){
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
-    const sys=`You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
+    const isFollowUp=campaign==="followup";
+    const sys=`You write short, personalized ${isFollowUp?"follow-up":"cold outreach"} emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
 
 Write a 3-paragraph cold email to ${c.name}, ${c.role} at ${c.school||c.district} (${c.district}, ${c.state}).
 
@@ -1250,7 +1308,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const sig=DEF_SIG;
     const firstName=c.name?.split(" ")[0]||"there";
     const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(c)}`].filter(Boolean).join("\n\n");
-    const subj=`${c.district} - Aeroponic Classroom Farm`;
+    const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`${c.district} - Aeroponic Classroom Farm`;
     return{body,subj};
   }
 
@@ -1421,8 +1479,11 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
             {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
               <span style={{fontWeight:600,color:C.gDark}}>{sel.size} contact{sel.size!==1?"s":""} selected</span>
               {!batchRunning&&!batchDone&&<>
+                <select value={campaign} onChange={e=>setCampaign(e.target.value)} style={{...S(),fontSize:11,padding:"4px 8px",borderRadius:6}}>
+                  {Object.values(CAMPAIGNS).map(camp=><option key={camp.id} value={camp.id}>{camp.icon} {camp.label}</option>)}
+                </select>
                 <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Generate & Send All</button>
-                <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Generate & Save All as Drafts</button>
+                <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Save All as Drafts</button>
                 <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
                 <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
               </>}
@@ -1456,7 +1517,16 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
             </div>
           </>}
           {page==="compose"&&<>
-            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Compose Email</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>AI district hook · persona pitch · universal close</div></div>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+              <div style={{fontWeight:700,fontSize:16}}>Compose Email</div>
+              <div style={{display:"flex",gap:2,marginTop:10}}>
+                {Object.values(CAMPAIGNS).map(camp=>(
+                  <button key={camp.id} onClick={()=>{setCampaign(camp.id);if(cc)selectCC(cc,camp.id);}} style={{padding:"6px 12px",fontSize:12,borderRadius:"6px 6px 0 0",cursor:"pointer",fontWeight:campaign===camp.id?600:400,background:campaign===camp.id?"white":C.bg,color:campaign===camp.id?C.gDark:C.textS,border:`1px solid ${C.border}`,borderBottom:campaign===camp.id?"1px solid white":"1px solid transparent",marginBottom:-1}}>
+                    {camp.icon} {camp.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={{display:"flex",flex:1,overflow:"hidden"}}>
               <div style={{width:265,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
                 <div style={SL()}>Select contact</div>
