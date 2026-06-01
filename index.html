@@ -1073,6 +1073,7 @@ function App(){
   const[batchProgress,setBatchProgress]=useState(null);
   const[batchDone,setBatchDone]=useState(null);
   const[batchMode,setBatchMode]=useState("send");
+  const[queueStatus,setQueueStatus]=useState(null);
   const[taskText,setTaskText]=useState("");
   const[taskDate,setTaskDate]=useState("");
   const[editMode,setEditMode]=useState(false);
@@ -1291,6 +1292,47 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     Administrator:"Inspired Growing installs aeroponic classroom farm programs in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. The system connects to STEM curriculum, supports farm-to-school nutrition goals, and fits in 75 square feet on standard outlets. 32 schools across NY and NJ have built it into their programs."
   };
 
+  async function queueEmailsForContacts(selectedContacts,mode){
+    setBatchRunning(true);setBatchDone(null);
+    setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
+    let done=0,failed=0,failedNames=[];
+    const now=new Date();
+    for(let i=0;i<selectedContacts.length;i++){
+      const c=selectedContacts[i];
+      setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
+      try{
+        const{body,subj}=await generateEmailForContact(c);
+        const firstName=(c.name||"there").split(" ")[0];
+        const htmlBody=body
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/
+
+/g,"</p><p style='margin:0 0 12px'>")
+          .replace(/
+/g,"<br>");
+        const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${canSpamFooterHtml(c)}</div>`;
+        // Schedule 1 minute apart
+        const scheduledAt=new Date(now.getTime()+(i*60*1000)).toISOString();
+        await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
+          contact_id:c.id,
+          contact_name:c.name,
+          to_email:c.email,
+          subject:subj,
+          html_body:fullHtml,
+          campaign,
+          scheduled_at:scheduledAt,
+          status:"pending"
+        })});
+        done++;
+      }catch(e){failed++;failedNames.push(c.name);}
+      if(i<selectedContacts.length-1)await new Promise(r=>setTimeout(r,500));
+    }
+    setBatchRunning(false);
+    setBatchProgress(null);
+    setBatchDone({done,failed,failedNames,mode:"queued"});
+    setSel(new Set());
+  }
+
   async function generateEmailForContact(c){
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
@@ -1341,6 +1383,10 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
   async function batchGenerateAndPush(mode="send"){
     const selectedContacts=[...sel].map(id=>contacts.find(c=>c.id===id)).filter(Boolean).filter(c=>!c.is_strategic);
     if(selectedContacts.length===0)return;
+    if(mode==="queue"){
+      await queueEmailsForContacts(selectedContacts,"queue");
+      return;
+    }
     setBatchRunning(true);setBatchDone(null);
     setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
     // Sending via Cloudflare Worker — no browser OAuth needed
@@ -1493,13 +1539,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                 <select value={campaign} onChange={e=>setCampaign(e.target.value)} style={{...S(),fontSize:11,padding:"4px 8px",borderRadius:6}}>
                   {Object.values(CAMPAIGNS).map(camp=><option key={camp.id} value={camp.id}>{camp.icon} {camp.label}</option>)}
                 </select>
-                <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Generate & Send All</button>
+                <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Send All Now</button>
+                <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (1/min)</button>
                 <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Save All as Drafts</button>
                 <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
                 <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
               </>}
               {batchRunning&&batchProgress&&<div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/><span style={{color:C.gDark,fontWeight:500}}>Generating for <strong>{batchProgress.current}</strong>…</span><span style={{color:C.textS}}>{batchProgress.done} of {batchProgress.total} done{batchProgress.failed>0?` · ${batchProgress.failed} failed`:""}</span><div style={{flex:1,height:4,background:C.gBorder,borderRadius:2,overflow:"hidden",maxWidth:200}}><div style={{height:"100%",width:`${(batchProgress.done/batchProgress.total)*100}%`,background:C.gDark,borderRadius:2,transition:"width 0.3s"}}/></div></div>}
-              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
+              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":batchDone.mode==="queued"?"queued — sending 1/min via drip":"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
               {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);}} style={B("secondary","sm")}>✕ Clear</button>}
             </div>}
             <div style={{flex:1,overflowY:"auto"}}>
