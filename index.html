@@ -1305,11 +1305,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
         const firstName=(c.name||"there").split(" ")[0];
         const htmlBody=body
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-          .replace(/
-
-/g,"</p><p style='margin:0 0 12px'>")
-          .replace(/
-/g,"<br>");
+          .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
+          .replace(/\n/g,"<br>");
         const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${canSpamFooterHtml(c)}</div>`;
         // Schedule 1 minute apart
         const scheduledAt=new Date(now.getTime()+(i*60*1000)).toISOString();
