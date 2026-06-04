@@ -1308,8 +1308,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
           .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
           .replace(/\n/g,"<br>");
         const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${canSpamFooterHtml(c)}</div>`;
-        // Schedule 1 minute apart
-        const scheduledAt=new Date(now.getTime()+(i*60*1000)).toISOString();
+        // Schedule 20 seconds apart
+        const scheduledAt=new Date(now.getTime()+(i*20*1000)).toISOString();
         await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
           contact_id:c.id,
           contact_name:c.name,
@@ -1537,7 +1537,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                   {Object.values(CAMPAIGNS).map(camp=><option key={camp.id} value={camp.id}>{camp.icon} {camp.label}</option>)}
                 </select>
                 <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Send All Now</button>
-                <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (1/min)</button>
+                <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (3/min)</button>
                 <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Save All as Drafts</button>
                 <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
                 <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
