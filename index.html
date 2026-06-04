@@ -1561,7 +1561,6 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               <button onClick={()=>batchGenerateAndPush("schedule")} disabled={!scheduleTime||batchRunning} style={{...B("blue","sm"),opacity:!scheduleTime?0.4:1}}>✓ Confirm Schedule</button>
               <button onClick={()=>setScheduleOpen(false)} style={B("secondary","sm")}>Cancel</button>
               <span style={{fontSize:11,color:"#0369A1"}}>Sends 3 emails/min starting at chosen time · {sel.size} emails ≈ {Math.ceil(sel.size/3)} min total</span>
-            </div>
             </div>}
             <div style={{flex:1,overflowY:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
