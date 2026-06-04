@@ -1074,6 +1074,8 @@ function App(){
   const[batchDone,setBatchDone]=useState(null);
   const[batchMode,setBatchMode]=useState("send");
   const[queueStatus,setQueueStatus]=useState(null);
+  const[scheduleOpen,setScheduleOpen]=useState(false);
+  const[scheduleTime,setScheduleTime]=useState("");
   const[taskText,setTaskText]=useState("");
   const[taskDate,setTaskDate]=useState("");
   const[editMode,setEditMode]=useState(false);
@@ -1292,11 +1294,11 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     Administrator:"Inspired Growing installs aeroponic classroom farm programs in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. The system connects to STEM curriculum, supports farm-to-school nutrition goals, and fits in 75 square feet on standard outlets. 32 schools across NY and NJ have built it into their programs."
   };
 
-  async function queueEmailsForContacts(selectedContacts,mode){
+  async function queueEmailsForContacts(selectedContacts,mode,startTime=null){
     setBatchRunning(true);setBatchDone(null);
     setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
     let done=0,failed=0,failedNames=[];
-    const now=new Date();
+    const now=startTime?new Date(startTime):new Date();
     for(let i=0;i<selectedContacts.length;i++){
       const c=selectedContacts[i];
       setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
@@ -1381,7 +1383,13 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const selectedContacts=[...sel].map(id=>contacts.find(c=>c.id===id)).filter(Boolean).filter(c=>!c.is_strategic);
     if(selectedContacts.length===0)return;
     if(mode==="queue"){
-      await queueEmailsForContacts(selectedContacts,"queue");
+      await queueEmailsForContacts(selectedContacts,"queue",null);
+      return;
+    }
+    if(mode==="schedule"){
+      await queueEmailsForContacts(selectedContacts,"schedule",scheduleTime||null);
+      setScheduleOpen(false);
+      setScheduleTime("");
       return;
     }
     setBatchRunning(true);setBatchDone(null);
@@ -1415,7 +1423,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     }
     setBatchRunning(false);
     setBatchProgress(null);
-    setBatchDone({done,failed,failedNames,mode});
+    setBatchDone({done,failed,failedNames,mode,startTime:startTime?.toISOString()});
     setSel(new Set());
   }
 
@@ -1539,12 +1547,21 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                 <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Send All Now</button>
                 <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (3/min)</button>
                 <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Save All as Drafts</button>
+                <button onClick={()=>setScheduleOpen(true)} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>📅 Schedule</button>
                 <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
                 <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
               </>}
               {batchRunning&&batchProgress&&<div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/><span style={{color:C.gDark,fontWeight:500}}>Generating for <strong>{batchProgress.current}</strong>…</span><span style={{color:C.textS}}>{batchProgress.done} of {batchProgress.total} done{batchProgress.failed>0?` · ${batchProgress.failed} failed`:""}</span><div style={{flex:1,height:4,background:C.gBorder,borderRadius:2,overflow:"hidden",maxWidth:200}}><div style={{height:"100%",width:`${(batchProgress.done/batchProgress.total)*100}%`,background:C.gDark,borderRadius:2,transition:"width 0.3s"}}/></div></div>}
-              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":batchDone.mode==="queued"?"queued — sending 1/min via drip":"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
-              {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);}} style={B("secondary","sm")}>✕ Clear</button>}
+              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":batchDone.mode==="queued"?"queued — sending 3/min via drip":batchDone.mode==="schedule"?`scheduled — starting ${new Date(batchDone.startTime).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
+              {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);setScheduleOpen(false);}} style={B("secondary","sm")}>✕ Clear</button>}
+            </div>}
+            {scheduleOpen&&sel.size>0&&<div style={{padding:"12px 16px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,fontWeight:600,color:"#0369A1"}}>📅 Schedule {sel.size} emails — start sending at:</span>
+              <input type="datetime-local" value={scheduleTime} onChange={e=>setScheduleTime(e.target.value)} style={{...I("220px"),fontSize:12,padding:"4px 8px"}}/>
+              <button onClick={()=>batchGenerateAndPush("schedule")} disabled={!scheduleTime||batchRunning} style={{...B("blue","sm"),opacity:!scheduleTime?0.4:1}}>✓ Confirm Schedule</button>
+              <button onClick={()=>setScheduleOpen(false)} style={B("secondary","sm")}>Cancel</button>
+              <span style={{fontSize:11,color:"#0369A1"}}>Sends 3 emails/min starting at chosen time · {sel.size} emails ≈ {Math.ceil(sel.size/3)} min total</span>
+            </div>
             </div>}
             <div style={{flex:1,overflowY:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
