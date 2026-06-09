@@ -1053,10 +1053,10 @@ function App(){
   const[templates,setTemplates]=useState(TMPL);
   const[closeText,setCloseText]=useState(DEF_CLOSE);
   const[sig,setSig]=useState(DEF_SIG);
-  const[custL1,setCustL1]=useState(`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
-  const[custL2,setCustL2]=useState(`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
-  const[custL3,setCustL3]=useState(`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
-  const[followupGuidance,setFollowupGuidance]=useState("Write a short 2-paragraph follow-up email. Paragraph 1: acknowledge you reached out previously and haven't heard back — keep it light, no guilt. Paragraph 2: one sentence re-stating the core value of Inspired Growing for their role, then ask if now is a better time to connect.");
+  const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
+  const[custL2,setCustL2]=useState(()=>localStorage.getItem("ig_cust_l2")||`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
+  const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
+  const[followupGuidance,setFollowupGuidance]=useState(()=>localStorage.getItem("ig_followup_guidance")||"Write a short 2-paragraph follow-up email. Paragraph 1: acknowledge you reached out previously and haven't heard back — keep it light, no guilt. Paragraph 2: one sentence re-stating the core value of Inspired Growing for their role, then ask if now is a better time to connect.");
   const[page,setPage]=useState("dashboard");
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
@@ -1248,7 +1248,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
           setGmSt("success");
           setGmMsg(`✓ Email sent to ${cc.email} from eric.wagner@inspiredgrowing.com`);
           const today=new Date().toISOString().split("T")[0];
-          setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Emailed",lastContact:today}:c));
+          const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
+          setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(!keepStage&&{stage:"Emailed"})}:c));
           addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"was emailed",detail:subj,icon:"📧"});
         } else throw new Error(d.error||"Send failed");
       }
@@ -1420,8 +1421,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
         } else {
           await pushDraftForContact(c,body,subj);
         }
-        const today=new Date().toISOString().split("T")[0];
-        await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(c.stage==="Cold"?{pipeline_stage:"Contacted"}:{})})});
+        await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(["Cold","Emailed"].includes(cc.stage)?{pipeline_stage:"Emailed"}:{})})});
+        setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(["Cold","Emailed"].includes(cc.stage)?{stage:"Emailed"}:{})}:c));
         setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today,...(x.stage==="Cold"?{stage:"Contacted"}:{})}:x));
         done++;
       }catch(e){failed++;failedNames.push(c.name);}
@@ -1657,7 +1658,14 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           </>}
           {page==="resources"&&<ResourcesPage/>}
           {page==="settings"&&<>
-            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:16}}>Email Templates</div></div><div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>{saved&&<span style={{fontSize:12,color:C.gDark,fontWeight:500}}>✓ Saved</span>}<button onClick={()=>{setSaved(true);setTimeout(()=>setSaved(false),2000);}} style={B("primary")}>Save Changes</button></div></div>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:16}}>Email Templates</div></div><div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>{saved&&<span style={{fontSize:12,color:C.gDark,fontWeight:500}}>✓ Saved</span>}<button onClick={()=>{
+                  // Save customer update template to localStorage so it persists
+                  localStorage.setItem("ig_cust_l1",custL1);
+                  localStorage.setItem("ig_cust_l2",custL2);
+                  localStorage.setItem("ig_cust_l3",custL3);
+                  localStorage.setItem("ig_followup_guidance",followupGuidance);
+                  setSaved(true);setTimeout(()=>setSaved(false),2000);
+                }} style={B("primary")}>Save Changes</button></div></div>
             <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"},{id:"campaign_customer",label:"🌱 Customer Update"},{id:"campaign_followup",label:"📬 Follow-Up"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
             <div style={{flex:1,overflowY:"auto",padding:24}}>
               {stab!=="close"&&templates[stab]&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Persona pitch — {templates[stab].label}</label><textarea value={templates[stab].roleBlurb} onChange={e=>setTemplates(p=>({...p,[stab]:{...p[stab],roleBlurb:e.target.value}}))} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
