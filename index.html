@@ -1333,6 +1333,22 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   }
 
   async function generateEmailForContact(c){
+    // Use static template for customer update campaign
+    if(campaign==="customer"){
+      const first=(c.name||"there").split(" ")[0];
+      const org=c.school||c.district||"your organization";
+      const body=[
+        `Dear ${first},`,
+        custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),
+        custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),
+        custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),
+        `
+${DEF_SIG}`
+      ].join("
+
+");
+      return{body,subj:"A personal update from Inspired Growing"};
+    }
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
@@ -1541,9 +1557,12 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
             {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
               <span style={{fontWeight:600,color:C.gDark}}>{sel.size} contact{sel.size!==1?"s":""} selected</span>
               {!batchRunning&&!batchDone&&<>
-                <select value={campaign} onChange={e=>setCampaign(e.target.value)} style={{...S(),fontSize:11,padding:"4px 8px",borderRadius:6}}>
-                  {Object.values(CAMPAIGNS).map(camp=><option key={camp.id} value={camp.id}>{camp.icon} {camp.label}</option>)}
-                </select>
+                <div style={{display:"flex",alignItems:"center",gap:6,background:"white",border:`2px solid ${campaign==="cold"?C.blue:campaign==="customer"?C.green:"#854F0B"}`,borderRadius:8,padding:"3px 8px"}}>
+                  <span style={{fontSize:11,fontWeight:700,color:C.textS,whiteSpace:"nowrap"}}>Campaign:</span>
+                  <select value={campaign} onChange={e=>setCampaign(e.target.value)} style={{fontSize:12,fontWeight:600,border:"none",outline:"none",background:"transparent",cursor:"pointer",color:campaign==="cold"?C.blue:campaign==="customer"?C.gDark:"#854F0B"}}>
+                    {Object.values(CAMPAIGNS).map(camp=><option key={camp.id} value={camp.id}>{camp.icon} {camp.label}</option>)}
+                  </select>
+                </div>
                 <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Send All Now</button>
                 <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (3/min)</button>
                 <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Save All as Drafts</button>
