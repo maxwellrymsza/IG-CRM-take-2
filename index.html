@@ -1158,7 +1158,7 @@ function App(){
       setL1(custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
       setL2(custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
       setL3(custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
-      setSubj("A personal update from Inspired Growing");
+      setSubj("Summer Updates from Inspired Growing");
       setAiSt("done");setKbSt("done");
       return;
     }
@@ -1339,7 +1339,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       const first=(c.name||"there").split(" ")[0];
       const org=c.school||c.district||"your organization";
       const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
-      return{body,subj:"A personal update from Inspired Growing"};
+      return{body,subj:"Summer Updates from Inspired Growing"};
     }
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
@@ -1674,7 +1674,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                 <div style={{padding:"10px 14px",background:"#F0FDF4",border:`1px solid ${C.gBorder}`,borderRadius:8,marginBottom:16,fontSize:12,color:C.gDark}}>
                   🌱 <strong>Customer Update</strong> — sent to existing customers (Closed Won stage). Edit the template below. Use <code style={{background:"#E1F5EE",padding:"1px 4px",borderRadius:3}}>[First Name]</code> and <code style={{background:"#E1F5EE",padding:"1px 4px",borderRadius:3}}>[Organization]</code> as placeholders — they auto-fill from the contact record.
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Subject line</label><input value={CAMPAIGNS.customer.subjectFn({district:"",school:""})} readOnly style={{...I(),background:C.bg,color:C.textS}} placeholder="A personal update from Inspired Growing"/><div style={{fontSize:11,color:C.textT,marginTop:3}}>Subject line is fixed for this campaign</div></div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Subject line</label><input value={CAMPAIGNS.customer.subjectFn({district:"",school:""})} readOnly style={{...I(),background:C.bg,color:C.textS}} placeholder="Summer Updates from Inspired Growing"/><div style={{fontSize:11,color:C.textT,marginTop:3}}>Subject line is fixed for this campaign</div></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Opening paragraph</label><textarea value={custL1} onChange={e=>setCustL1(e.target.value)} onBlur={e=>{const val=e.target.value;CAMPAIGNS.customer.templateFn=c=>{const first=(c.name||"there").split(" ")[0];const org=c.school||c.district||"your organization";return{l1:val.replace("[First Name]",first).replace("[Organization]",org),l2:CAMPAIGNS.customer.templateFn(c).l2,l3:CAMPAIGNS.customer.templateFn(c).l3};}}} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Features / updates section</label><textarea value={custL2} onChange={e=>setCustL2(e.target.value)} rows={10} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Closing paragraph</label><textarea value={custL3} onChange={e=>setCustL3(e.target.value)} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
