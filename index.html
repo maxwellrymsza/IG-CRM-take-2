@@ -1203,7 +1203,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     catch(e){setAiSt("error");}
   }
 
-  const preview=[greeting,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(cc)}`].filter(Boolean).join("\n\n");
+  const preview=[greeting,l1,l2,l3,`\n${sig}`,...(campaign!=="customer"?[`\n${canSpamFooter(cc)}`]:[] )].filter(Boolean).join("\n\n");
 
   async function pushGmail(mode="send"){
     if(!subj||!preview||!cc)return;
@@ -1213,7 +1213,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
         .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
         .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
         .replace(/\n/g,"<br>");
-      const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${canSpamFooterHtml(cc)}</div>`;
+      const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
       if(mode==="draft"){
         // Save as Gmail draft via OAuth popup
         const token=await getGmailToken();
@@ -1309,7 +1309,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
           .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
           .replace(/\n/g,"<br>");
-        const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${canSpamFooterHtml(c)}</div>`;
+        const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
         // Schedule 20 seconds apart
         const scheduledAt=new Date(now.getTime()+(i*20*1000)).toISOString();
         await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
@@ -1368,7 +1368,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
       .replace(/\n/g,"<br>");
-    const fullHtml2=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody2}</p>${canSpamFooterHtml(c)}</div>`;
+    const fullHtml2=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody2}</p>${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
     const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
@@ -1405,7 +1405,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           // Save as Gmail draft via OAuth
           const tok=await getGmailToken();
           const htmlBody2=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
-          const fullHtml2=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody2}</p>${canSpamFooterHtml(c)}</div>`;
+          const fullHtml2=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody2}</p>${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
           const emailLines2=[`From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,`To: ${c.email}`,`Subject: ${subj}`,`MIME-Version: 1.0`,`Content-Type: text/html; charset=utf-8`,``,fullHtml2].join("\r\n");
           const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
           const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
