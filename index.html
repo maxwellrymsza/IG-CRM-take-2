@@ -140,7 +140,7 @@ function canSpamFooterHtml(contact) {
   const unsubUrl = contact
     ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
     : `https://ig-crm-take-2.vercel.app/unsubscribe`;
-  return `<br><br><hr style="border:none;border-top:1px solid #eee;margin:16px 0"><p style="font-size:11px;color:#999;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com | info@inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#999">Unsubscribe</a></p>`;
+  return `<br><br>--<br><span style="font-size:11px;color:#666;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#666">Unsubscribe</a></span>`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -1213,7 +1213,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
         .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
         .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
         .replace(/\n/g,"<br>");
-      const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
+      const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
       if(mode==="draft"){
         // Save as Gmail draft via OAuth popup
         const token=await getGmailToken();
@@ -1309,7 +1309,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
           .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
           .replace(/\n/g,"<br>");
-        const fullHtml=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody}</p>${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
+        const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
         // Schedule 20 seconds apart
         const scheduledAt=new Date(now.getTime()+(i*20*1000)).toISOString();
         await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
@@ -1368,7 +1368,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
       .replace(/\n/g,"<br>");
-    const fullHtml2=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody2}</p>${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
+    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
     const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
@@ -1405,7 +1405,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
           // Save as Gmail draft via OAuth
           const tok=await getGmailToken();
           const htmlBody2=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
-          const fullHtml2=`<div style="font-family:Georgia,serif;font-size:14px;line-height:1.8;color:#111;max-width:600px"><p style="margin:0 0 12px">${htmlBody2}</p>${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
+          const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
           const emailLines2=[`From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,`To: ${c.email}`,`Subject: ${subj}`,`MIME-Version: 1.0`,`Content-Type: text/html; charset=utf-8`,``,fullHtml2].join("\r\n");
           const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
           const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
