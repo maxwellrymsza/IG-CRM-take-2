@@ -1337,16 +1337,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     if(campaign==="customer"){
       const first=(c.name||"there").split(" ")[0];
       const org=c.school||c.district||"your organization";
-      const body=[
-        `Dear ${first},`,
-        custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),
-        custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),
-        custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),
-        `
-${DEF_SIG}`
-      ].join("
-
-");
+      const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
       return{body,subj:"A personal update from Inspired Growing"};
     }
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
