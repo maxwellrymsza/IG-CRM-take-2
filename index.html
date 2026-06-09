@@ -130,7 +130,7 @@ function canSpamFooter(contact) {
     ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
     : `https://ig-crm-take-2.vercel.app/unsubscribe`;
   return `--
-Inspired Growing | 123 Innovation Way, Newark, NJ 07102
+Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032
 inspiredgrowing.com | info@inspiredgrowing.com
 
 You're receiving this because of your role in K-12 education.
@@ -140,7 +140,7 @@ function canSpamFooterHtml(contact) {
   const unsubUrl = contact
     ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
     : `https://ig-crm-take-2.vercel.app/unsubscribe`;
-  return `<br><br><hr style="border:none;border-top:1px solid #eee;margin:16px 0"><p style="font-size:11px;color:#999;font-family:Arial,sans-serif">Inspired Growing | 123 Innovation Way, Newark, NJ 07102<br>inspiredgrowing.com | info@inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#999">Unsubscribe</a></p>`;
+  return `<br><br><hr style="border:none;border-top:1px solid #eee;margin:16px 0"><p style="font-size:11px;color:#999;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com | info@inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#999">Unsubscribe</a></p>`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -171,7 +171,7 @@ Administrator:{label:"Administrator",roleBlurb:"We work with school and district
 };
 
 const DEF_CLOSE="I'd be happy to send along more detailed information, and I can also speak to the grant funding opportunities that districts across New Jersey and the country are using to help finance these programs. If this sounds interesting, I'm happy to start a conversation.";
-const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com | info@inspiredgrowing.com";
+const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n909 Newark Tpke, Kearny, NJ 07032";
 
 const CAMPAIGNS={
   cold:{
