@@ -1372,21 +1372,18 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   async function generateEmailForContact(c){
     // Use static template for customer update campaign
     if(campaign==="custom"){
-      const first=(c.name||"there").split(" ")[0];
-      const filledBody=fillPlaceholders(customBody,c);
-      const filledSubj=fillPlaceholders(customSubject,c);
-      const body=[`Dear ${first},`,filledBody,`
-${DEF_SIG}`].join("
-
-");
-      return{body,subj:filledSubj||"A message from Inspired Growing"};
-    }
-    if(campaign==="customer"){
-      const first=(c.name||"there").split(" ")[0];
-      const org=c.school||c.district||"your organization";
-      const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
-      return{body,subj:"Summer Updates from Inspired Growing"};
-    }
+  const first=(c.name||"there").split(" ")[0];
+  const filledBody=fillPlaceholders(customBody,c);
+  const filledSubj=fillPlaceholders(customSubject,c);
+  const body=[`Dear ${first},`,filledBody,`\n${DEF_SIG}`].join("\n\n");
+  return{body,subj:filledSubj||"A message from Inspired Growing"};
+}
+if(campaign==="customer"){
+  const first=(c.name||"there").split(" ")[0];
+  const org=c.school||c.district||"your organization";
+  const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
+  return{body,subj:"Summer Updates from Inspired Growing"};
+}
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
