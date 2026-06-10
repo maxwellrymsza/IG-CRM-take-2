@@ -207,6 +207,14 @@ const CAMPAIGNS={
     subjectFn:(c)=>`Re: ${c.district||c.school} - Aeroponic Classroom Farm`,
     ai:true,
   },
+  custom:{
+    id:"custom",
+    label:"Custom",
+    icon:"✏️",
+    description:"Paste your own template · use [PLACEHOLDERS] · fills from contact record",
+    subjectFn:(c,subj)=>subj||"",
+    ai:false,
+  },
 };
 
 const STAGES=["Cold","Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost","Bounced","Declined"];
@@ -1053,6 +1061,8 @@ function App(){
   const[templates,setTemplates]=useState(TMPL);
   const[closeText,setCloseText]=useState(DEF_CLOSE);
   const[sig,setSig]=useState(DEF_SIG);
+  const[customSubject,setCustomSubject]=useState(()=>localStorage.getItem("ig_custom_subj")||"");
+  const[customBody,setCustomBody]=useState(()=>localStorage.getItem("ig_custom_body")||"");
   const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
   const[custL2,setCustL2]=useState(()=>localStorage.getItem("ig_cust_l2")||`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
   const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
@@ -1138,7 +1148,11 @@ function App(){
     setGreeting(`Dear ${c.name?.split(" ")[0]||"there"},`);
     setSubj(CAMPAIGNS[activeCampaign]?.subjectFn(c)||"");
     setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");
-    if(activeCampaign==="customer"){
+    if(activeCampaign==="custom"){
+      setSubj(fillPlaceholders(customSubject,c));
+      setL1(fillPlaceholders(customBody,c));
+      setL2("");setL3("");
+    } else if(activeCampaign==="customer"){
       const first=(c.name||"there").split(" ")[0];
       const org=c.school||c.district||"your organization";
       setL1(custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
@@ -1152,6 +1166,13 @@ function App(){
   async function genHook(){
     if(!cc)return;
     // Customer Update uses static template - no AI needed
+    if(campaign==="custom"){
+      setSubj(fillPlaceholders(customSubject,cc));
+      setL1(fillPlaceholders(customBody,cc));
+      setL2("");setL3("");
+      setAiSt("done");setKbSt("done");
+      return;
+    }
     if(campaign==="customer"){
       const first=(cc.name||"there").split(" ")[0];
       const org=cc.school||cc.district||"your organization";
@@ -1295,6 +1316,21 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     Administrator:"Inspired Growing installs aeroponic classroom farm programs in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. The system connects to STEM curriculum, supports farm-to-school nutrition goals, and fits in 75 square feet on standard outlets. 32 schools across NY and NJ have built it into their programs."
   };
 
+  function fillPlaceholders(text, c){
+    if(!text) return "";
+    const first=(c.name||"").split(" ")[0];
+    return text
+      .replace(/\[FIRST NAME\]/gi, first)
+      .replace(/\[PRINCIPAL NAME\]/gi, c.name||"")
+      .replace(/\[NAME\]/gi, c.name||"")
+      .replace(/\[SCHOOL NAME\]/gi, c.school||c.district||"")
+      .replace(/\[SCHOOL\]/gi, c.school||c.district||"")
+      .replace(/\[DISTRICT\]/gi, c.district||"")
+      .replace(/\[ROLE\]/gi, c.role||"")
+      .replace(/\[STATE\]/gi, c.state||"")
+      .replace(/\[ORG\]/gi, c.school||c.district||"");
+  }
+
   async function queueEmailsForContacts(selectedContacts,mode,startTime=null){
     setBatchRunning(true);setBatchDone(null);
     setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
@@ -1335,6 +1371,16 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
 
   async function generateEmailForContact(c){
     // Use static template for customer update campaign
+    if(campaign==="custom"){
+      const first=(c.name||"there").split(" ")[0];
+      const filledBody=fillPlaceholders(customBody,c);
+      const filledSubj=fillPlaceholders(customSubject,c);
+      const body=[`Dear ${first},`,filledBody,`
+${DEF_SIG}`].join("
+
+");
+      return{body,subj:filledSubj||"A message from Inspired Growing"};
+    }
     if(campaign==="customer"){
       const first=(c.name||"there").split(" ")[0];
       const org=c.school||c.district||"your organization";
@@ -1664,9 +1710,11 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                   localStorage.setItem("ig_cust_l2",custL2);
                   localStorage.setItem("ig_cust_l3",custL3);
                   localStorage.setItem("ig_followup_guidance",followupGuidance);
+                  localStorage.setItem("ig_custom_subj",customSubject);
+                  localStorage.setItem("ig_custom_body",customBody);
                   setSaved(true);setTimeout(()=>setSaved(false),2000);
                 }} style={B("primary")}>Save Changes</button></div></div>
-            <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"},{id:"campaign_customer",label:"🌱 Customer Update"},{id:"campaign_followup",label:"📬 Follow-Up"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
+            <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"},{id:"campaign_customer",label:"🌱 Customer Update"},{id:"campaign_followup",label:"📬 Follow-Up"},{id:"campaign_custom",label:"✏️ Custom"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
             <div style={{flex:1,overflowY:"auto",padding:24}}>
               {stab!=="close"&&templates[stab]&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Persona pitch — {templates[stab].label}</label><textarea value={templates[stab].roleBlurb} onChange={e=>setTemplates(p=>({...p,[stab]:{...p[stab],roleBlurb:e.target.value}}))} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
               {stab==="close"&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Universal close</label><textarea value={closeText} onChange={e=>setCloseText(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Signature</label><textarea value={sig} onChange={e=>setSig(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
@@ -1678,6 +1726,20 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Opening paragraph</label><textarea value={custL1} onChange={e=>setCustL1(e.target.value)} onBlur={e=>{const val=e.target.value;CAMPAIGNS.customer.templateFn=c=>{const first=(c.name||"there").split(" ")[0];const org=c.school||c.district||"your organization";return{l1:val.replace("[First Name]",first).replace("[Organization]",org),l2:CAMPAIGNS.customer.templateFn(c).l2,l3:CAMPAIGNS.customer.templateFn(c).l3};}}} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Features / updates section</label><textarea value={custL2} onChange={e=>setCustL2(e.target.value)} rows={10} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Closing paragraph</label><textarea value={custL3} onChange={e=>setCustL3(e.target.value)} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
+              </div>}
+              {stab==="campaign_custom"&&<div style={{maxWidth:680}}>
+                <div style={{padding:"10px 14px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8,marginBottom:16,fontSize:12,color:"#5B21B6"}}>
+                  ✏️ <strong>Custom Campaign</strong> — paste any email template. Use these placeholders and they'll auto-fill from each contact's record:<br/><br/>
+                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[PRINCIPAL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                  <label style={{...LBL(),fontSize:11}}>Subject line</label>
+                  <input value={customSubject} onChange={e=>setCustomSubject(e.target.value)} placeholder="e.g. A funding opportunity for [SCHOOL NAME]" style={I()}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                  <label style={{...LBL(),fontSize:11}}>Email body</label>
+                  <textarea value={customBody} onChange={e=>setCustomBody(e.target.value)} rows={18} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}} placeholder="Paste your email here. Use [SCHOOL NAME], [PRINCIPAL NAME], [FIRST NAME], [DISTRICT] etc as placeholders..."/>
+                </div>
               </div>}
               {stab==="campaign_followup"&&<div style={{maxWidth:680}}>
                 <div style={{padding:"10px 14px",background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:8,marginBottom:16,fontSize:12,color:"#0369A1"}}>
