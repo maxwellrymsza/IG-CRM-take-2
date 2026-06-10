@@ -1377,10 +1377,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       const first=(c.name||"there").split(" ")[0];
       const filledBody=fillPlaceholders(customBody,c);
       const filledSubj=fillPlaceholders(customSubject,c);
-      const body=[`Dear ${first},`,filledBody,`
-${DEF_SIG}`].join("
-
-");
+      const body=[`Dear ${first},`,filledBody,`\n${DEF_SIG}`].join("\n\n");
       return{body,subj:filledSubj||"A message from Inspired Growing"};
     }
     if(campaign==="customer"){
