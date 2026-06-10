@@ -1149,8 +1149,8 @@ function App(){
     setSubj(CAMPAIGNS[activeCampaign]?.subjectFn(c)||"");
     setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");
     if(activeCampaign==="custom"){
-      setSubj(fillPlaceholders(customSubject,c));
-      setL1(fillPlaceholders(customBody,c));
+      setSubj(fillPlaceholders(customSubject,c,false));
+      setL1(fillPlaceholders(customBody,c,false));
       setL2("");setL3("");
     } else if(activeCampaign==="customer"){
       const first=(c.name||"there").split(" ")[0];
@@ -1167,8 +1167,8 @@ function App(){
     if(!cc)return;
     // Customer Update uses static template - no AI needed
     if(campaign==="custom"){
-      setSubj(fillPlaceholders(customSubject,cc));
-      setL1(fillPlaceholders(customBody,cc));
+      setSubj(fillPlaceholders(customSubject,cc,false));
+      setL1(fillPlaceholders(customBody,cc,false));
       setL2("");setL3("");
       setAiSt("done");setKbSt("done");
       return;
@@ -1317,10 +1317,19 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     Administrator:"Inspired Growing installs aeroponic classroom farm programs in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. The system connects to STEM curriculum, supports farm-to-school nutrition goals, and fits in 75 square feet on standard outlets. 32 schools across NY and NJ have built it into their programs."
   };
 
-  function fillPlaceholders(text, c){
+  function fillPlaceholders(text, c, forHtml=false){
     if(!text) return "";
     const first=(c.name||"").split(" ")[0];
-    return text
+    const docLinks={
+      "BROCHURE":"https://drive.google.com/file/d/10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX/view",
+      "ONE-PAGER":"https://drive.google.com/file/d/10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX/view",
+      "OVERVIEW":"https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view",
+      "DECK":"https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view",
+      "CURRICULUM":"https://drive.google.com/file/d/1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF/view",
+      "SPECS":"https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view",
+      "GRANT":"https://drive.google.com/file/d/1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp/view",
+    };
+    let result = text
       .replace(/\[FIRST NAME\]/gi, first)
       .replace(/\[PRINCIPAL NAME\]/gi, c.name||"")
       .replace(/\[NAME\]/gi, c.name||"")
@@ -1330,6 +1339,15 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       .replace(/\[ROLE\]/gi, c.role||"")
       .replace(/\[STATE\]/gi, c.state||"")
       .replace(/\[ORG\]/gi, c.school||c.district||"");
+    // Replace doc placeholders with HTML buttons or plain URLs
+    Object.entries(docLinks).forEach(([key,url])=>{
+      const btnHtml=`<br><br><a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${key.charAt(0)+key.slice(1).toLowerCase()} →</a><br>`;
+      const plainText=`
+
+View ${key.charAt(0)+key.slice(1).toLowerCase()}: ${url}`;
+      result=result.replace(new RegExp(`\\[${key}\\]`,'gi'), forHtml?btnHtml:plainText);
+    });
+    return result;
   }
 
   async function queueEmailsForContacts(selectedContacts,mode,startTime=null){
@@ -1374,8 +1392,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     // Use static template for customer update campaign
     if(campaign==="custom"){
       const first=(c.name||"there").split(" ")[0];
-      const filledBody=fillPlaceholders(customBody,c);
-      const filledSubj=fillPlaceholders(customSubject,c);
+      const filledBody=fillPlaceholders(customBody,c,true);
+      const filledSubj=fillPlaceholders(customSubject,c,false);
       const body=[`Dear ${first},`,filledBody,`\n${DEF_SIG}`].join("\n\n");
       return{body,subj:filledSubj||"A message from Inspired Growing"};
     }
@@ -1728,7 +1746,9 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
               {stab==="campaign_custom"&&<div style={{maxWidth:680}}>
                 <div style={{padding:"10px 14px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8,marginBottom:16,fontSize:12,color:"#5B21B6"}}>
                   ✏️ <strong>Custom Campaign</strong> — paste any email template. Use these placeholders and they'll auto-fill from each contact's record:<br/><br/>
-                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[PRINCIPAL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code>
+                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[PRINCIPAL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code><br/><br/>
+                  <strong>Document buttons</strong> (renders as a green clickable button in the email):<br/>
+                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[BROCHURE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[OVERVIEW]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[CURRICULUM]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SPECS]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[GRANT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DECK]</code>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
                   <label style={{...LBL(),fontSize:11}}>Subject line</label>
