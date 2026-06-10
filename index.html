@@ -1234,7 +1234,9 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
         .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
         .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
         .replace(/\n/g,"<br>");
-      const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
+      // Remove plain text footer from HTML since canSpamFooterHtml adds it separately
+      const htmlBodyClean=htmlBody.replace(/--<br>Inspired Growing \| 909.*?Unsubscribe<\/a><\/span>/s,"");
+      const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBodyClean}${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
       if(mode==="draft"){
         // Save as Gmail draft via OAuth popup
         const token=await getGmailToken();
@@ -1372,18 +1374,21 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   async function generateEmailForContact(c){
     // Use static template for customer update campaign
     if(campaign==="custom"){
-  const first=(c.name||"there").split(" ")[0];
-  const filledBody=fillPlaceholders(customBody,c);
-  const filledSubj=fillPlaceholders(customSubject,c);
-  const body=[`Dear ${first},`,filledBody,`\n${DEF_SIG}`].join("\n\n");
-  return{body,subj:filledSubj||"A message from Inspired Growing"};
-}
-if(campaign==="customer"){
-  const first=(c.name||"there").split(" ")[0];
-  const org=c.school||c.district||"your organization";
-  const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
-  return{body,subj:"Summer Updates from Inspired Growing"};
-}
+      const first=(c.name||"there").split(" ")[0];
+      const filledBody=fillPlaceholders(customBody,c);
+      const filledSubj=fillPlaceholders(customSubject,c);
+      const body=[`Dear ${first},`,filledBody,`
+${DEF_SIG}`].join("
+
+");
+      return{body,subj:filledSubj||"A message from Inspired Growing"};
+    }
+    if(campaign==="customer"){
+      const first=(c.name||"there").split(" ")[0];
+      const org=c.school||c.district||"your organization";
+      const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
+      return{body,subj:"Summer Updates from Inspired Growing"};
+    }
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
@@ -1409,7 +1414,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const l3=paras[2]||DEF_CLOSE;
     const sig=DEF_SIG;
     const firstName=c.name?.split(" ")[0]||"there";
-    const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`,`\n${canSpamFooter(c)}`].filter(Boolean).join("\n\n");
+    const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
     const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`${c.district} - Aeroponic Classroom Farm`;
     return{body,subj};
   }
@@ -1419,7 +1424,8 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
       .replace(/\n/g,"<br>");
-    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
+    const htmlBody2Clean=htmlBody2.replace(/--<br>Inspired Growing \| 909.*?Unsubscribe<\/a><\/span>/s,"");
+    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2Clean}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
     const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
