@@ -1230,12 +1230,19 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     if(!subj||!preview||!cc)return;
     setGmSt("loading");setGmMsg(mode==="send"?"Sending email...":"Saving draft...");
     try{
-      const htmlBody=preview
-        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-        .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
-        .replace(/\n/g,"<br>");
-      // Remove plain text footer from HTML since canSpamFooterHtml adds it separately
-      const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
+      // For custom campaign build HTML directly with button placeholders
+      let fullHtml;
+      if(campaign==="custom"){
+        const htmlFilled=fillPlaceholders(customBody,cc,true);
+        const htmlParts=[greeting.replace(/&/g,"&amp;"),htmlFilled,DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")].filter(Boolean).join("<br><br>");
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlParts}${canSpamFooterHtml(cc)}</div>`;
+      } else {
+        const htmlBody=preview
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/\n\n/g,"<br><br>")
+          .replace(/\n/g,"<br>");
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
+      }
       if(mode==="draft"){
         // Save as Gmail draft via OAuth popup
         const token=await getGmailToken();
