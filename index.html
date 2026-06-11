@@ -1233,22 +1233,21 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       // For custom campaign build HTML directly with button placeholders
       let fullHtml;
       if(campaign==="custom"){
-        const htmlFilled=fillPlaceholders(customBody,cc,true);
-        // Convert line breaks to HTML paragraphs
-        const bodyHtml=htmlFilled
-          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-          .replace(/\n\n/g,"</p><p style='margin:0 0 14px 0'>")
-          .replace(/\n/g,"<br>");
-        // Re-allow button HTML that was escaped
-        const bodyHtmlFixed=bodyHtml
-          .replace(/&lt;a href=/g,"<a href=")
-          .replace(/&lt;\/a&gt;/g,"</a>")
-          .replace(/style=&quot;/g,'style="')
-          .replace(/&quot;&gt;/g,'">')
-          .replace(/&amp;amp;/g,"&amp;");
-        const greetHtml=greeting.replace(/&/g,"&amp;");
-        const sigHtml=DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>");
-        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000"><p style='margin:0 0 14px 0'>${greetHtml}</p><p style='margin:0 0 14px 0'>${bodyHtmlFixed}</p><p style='margin:0 0 14px 0'>${sigHtml}</p>${canSpamFooterHtml(cc)}</div>`;
+        // Split body on double newlines into paragraphs, escape each, then fill buttons
+        const paragraphs=customBody.split(/\n\n+/);
+        const bodyHtml=paragraphs.map(para=>{
+          // Check if this paragraph contains a placeholder like [BROCHURE]
+          const filled=fillPlaceholders(para,cc,true);
+          if(filled.startsWith("<a href=")){
+            // It's a button - return as-is
+            return filled;
+          }
+          // Otherwise escape and convert single newlines
+          return "<p style='margin:0 0 14px 0'>"+filled.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>")+"</p>";
+        }).join("");
+        const greetHtml="<p style='margin:0 0 14px 0'>"+greeting.replace(/&/g,"&amp;")+"</p>";
+        const sigHtml="<p style='margin:0 0 6px 0'>"+DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")+"</p>";
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${canSpamFooterHtml(cc)}</div>`;
       } else {
         const htmlBody=preview
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
@@ -1371,7 +1370,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
     };
     for(const [key,[url,label]] of Object.entries(docReplacements)){
       const placeholder="["+key+"]";
-      const btnHtml=`<br><br><a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${label} →</a><br>`;
+      const btnHtml=`<a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${label} →</a>`;
       const plainLink=`\n\nView ${label}: ${url}`;
       while(result.includes(placeholder)){
         result=result.replace(placeholder, forHtml?btnHtml:plainLink);
