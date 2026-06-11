@@ -1340,13 +1340,23 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       .replace(/\[STATE\]/gi, c.state||"")
       .replace(/\[ORG\]/gi, c.school||c.district||"");
     // Replace doc placeholders with HTML buttons or plain URLs
-    Object.entries(docLinks).forEach(([key,url])=>{
-      const btnHtml=`<br><br><a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${key.charAt(0)+key.slice(1).toLowerCase()} →</a><br>`;
-      const plainText=`
-
-View ${key.charAt(0)+key.slice(1).toLowerCase()}: ${url}`;
-      result=result.replace(new RegExp(`\\[${key}\\]`,'gi'), forHtml?btnHtml:plainText);
-    });
+    const docReplacements={
+      "BROCHURE":["https://drive.google.com/file/d/10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX/view","Brochure"],
+      "ONE-PAGER":["https://drive.google.com/file/d/10N2T_pG16ArF9gGQ9_zmvQbBrvHWg3SX/view","One-Pager"],
+      "OVERVIEW":["https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view","Program Overview"],
+      "DECK":["https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view","Overview Deck"],
+      "CURRICULUM":["https://drive.google.com/file/d/1ZoMK7gA0s6Ledu081mOwMk9asTLVM0yF/view","Curriculum Overview"],
+      "SPECS":["https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view","Specs & Yields"],
+      "GRANT":["https://drive.google.com/file/d/1w7L2UA_3XXxiiN0hxBoPlIPU38o6PUAp/view","Grant Alignment Guide"],
+    };
+    for(const [key,[url,label]] of Object.entries(docReplacements)){
+      const placeholder="["+key+"]";
+      const btnHtml=`<br><br><a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${label} →</a><br>`;
+      const plainLink=`\n\nView ${label}: ${url}`;
+      while(result.includes(placeholder)){
+        result=result.replace(placeholder, forHtml?btnHtml:plainLink);
+      }
+    }
     return result;
   }
 
