@@ -1234,8 +1234,21 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
       let fullHtml;
       if(campaign==="custom"){
         const htmlFilled=fillPlaceholders(customBody,cc,true);
-        const htmlParts=[greeting.replace(/&/g,"&amp;"),htmlFilled,DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")].filter(Boolean).join("<br><br>");
-        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlParts}${canSpamFooterHtml(cc)}</div>`;
+        // Convert line breaks to HTML paragraphs
+        const bodyHtml=htmlFilled
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/\n\n/g,"</p><p style='margin:0 0 14px 0'>")
+          .replace(/\n/g,"<br>");
+        // Re-allow button HTML that was escaped
+        const bodyHtmlFixed=bodyHtml
+          .replace(/&lt;a href=/g,"<a href=")
+          .replace(/&lt;\/a&gt;/g,"</a>")
+          .replace(/style=&quot;/g,'style="')
+          .replace(/&quot;&gt;/g,'">')
+          .replace(/&amp;amp;/g,"&amp;");
+        const greetHtml=greeting.replace(/&/g,"&amp;");
+        const sigHtml=DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>");
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000"><p style='margin:0 0 14px 0'>${greetHtml}</p><p style='margin:0 0 14px 0'>${bodyHtmlFixed}</p><p style='margin:0 0 14px 0'>${sigHtml}</p>${canSpamFooterHtml(cc)}</div>`;
       } else {
         const htmlBody=preview
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
