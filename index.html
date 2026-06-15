@@ -705,7 +705,7 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
         enrollmentId:e.id, sequenceId:seq.id, sequenceName:seq.name,
         contactId:c.id, contactName:c.name, contactDistrict:c.district,
         contactPersona:c.persona, stepLabel:step.label, stepIndex:e.current_step,
-        subject:`${c.district} - Aeroponic Classroom Farm`,
+        subject:`A program worth knowing about for ${c.district||c.school}`,
         scheduledFor:e.next_send_at||new Date().toISOString(),
         status:"pending",
         body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
