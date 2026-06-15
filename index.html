@@ -162,246 +162,12 @@ const KB_DOCS = [
 const KB_CATEGORIES = ["All", "Sales", "Education", "Technical", "Services"];
 
 const TMPL={
-STEM:{label:"STEM",roleBlurb:"We work with STEM Coordinators to bring a live aeroponic farm into the classroom — students grow and harvest microgreens and leafy greens on a 7-day seed-to-harvest cycle, generating real data for plant science experiments. It's NGSS-aligned and fits in about 50 sq ft."},
-Nutrition:{label:"Nutrition",roleBlurb:"Our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days, without soil, pesticides, or food miles. Students grow, harvest, and eat what they produce — the farm-to-school distance is exactly zero."},
-Sustainability:{label:"Sustainability",roleBlurb:"We work with sustainability-minded districts to install an aeroponic classroom farm that uses 95% less water than soil farming, zero pesticides, and eliminates food transportation entirely. It doubles as an environmental education anchor — students see the full local food system in action."},
-CTE:{label:"CTE / Culinary",roleBlurb:"We work with CTE and culinary programs to turn a classroom into a working farm — students grow, harvest, and use fresh microgreens and greens in real culinary projects. It connects directly to AgEd and food science pathways, and several schools have built it into their career-connected learning tracks."},
-General:{label:"General",roleBlurb:"We install compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. We're currently in 32 schools across NY and NJ, and it's become one of the more memorable programs in the districts we work with."},
-Administrator:{label:"Administrator",roleBlurb:"We work with school and district administrators to bring a live aeroponic farm program into the building — it connects to STEM curriculum, supports nutrition goals, and has become one of the more talked-about programs in the districts we work with. The system fits in 75 square feet, runs on standard outlets, and requires no plumbing."}
-};
-
-const DEF_CLOSE="I'd be happy to send along more detailed information, and I can also speak to the grant funding opportunities that districts across New Jersey and the country are using to help finance these programs. If this sounds interesting, I'm happy to start a conversation.";
-const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n909 Newark Tpke, Kearny, NJ 07032";
-
-const CAMPAIGNS={
-  cold:{
-    id:"cold",
-    label:"Cold Outreach",
-    icon:"❄️",
-    description:"AI personalized intro · district hook · persona pitch",
-    subjectFn:(c)=>`A program worth knowing about for ${c.school||c.district}`,
-    ai:true,
-  },
-  customer:{
-    id:"customer",
-    label:"Customer Update",
-    icon:"🌱",
-    description:"Summer reconnection · new features · premium services",
-    subjectFn:(c)=>`Summer Updates from Inspired Growing`,
-    ai:false,
-    templateFn:(c)=>{
-      const first=(c.name||"there").split(" ")[0];
-      const org=c.school||c.district||"your organization";
-      return {
-        l1:`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching ${org} grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`,
-        l2:`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`,
-        l3:`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the ${org} community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`
-      };
-    }
-  },
-  followup:{
-    id:"followup",
-    label:"Follow-Up",
-    icon:"📬",
-    description:"Check in after no response · low pressure nudge",
-    subjectFn:(c)=>`Re: A program worth knowing about for ${c.school||c.district}`,
-    ai:true,
-  },
-  custom:{
-    id:"custom",
-    label:"Custom",
-    icon:"✏️",
-    description:"Paste your own template · use [PLACEHOLDERS] · fills from contact record",
-    subjectFn:(c,subj)=>subj||"",
-    ai:false,
-  },
-};
-
-const STAGES=["Cold","Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost","Bounced","Declined"];
-const STAGE_C={"Cold":"#9CA3AF","Contacted":"#185FA5","Replied":"#0F6E56","Demo Scheduled":"#854F0B","Proposal Sent":"#5B21B6","Bounced":"#A32D2D","Declined":"#6B7280","OOO":"#854F0B","Closed/Lost":"#A32D2D"};
-const STAGE_BG={"Cold":"#F3F4F6","Contacted":"#E6F1FB","Replied":"#E1F5EE","Demo Scheduled":"#FAEEDA","Proposal Sent":"#EDE9FE","Bounced":"#FEE2E2","Declined":"#F3F4F6","OOO":"#FAEEDA","Closed/Lost":"#FEE2E2"};
-const PER_C={STEM:["#185FA5","#E6F1FB"],Nutrition:["#0F6E56","#E1F5EE"],Sustainability:["#3B6D11","#EAF3DE"],CTE:["#854F0B","#FAEEDA"],General:["#5F5E5A","#F1EFE8"],Administrator:["#6B21A8","#F3E8FF"]};
-
-const ini=n=>(n||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2);
-const B=(v="secondary",s="md")=>{const sz=s==="sm"?{padding:"4px 9px",fontSize:11}:{padding:"6px 12px",fontSize:12};const vs={primary:{background:C.green,color:"white",border:`1px solid ${C.green}`},secondary:{background:"white",color:C.text,border:`1px solid ${C.border}`},blue:{background:C.blue,color:"white",border:`1px solid ${C.blue}`},ghost:{background:"transparent",color:C.textS,border:"1px solid transparent"}};return{...sz,...(vs[v]||vs.secondary),borderRadius:6,cursor:"pointer",fontWeight:500};};
-const I=(w="100%")=>({width:w,padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,outline:"none",color:C.text,background:C.bg,boxSizing:"border-box"});
-const S=(w="auto")=>({...I(w),cursor:"pointer"});
-const TH=(w)=>({padding:"8px 12px",textAlign:"left",fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",...(w?{width:w}:{})});
-const TD=(w)=>({padding:"9px 12px",verticalAlign:"middle",...(w?{width:w}:{})});
-const LBL=()=>({fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"});
-const SL=()=>({fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.06em",padding:"10px 14px 4px"});
-
-function Tag({label,color,bg}){return <span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,background:bg,color,whiteSpace:"nowrap"}}>{label}</span>;}
-function Av({name,size=32,color=C.blue}){return <div style={{width:size,height:size,borderRadius:size/4,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:size*0.38,flexShrink:0}}>{ini(name)}</div>;}
-
-// ── Resources Page ────────────────────────────────────────────────────────────
-function ResourcesPage() {
-  const [catFilter, setCatFilter] = useState("All");
-  const [personaFilter, setPersonaFilter] = useState("All");
-  const [copied, setCopied] = useState(null);
-  const filtered = KB_DOCS.filter(doc => {
-    if (catFilter !== "All" && doc.category !== catFilter) return false;
-    if (personaFilter !== "All" && !doc.personas.includes(personaFilter)) return false;
-    return true;
-  });
-  function copyLink(doc) {
-    navigator.clipboard && navigator.clipboard.writeText(doc.viewUrl);
-    setCopied(doc.id);
-    setTimeout(() => setCopied(null), 2000);
-  }
-  const grouped = KB_CATEGORIES.filter(c => c !== "All").reduce((acc, cat) => {
-    const docs = filtered.filter(d => d.category === cat);
-    if (docs.length) acc[cat] = docs;
-    return acc;
-  }, {});
-  return <>
-    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
-      <div><div style={{fontWeight:700,fontSize:16}}>Resources & Documents</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>All IG sales materials · Click to open · Copy link to attach in emails</div></div>
-      <div style={{marginLeft:"auto"}}>
-        <a href="https://drive.google.com/drive/folders/16bIf6yD-E-kgxek6DbDAM_EBoEgQl6DR" target="_blank" style={{...B("secondary","sm"),textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>📁 Open Drive Folder</a>
-      </div>
-    </div>
-    <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 20px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
-      <span style={{fontSize:11,color:C.textT,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginRight:4}}>Category</span>
-      {KB_CATEGORIES.map(c=>(<button key={c} onClick={()=>setCatFilter(c)} style={{...B(catFilter===c?"primary":"secondary","sm"),borderRadius:20}}>{c}</button>))}
-      <div style={{width:1,height:20,background:C.border,margin:"0 4px"}}/>
-      <span style={{fontSize:11,color:C.textT,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginRight:4}}>Persona</span>
-      {["All","STEM","Nutrition","Sustainability","CTE","General"].map(p=>{
-        const [pc,pb]=PER_C[p]||[C.textS,C.bg];
-        return <button key={p} onClick={()=>setPersonaFilter(p)} style={{...B("secondary","sm"),borderRadius:20,background:personaFilter===p?(p==="All"?C.green:pb):"white",color:personaFilter===p?(p==="All"?"white":pc):C.textS,border:`1px solid ${personaFilter===p?(p==="All"?C.green:pc):C.border}`}}>{p}</button>;
-      })}
-      <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{filtered.length} docs</span>
-    </div>
-    <div style={{flex:1,overflowY:"auto",padding:20}}>
-      {Object.entries(grouped).map(([cat, docs]) => (
-        <div key={cat} style={{marginBottom:28}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.textT,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-            <span>{cat==="Sales"?"📊":cat==="Education"?"📚":cat==="Technical"?"🔧":"🛠"}</span>
-            {cat}
-            <span style={{fontSize:10,fontWeight:500,color:C.textT,background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"1px 7px"}}>{docs.length}</span>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-            {docs.map(doc => (
-              <div key={doc.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16,display:"flex",flexDirection:"column",gap:10}}
-                onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.08)"}
-                onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
-                  <div style={{width:36,height:36,borderRadius:8,background:"#FEF2F2",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
-                    {cat==="Sales"?"📄":cat==="Education"?"📖":cat==="Technical"?"📋":"🔧"}
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:13,color:C.text,lineHeight:1.3}}>{doc.title}</div>
-                    <div style={{marginTop:4}}><Tag label={doc.tag} color={doc.tagColor} bg={doc.tagBg}/></div>
-                  </div>
-                </div>
-                <div style={{fontSize:12,color:C.textS,lineHeight:1.6}}>{doc.description}</div>
-                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                  {doc.personas.map(p => { const [pc,pb]=PER_C[p]||[C.textS,"#F1EFE8"]; return <Tag key={p} label={p} color={pc} bg={pb}/>; })}
-                </div>
-                <div style={{display:"flex",gap:6,marginTop:2}}>
-                  <a href={doc.viewUrl} target="_blank" style={{...B("blue","sm"),textDecoration:"none",flex:1,textAlign:"center",display:"block"}}>Open PDF ↗</a>
-                  <button onClick={()=>copyLink(doc)} style={{...B("secondary","sm"),minWidth:90}}>{copied===doc.id ? "✓ Copied!" : "Copy Link"}</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-      {filtered.length === 0 && (<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>📂</div><div style={{fontWeight:500,color:C.textS}}>No documents match your filters</div></div>)}
-    </div>
-  </>;
-}
-
-// ── Doc sentence templates ────────────────────────────────────────────────────
-const DOC_SENTENCES = {
-"1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK": "I thought this might be useful — here's a quick overview of what the Inspired Growing system does and how it fits into schools like yours:",
-"1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn": "Here are the full specs and yield data if you'd like to dig into the technical details:",
-"1xRjpozVKQEy9TN3oRRy-o_nPNhYghCXC": "Here's a brief on the aeroponics technology behind the system — including the water usage and NASA tech origin:",
-"1BVZQvNf6faTnr-qXn8bAV5S70LSBE4oH": "In case it's helpful, here's how our system compares to other classroom growing options on the market:",
-"1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3": "Given your district's focus, I thought this grant alignment guide might be worth a look — it maps the program to several common funding sources:",
-"1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5": "Here's a full overview deck with more context on the program, the schools we work with, and what the experience looks like for students:",
-"1Qt6sSw9PYGbXZmiaM5iJ0QgORGU2KRXN": "Here's our curriculum overview — it's NGSS-aligned and walks through the six core lessons students work through:",
-"1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl": "Here's the full user manual if you'd like to share it with anyone reviewing the technical side:",
-"1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn": "Here are some of the Living Light Lab experiments we've developed for schools that want to go deeper into plant science:",
-"1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-": "Here's an overview of the educational programming we offer — including in-class, after-school, and workshop formats:",
-"1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz": "Here's a look at the expanded services we offer for schools that want additional support beyond the core program:",
-"1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA": "Here's information on our maintenance and cleaning service options:",
-};
-
-// ── Suggested Attachments ─────────────────────────────────────────────────────
-function SuggestedAttachments({cc,onViewAll}){
-  const[copiedId,setCopiedId]=useState(null);
-  const[copiedSentenceId,setCopiedSentenceId]=useState(null);
-  const docs=KB_DOCS.filter(d=>d.personas.includes(cc.persona)).slice(0,4);
-  function copyLink(doc){
-    const link=trackedLink(cc.id,doc.id);
-    if(link){navigator.clipboard&&navigator.clipboard.writeText(link);setCopiedId(doc.id);setTimeout(()=>setCopiedId(null),2000);}
-  }
-  function copySentence(doc){
-    const link=trackedLink(cc.id,doc.id);
-    const sentence=DOC_SENTENCES[doc.id]||`Here's our ${doc.title} for your reference:`;
-    const full=`${sentence}\n${link}`;
-    navigator.clipboard&&navigator.clipboard.writeText(full);
-    setCopiedSentenceId(doc.id);
-    setTimeout(()=>setCopiedSentenceId(null),2000);
-  }
-  return <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-    <div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
-      <span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>📎 Suggested attachments — {TMPL[cc.persona]?.label}</span>
-      <button onClick={onViewAll} style={{marginLeft:"auto",...B("ghost","sm"),color:C.gDark,fontSize:11}}>View all ↗</button>
-    </div>
-    <div style={{padding:"10px 12px",display:"flex",flexDirection:"column",gap:8,background:"white"}}>
-      {docs.map(doc=>{
-        const sentence=DOC_SENTENCES[doc.id]||`Here's our ${doc.title} for your reference:`;
-        return <div key={doc.id} style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-          <div style={{padding:"8px 10px",background:C.bg,display:"flex",alignItems:"center",gap:8}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:12,fontWeight:600,color:C.text}}>{doc.title}</div>
-              <div style={{fontSize:10,color:C.textT,marginTop:1}}>{doc.description.slice(0,70)}...</div>
-            </div>
-            <a href={doc.viewUrl} target="_blank" style={{fontSize:10,color:C.blue,textDecoration:"none",fontWeight:500,flexShrink:0,padding:"3px 7px",border:`1px solid ${C.border}`,borderRadius:4,background:"white"}}>Preview ↗</a>
-          </div>
-          <div style={{padding:"8px 10px",background:"#FAFAFA",borderTop:`1px solid ${C.border}`}}>
-            <div style={{fontSize:11,color:C.textS,fontStyle:"italic",lineHeight:1.5,marginBottom:8}}>"{sentence}"</div>
-            <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>copySentence(doc)} style={{...B("primary","sm"),flex:1,fontSize:11}}>{copiedSentenceId===doc.id?"✓ Copied to clipboard!":"📋 Copy sentence + tracked link"}</button>
-              <button onClick={()=>copyLink(doc)} style={{...B("secondary","sm"),fontSize:11,whiteSpace:"nowrap"}}>{copiedId===doc.id?"✓ Copied!":"🔗 Link only"}</button>
-            </div>
-          </div>
-        </div>;
-      })}
-      <div style={{fontSize:10,color:C.textT,padding:"2px 4px",display:"flex",alignItems:"center",gap:4}}>
-        <span>🔗</span>
-        <span>Links tracked via Cloudflare · <strong>Cmd+K</strong> in Gmail to hyperlink text · contact ID <strong>{cc.id}</strong> embedded</span>
-      </div>
-    </div>
-  </div>;
-}
-
-// ── Main App ──────────────────────────────────────────────────────────────────
-
-// ── Sequence Templates ────────────────────────────────────────────────────────
-const SEQUENCE_TEMPLATES={
-  "Cold Outreach — Standard":{id:"cold_standard",description:"4-touch cold outreach sequence. Day 0 intro, follow-ups at 5, 12, 20.",steps:[
-    {day:0,label:"Initial Outreach",type:"hook+pitch",approvalRequired:true},
-    {day:5,label:"Follow-Up 1",type:"follow_up",approvalRequired:true},
-    {day:12,label:"Follow-Up 2",type:"value_add",approvalRequired:true},
-    {day:20,label:"Break-Up Email",type:"breakup",approvalRequired:false},
-  ]},
-  "Warm Lead — Clicked Link":{id:"warm_clicked",description:"For contacts who clicked a brochure or resource link. Faster cadence.",steps:[
-    {day:0,label:"Engagement Follow-Up",type:"clicked_hook",approvalRequired:true},
-    {day:3,label:"Demo Offer",type:"demo_offer",approvalRequired:true},
-    {day:8,label:"Social Proof",type:"social_proof",approvalRequired:false},
-  ]},
-  "Replied — No Demo Yet":{id:"replied_nodemo",description:"Contact replied but hasn't booked a demo. Nurture to demo scheduled.",steps:[
-    {day:0,label:"Demo Push",type:"demo_push",approvalRequired:true},
-    {day:5,label:"Easy Yes",type:"easy_yes",approvalRequired:false},
-    {day:10,label:"Last Nudge",type:"last_nudge",approvalRequired:false},
-  ]},
-};
-const STUCK_DAYS={Cold:21,Emailed:7,"Direct Contact":14,Replied:5,Warm:14,"Demo Scheduled":7,"Proposal Sent":14};
-const NOW=Date.now();
-const STAGE_META={"Cold":{color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️"},"Emailed":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Direct Contact":{color:"#7C3AED",bg:"#EDE9FE",icon:"🤝"},"Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬"},"Warm":{color:"#EA580C",bg:"#FFF7ED",icon:"🔥"},"Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅"},"Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄"},"Bounced":{color:"#A32D2D",bg:"#FEE2E2",icon:"↩️"},"Declined":{color:"#6B7280",bg:"#F3F4F6",icon:"✗"},"Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆"},"Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗"},"OOO":{color:"#854F0B",bg:"#FAEEDA",icon:"🌴"},"Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Existing Client":{color:"#0E7490",bg:"#ECFEFF",icon:"🌱"}};
+STEM:{label:"STEM",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. Students run their own experimental grow cycles, generate real data, and iterate on results — all within a single term. The curriculum is NGSS-aligned and connects naturally to biology, chemistry, and environmental science."},
+Nutrition:{label:"Nutrition",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. Students grow, harvest, and eat what they produce — the farm-to-school distance is exactly zero. No soil, no pesticides, no food miles."},
+Sustainability:{label:"Sustainability",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. The systems run without soil, pesticides, or food miles — and give students a hands-on understanding of where food comes from and how sustainable agriculture works at scale."},
+CTE:{label:"CTE / Culinary",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. Students run the full cycle from seed to harvest to kitchen — developing real skills in agriculture, food science, and culinary arts within a single program."},
+General:{label:"General",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. The system connects naturally to STEM curriculum, nutrition goals, and sustainability programming — and fits in 50 square feet on standard outlets with no plumbing required."},
+Administrator:{label:"Administrator",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. The program connects to STEM curriculum, supports nutrition goals, and has become one of the more talked-about initiatives in the districts we work with. It runs on standard outlets in 50 square feet with no plumbing."},"Emailed":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Direct Contact":{color:"#7C3AED",bg:"#EDE9FE",icon:"🤝"},"Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬"},"Warm":{color:"#EA580C",bg:"#FFF7ED",icon:"🔥"},"Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅"},"Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄"},"Bounced":{color:"#A32D2D",bg:"#FEE2E2",icon:"↩️"},"Declined":{color:"#6B7280",bg:"#F3F4F6",icon:"✗"},"Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆"},"Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗"},"OOO":{color:"#854F0B",bg:"#FAEEDA",icon:"🌴"},"Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Existing Client":{color:"#0E7490",bg:"#ECFEFF",icon:"🌱"}};
 const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
 const fmtDate=iso=>new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"});
 const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
@@ -1199,22 +965,23 @@ function App(){
     const isFollowUp=campaign==="followup";
     const sys=`You write short, personalized ${isFollowUp?"follow-up":"cold outreach"} emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
 
-Write a 3-paragraph cold email to ${cc.name}, ${cc.role} at ${cc.school||cc.district} (${cc.district}, ${cc.state}).
+Write an email to ${cc.name}, ${cc.role} at ${cc.school||cc.district} (${cc.state}).
 
-PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):
-${isFollowUp?"Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.":"First, reference something specific and real about their school, district, or role that makes this email feel personally researched. "+contactContext?`Use this context if relevant: ${contactContext}.`:''+" Then end with a bridge sentence that introduces why you are reaching out — something like 'I wanted to introduce Inspired Growing while that planning is still in motion.' Do not describe Inspired Growing yet — just bridge into it."}
+PARAGRAPH 1 — Personalized opener (2-3 sentences):
+${isFollowUp?`Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.`:`Reference something specific and real about their school, district, or role. ${contactContext?`Use this context: ${contactContext}.`:""} Do NOT mention aeroponic systems or Inspired Growing. End with a simple bridge like "That's part of why I wanted to reach out." or "I wanted to make sure this landed on your radar."`}
 
-PARAGRAPH 2 — What Inspired Growing does (already written — do NOT generate this):
-[SKIP — provided separately]
+PARAGRAPH 2 — What Inspired Growing does (already written — copy it word for word, do not change it):
+[PROVIDED SEPARATELY — DO NOT WRITE THIS]
 
 PARAGRAPH 3 — Close (1-2 sentences):
-A low-pressure call to action. Ask if they'd be open to a brief conversation or if you can send more info. Reference their district or school name naturally.
+Simple low-pressure ask — offer a quick call or to send more info. Do not repeat anything from paragraph 1.
 
-Do NOT start with "I" — vary the sentence openings.
-Tone: warm, direct, collegial. Not salesy. Write like a person, not a marketing department.
-Do not use the word "innovative" or "exciting" or "thrilled".
-Do not add a subject line, greeting, or signature.
-RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE. Nothing else.`;
+Rules:
+- Do NOT start paragraph 1 with "I"
+- Do NOT use "innovative", "exciting", "thrilled", or "cutting-edge"  
+- Tone: warm, direct, human — like a thoughtful person, not a marketing department
+- No subject line, greeting, or signature
+- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE`;
     try{
       const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:"Write ONLY paragraph 1 (personalized opener) and paragraph 3 (close). Do not write paragraph 2."}]})});
       const d=await r.json();
