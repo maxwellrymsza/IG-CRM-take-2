@@ -1201,26 +1201,29 @@ function App(){
 
 Write a 3-paragraph cold email to ${cc.name}, ${cc.role} at ${cc.school||cc.district} (${cc.district}, ${cc.state}).
 
-${isFollowUp?"PARAGRAPH 1 — Follow-up opener (2 sentences):\nAcknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.":"PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):\nFirst, reference something specific and real about their school, district, or role"} that makes this email feel personally researched. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} Then end the paragraph with a bridge sentence that introduces why you are reaching out — something like "I wanted to introduce Inspired Growing while that planning is still in motion" or "That's part of why I wanted to reach out." Do not describe Inspired Growing yet — just bridge into it.
+PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):
+${isFollowUp?"Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.":"First, reference something specific and real about their school, district, or role that makes this email feel personally researched. "+contactContext?`Use this context if relevant: ${contactContext}.`:''+" Then end with a bridge sentence that introduces why you are reaching out — something like 'I wanted to introduce Inspired Growing while that planning is still in motion.' Do not describe Inspired Growing yet — just bridge into it."}
 
-PARAGRAPH 2 — What Inspired Growing does, angled to their role (use this text as your base — you may lightly adapt the wording to flow naturally but preserve all key facts and numbers):
-${pitch}
-Do NOT invent different statistics, different product descriptions, or different angles. Use what is provided above.
+PARAGRAPH 2 — What Inspired Growing does (already written — do NOT generate this):
+[SKIP — provided separately]
+
+PARAGRAPH 3 — Close (1-2 sentences):
+A low-pressure call to action. Ask if they'd be open to a brief conversation or if you can send more info. Reference their district or school name naturally.
 
 Do NOT start with "I" — vary the sentence openings.
 Tone: warm, direct, collegial. Not salesy. Write like a person, not a marketing department.
 Do not use the word "innovative" or "exciting" or "thrilled".
-Do not add a subject line, greeting, or signature — just the 3 paragraphs separated by blank lines.
-RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
+Do not add a subject line, greeting, or signature.
+RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE. Nothing else.`;
     try{
-      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,system:sys,messages:[{role:"user",content:"Write the email."}]})});
+      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:"Write ONLY paragraph 1 (personalized opener) and paragraph 3 (close). Do not write paragraph 2."}]})});
       const d=await r.json();
       const fullText=(d.content?.[0]?.text||"").trim();
       const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
       setL1(paras[0]||"");
-      setL2(paras[1]||pitch);
-      setL3(paras[2]||"");
-      setSubj(`${cc.district} - Aeroponic Classroom Farm`);
+      setL2(pitch); // Always use template text directly — never AI-generated
+      setL3(paras[1]||paras[2]||"");
+      setSubj(CAMPAIGNS[campaign]?.subjectFn(cc)||`A program worth knowing about for ${cc.district||cc.school}`);
       setAiSt("done");
     }
     catch(e){setAiSt("error");}
