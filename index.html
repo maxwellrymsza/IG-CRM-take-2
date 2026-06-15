@@ -179,7 +179,7 @@ const CAMPAIGNS={
     label:"Cold Outreach",
     icon:"❄️",
     description:"AI personalized intro · district hook · persona pitch",
-    subjectFn:(c)=>`A program worth knowing about for ${c.district||c.school}`,
+    subjectFn:(c)=>`A program worth knowing about for ${c.school||c.district}`,
     ai:true,
   },
   customer:{
@@ -204,7 +204,7 @@ const CAMPAIGNS={
     label:"Follow-Up",
     icon:"📬",
     description:"Check in after no response · low pressure nudge",
-    subjectFn:(c)=>`Re: A program worth knowing about for ${c.district||c.school}`,
+    subjectFn:(c)=>`Re: A program worth knowing about for ${c.school||c.district}`,
     ai:true,
   },
   custom:{
@@ -705,7 +705,7 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
         enrollmentId:e.id, sequenceId:seq.id, sequenceName:seq.name,
         contactId:c.id, contactName:c.name, contactDistrict:c.district,
         contactPersona:c.persona, stepLabel:step.label, stepIndex:e.current_step,
-        subject:`A program worth knowing about for ${c.district||c.school}`,
+        subject:`A program worth knowing about for ${c.school||c.district}`,
         scheduledFor:e.next_send_at||new Date().toISOString(),
         status:"pending",
         body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
@@ -1223,7 +1223,7 @@ RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE. Nothing
       setL1(paras[0]||"");
       setL2(pitch); // Always use template text directly — never AI-generated
       setL3(paras[1]||paras[2]||"");
-      setSubj(CAMPAIGNS[campaign]?.subjectFn(cc)||`A program worth knowing about for ${cc.district||cc.school}`);
+      setSubj(CAMPAIGNS[campaign]?.subjectFn(cc)||`A program worth knowing about for ${cc.school||cc.district}`);
       setAiSt("done");
     }
     catch(e){setAiSt("error");}
@@ -1464,7 +1464,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const sig=DEF_SIG;
     const firstName=c.name?.split(" ")[0]||"there";
     const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
-    const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`A program worth knowing about for ${c.district||c.school}`;
+    const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`A program worth knowing about for ${c.school||c.district}`;
     return{body,subj};
   }
 
