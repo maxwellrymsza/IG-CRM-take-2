@@ -179,7 +179,7 @@ const CAMPAIGNS={
     label:"Cold Outreach",
     icon:"❄️",
     description:"AI personalized intro · district hook · persona pitch",
-    subjectFn:(c)=>`${c.district||c.school} - Aeroponic Classroom Farm`,
+    subjectFn:(c)=>`A program worth knowing about for ${c.district||c.school}`,
     ai:true,
   },
   customer:{
@@ -204,7 +204,7 @@ const CAMPAIGNS={
     label:"Follow-Up",
     icon:"📬",
     description:"Check in after no response · low pressure nudge",
-    subjectFn:(c)=>`Re: ${c.district||c.school} - Aeroponic Classroom Farm`,
+    subjectFn:(c)=>`Re: A program worth knowing about for ${c.district||c.school}`,
     ai:true,
   },
   custom:{
@@ -1185,12 +1185,13 @@ function App(){
     }
     setAiSt("loading");setKbSt("loading");setL1("");setL2("");setL3("");
     const pitchByPersona={
-      STEM:"We build aeroponic classroom farm systems for K-12 schools — 12 independent growing trays running seed-to-harvest cycles as short as seven days across 75 square feet. Students run repeated experimental cycles within a single term, generating their own data and iterating on their own results. The curriculum is NGSS-aligned across plant science and experimental design.",
-      Nutrition:"We build 12-tray aeroponic lab systems for K-12 schools — industrial-grade, not the hobby kits that tend to collect dust. Students grow the greens, harvest them, and eat them. The farm-to-school distance is exactly zero. Our systems run a 7-day seed-to-harvest cycle and produce around 100 fresh 3oz salads per week.",
-      Sustainability:"We install aeroponic classroom farm systems in K-12 schools that use 95% less water than soil farming, zero pesticides, and eliminate food transportation entirely. Students grow, harvest, and eat real food grown inside the building — the farm-to-school distance is exactly zero. 32 schools across NY and NJ are running the program.",
-      CTE:"We build aeroponic classroom farm systems for CTE and culinary programs — students grow, harvest, and use fresh microgreens and greens in real culinary projects. The systems run on 7-day seed-to-harvest cycles and connect directly to AgEd and food science career pathways.",
-      General:"Inspired Growing provides turnkey aeroponic classroom farm programs to K-12 schools. The systems run on seed-to-harvest cycles as short as seven days across 75 square feet of growing space. Because students grow real food in real volume, the program connects organically to the nutrition literacy and farm-to-school conversations most districts are already having. 32 schools across NY and NJ are finding that combination worth building into their curricula.",
-      Administrator:"Inspired Growing installs aeroponic classroom farm programs in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. The system connects to STEM curriculum, supports farm-to-school nutrition goals, and fits in 75 square feet on standard outlets. 32 schools across NY and NJ have built it into their programs."
+      STEM:templates.STEM?.roleBlurb||"We build aeroponic classroom farm systems for K-12 schools.",
+      Nutrition:templates.Nutrition?.roleBlurb||"Our systems bring fresh produce directly into school nutrition programs.",
+      Sustainability:templates.Sustainability?.roleBlurb||"Our aeroponic systems connect students to sustainable food production.",
+      "CTE":templates["CTE"]?.roleBlurb||templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+      "CTE / Culinary":templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+      General:templates.General?.roleBlurb||"Inspired Growing provides turnkey aeroponic classroom farm programs to K-12 schools.",
+      Administrator:templates.Administrator?.roleBlurb||"We work with school administrators to bring aeroponic farm programs into their buildings.",
     };
     setKbSt("done");
     const pitch=pitchByPersona[cc.persona]||pitchByPersona.General;
@@ -1202,8 +1203,9 @@ Write a 3-paragraph cold email to ${cc.name}, ${cc.role} at ${cc.school||cc.dist
 
 ${isFollowUp?"PARAGRAPH 1 — Follow-up opener (2 sentences):\nAcknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.":"PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):\nFirst, reference something specific and real about their school, district, or role"} that makes this email feel personally researched. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} Then end the paragraph with a bridge sentence that introduces why you are reaching out — something like "I wanted to introduce Inspired Growing while that planning is still in motion" or "That's part of why I wanted to reach out." Do not describe Inspired Growing yet — just bridge into it.
 
-PARAGRAPH 2 — What Inspired Growing does, angled to their role (3-4 sentences):
+PARAGRAPH 2 — What Inspired Growing does, angled to their role (use this text as your base — you may lightly adapt the wording to flow naturally but preserve all key facts and numbers):
 ${pitch}
+Do NOT invent different statistics, different product descriptions, or different angles. Use what is provided above.
 
 Do NOT start with "I" — vary the sentence openings.
 Tone: warm, direct, collegial. Not salesy. Write like a person, not a marketing department.
@@ -1328,12 +1330,13 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS. Nothing else.`;
   }
 
   const pitchByPersona={
-    STEM:"We build aeroponic classroom farm systems for K-12 schools — 12 independent growing trays running seed-to-harvest cycles as short as seven days across 75 square feet. Students run repeated experimental cycles within a single term, generating their own data and iterating on their own results. The curriculum is NGSS-aligned across plant science and experimental design.",
-    Nutrition:"We build 12-tray aeroponic lab systems for K-12 schools — industrial-grade, not the hobby kits that tend to collect dust. Students grow the greens, harvest them, and eat them. The farm-to-school distance is exactly zero. Our systems run a 7-day seed-to-harvest cycle and produce around 100 fresh 3oz salads per week.",
-    Sustainability:"We install aeroponic classroom farm systems in K-12 schools that use 95% less water than soil farming, zero pesticides, and eliminate food transportation entirely. Students grow, harvest, and eat real food grown inside the building — the farm-to-school distance is exactly zero.",
-    CTE:"We build aeroponic classroom farm systems for CTE and culinary programs — students grow, harvest, and use fresh microgreens and greens in real culinary projects. The systems run on 7-day seed-to-harvest cycles and connect directly to AgEd and food science career pathways.",
-    General:"Inspired Growing provides turnkey aeroponic classroom farm programs to K-12 schools. The systems run on seed-to-harvest cycles as short as seven days across 75 square feet of growing space. Because students grow real food in real volume, the program connects organically to the nutrition literacy and farm-to-school conversations most districts are already having.",
-    Administrator:"Inspired Growing installs aeroponic classroom farm programs in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building. The system connects to STEM curriculum, supports farm-to-school nutrition goals, and fits in 75 square feet on standard outlets. 32 schools across NY and NJ have built it into their programs."
+    STEM:templates.STEM?.roleBlurb||"We build aeroponic classroom farm systems for K-12 schools.",
+    Nutrition:templates.Nutrition?.roleBlurb||"Our systems bring fresh produce directly into school nutrition programs.",
+    Sustainability:templates.Sustainability?.roleBlurb||"Our aeroponic systems connect students to sustainable food production.",
+    "CTE":templates["CTE"]?.roleBlurb||templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+    "CTE / Culinary":templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+    General:templates.General?.roleBlurb||"Inspired Growing provides turnkey aeroponic classroom farm programs to K-12 schools.",
+    Administrator:templates.Administrator?.roleBlurb||"We work with school administrators to bring aeroponic farm programs into their buildings.",
   };
 
   function fillPlaceholders(text, c, forHtml=false){
@@ -1458,7 +1461,7 @@ RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
     const sig=DEF_SIG;
     const firstName=c.name?.split(" ")[0]||"there";
     const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
-    const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`${c.district} - Aeroponic Classroom Farm`;
+    const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`A program worth knowing about for ${c.district||c.school}`;
     return{body,subj};
   }
 
