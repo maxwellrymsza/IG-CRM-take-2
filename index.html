@@ -188,6 +188,12 @@ const S=()=>({padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:8,f
 const LBL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT});
 const TH=(w)=>({padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",...(w?{width:w}:{})});
 const TD=(w)=>({padding:"10px 12px",fontSize:13,verticalAlign:"middle",...(w?{width:w}:{})});
+const CAMPAIGNS={
+  cold:{id:"cold",label:"Cold Outreach",icon:"❄️",description:"AI personalized intro · district hook · persona pitch",subjectFn:(c)=>`A program worth knowing about for ${c.school||c.district}`,ai:true},
+  customer:{id:"customer",label:"Customer Update",icon:"🌱",description:"Summer reconnection · new features · premium services",subjectFn:(c)=>`Summer Updates from Inspired Growing`,ai:false},
+  followup:{id:"followup",label:"Follow-Up",icon:"📬",description:"Check in after no response · low pressure nudge",subjectFn:(c)=>`Re: A program worth knowing about for ${c.school||c.district}`,ai:true},
+  custom:{id:"custom",label:"Custom",icon:"✏️",description:"Paste your own template · use [PLACEHOLDERS] · fills from contact record",subjectFn:(c,subj)=>subj||"",ai:false},
+};
 
 
 // ── New Leads Page ────────────────────────────────────────────────────────────
