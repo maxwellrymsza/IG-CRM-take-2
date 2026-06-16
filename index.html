@@ -986,25 +986,15 @@ function App(){
     const pitch=pitchByPersona[cc.persona]||pitchByPersona.General;
     const contactContext=[cc.notes?`Notes: ${cc.notes}`:"",cc.project_type?`Project focus: ${cc.project_type}`:"",cc.org_type&&cc.org_type!=="K-12 School"?`Organization type: ${cc.org_type} (not a school — adjust opener accordingly)`:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
-    const sys=`You write short, personalized ${isFollowUp?"follow-up":"cold outreach"} emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
-
-Write an email to ${cc.name}, ${cc.role} at ${cc.school||cc.district} (${cc.state}).
-
-PARAGRAPH 1 — Personalized opener (2-3 sentences):
-${isFollowUp?`Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.`:`Reference something specific and real about their school, district, or role. ${contactContext?`Use this context: ${contactContext}.`:""} Do NOT mention aeroponic systems or Inspired Growing. End with a simple bridge like "That's part of why I wanted to reach out." or "I wanted to make sure this landed on your radar."`}
-
-PARAGRAPH 2 — What Inspired Growing does (already written — copy it word for word, do not change it):
-[PROVIDED SEPARATELY — DO NOT WRITE THIS]
-
-PARAGRAPH 3 — Close (1-2 sentences):
-Simple low-pressure ask — offer a quick call or to send more info. Do not repeat anything from paragraph 1.
-
-Rules:
-- Do NOT start paragraph 1 with "I"
-- Do NOT use "innovative", "exciting", "thrilled", or "cutting-edge"  
-- Tone: warm, direct, human — like a thoughtful person, not a marketing department
-- No subject line, greeting, or signature
-- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE`;
+    const followUpP1="Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.";
+    const coldP1="Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT mention aeroponic systems or Inspired Growing. End with a simple bridge like \"That's part of why I wanted to reach out.\" or \"I wanted to make sure this landed on your radar.\" Keep it to 2-3 sentences total.";
+    const p1Instruction=isFollowUp?followUpP1:coldP1;
+    const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
+      "Write an email to "+cc.name+", "+cc.role+" at "+(cc.school||cc.district)+" ("+cc.state+").\n\n"+
+      "PARAGRAPH 1 — Personalized opener (2-3 sentences):\n"+p1Instruction+"\n\n"+
+      "PARAGRAPH 2 — What Inspired Growing does (already written — do NOT generate this):\n[PROVIDED SEPARATELY — DO NOT WRITE THIS]\n\n"+
+      "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask — offer a quick call or to send more info. Do not repeat anything from paragraph 1.\n\n"+
+      "Rules:\n- Do NOT start paragraph 1 with \"I\"\n- Do NOT use \"innovative\", \"exciting\", \"thrilled\", or \"cutting-edge\"\n- Tone: warm, direct, human — like a thoughtful person, not a marketing department\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
     try{
       const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:"Write ONLY paragraph 1 (personalized opener) and paragraph 3 (close). Do not write paragraph 2."}]})});
       const d=await r.json();
