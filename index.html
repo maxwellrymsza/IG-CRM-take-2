@@ -1219,28 +1219,24 @@ function App(){
       return{body,subj:"Summer Updates from Inspired Growing"};
     }
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
-    const contactContext=[c.notes?`Notes: ${c.notes}`:"",c.project_type?`Project focus: ${c.project_type}`:""].filter(Boolean).join(". ");
+    const contactContext=[c.notes?"Notes: "+c.notes:"",c.project_type?"Project focus: "+c.project_type:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
-    const sys=`You write short, personalized ${isFollowUp?"follow-up":"cold outreach"} emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.
-
-Write a 3-paragraph cold email to ${c.name}, ${c.role} at ${c.school||c.district} (${c.district}, ${c.state}).
-
-PARAGRAPH 1 — Personalized opener with bridge (2-3 sentences):
-Reference something specific and real about their school, district, or role. ${contactContext?`Use this context if relevant: ${contactContext}.`:''} End with a bridge sentence like "I wanted to introduce Inspired Growing while that planning is still in motion."
-
-PARAGRAPH 2 — What Inspired Growing does (3-4 sentences):
-${pitch}
-
-Do NOT start with "I". Tone: warm, direct, collegial. Not salesy.
-Do not add a subject line, greeting, or signature.
-RESPOND WITH ONLY THE 3 PARAGRAPHS.`;
-    const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,system:sys,messages:[{role:"user",content:"Write the email."}]})});
+    const p1=isFollowUp
+      ?"Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt."
+      :"Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"End with a bridge sentence like \"I wanted to introduce Inspired Growing while that planning is still in motion.\"";
+    const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
+      "Write an email to "+c.name+", "+c.role+" at "+(c.school||c.district)+" ("+c.state+").\n\n"+
+      "PARAGRAPH 1 — Personalized opener (2-3 sentences):\n"+p1+"\n\n"+
+      "PARAGRAPH 2 — What Inspired Growing does (already provided — do NOT write this):\n[SKIP]\n\n"+
+      "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask. Offer a quick call or to send more info.\n\n"+
+      "Rules:\n- Do NOT start with \"I\"\n- Tone: warm, direct, human\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
+    const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:"Write the email."}]})});
     const d=await r.json();
     const fullText=(d.content?.[0]?.text||"").trim();
     const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
     const l1=paras[0]||"";
-    const l2=paras[1]||pitch;
-    const l3=paras[2]||DEF_CLOSE;
+    const l2=pitch; // Always use template text directly
+    const l3=paras[1]||paras[2]||DEF_CLOSE;
     const sig=DEF_SIG;
     const firstName=c.name?.split(" ")[0]||"there";
     const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
