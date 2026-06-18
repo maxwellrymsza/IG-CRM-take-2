@@ -162,6 +162,7 @@ const KB_CATEGORIES = ["All", "Sales", "Education", "Technical", "Services"];
 
 const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n909 Newark Tpke, Kearny, NJ 07032";
 const DEF_CLOSE="I'd be happy to send along more detailed information, and I can also speak to the grant funding opportunities that districts across New Jersey and the country are using to help finance these programs. If this sounds interesting, I'm happy to start a conversation.";
+const DEF_CLOSE_FOLLOWUP="Would you be open to a quick call to hear more about what we do? Happy to keep it brief.";
 const SL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textT,padding:"16px 16px 6px",userSelect:"none"});
 const NOW=Date.now();
 const STAGES=["Cold","Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost","Bounced","Declined"];
@@ -854,7 +855,7 @@ function App(){
   const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
   const[custL2,setCustL2]=useState(()=>localStorage.getItem("ig_cust_l2")||`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
   const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
-  const[followupGuidance,setFollowupGuidance]=useState(()=>localStorage.getItem("ig_followup_guidance")||"Just wanted to circle back from my last email. We have a few updates worth sharing — we just launched a new website at inspiredgrowing.com and have expanded our premium services for this coming year. Happy to send more info or get on a quick call if the timing is better now.");
+  const[followupGuidance,setFollowupGuidance]=useState(()=>localStorage.getItem("ig_followup_guidance")||"Wanted to follow up on my last note — we've had a few updates since we reached out, including a new website at inspiredgrowing.com and some expanded services heading into next year.");
   const[page,setPage]=useState("dashboard");
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
@@ -990,7 +991,7 @@ function App(){
     if(isFollowUp){
       setL1(followupGuidance);
       setL2(pitch);
-      setL3(closeText);
+      setL3(DEF_CLOSE_FOLLOWUP);
       setSubj(CAMPAIGNS.followup.subjectFn(cc));
       setAiSt("done");setKbSt("done");
       return;
@@ -1234,7 +1235,7 @@ function App(){
     // For follow-up, use guidance text directly — no AI needed
     if(isFollowUp){
       const first=(c.name||"there").split(" ")[0];
-      const body=[`Dear ${first},`,followupGuidance,pitch,DEF_CLOSE,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
+      const body=[`Dear ${first},`,followupGuidance,pitch,DEF_CLOSE_FOLLOWUP,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
       const subj=CAMPAIGNS.followup.subjectFn(c);
       return{body,subj};
     }
