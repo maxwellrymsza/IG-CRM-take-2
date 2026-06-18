@@ -854,7 +854,7 @@ function App(){
   const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
   const[custL2,setCustL2]=useState(()=>localStorage.getItem("ig_cust_l2")||`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
   const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
-  const[followupGuidance,setFollowupGuidance]=useState(()=>localStorage.getItem("ig_followup_guidance")||"Write a short 2-paragraph follow-up email. Paragraph 1: acknowledge you reached out previously and haven't heard back — keep it light, no guilt. Paragraph 2: one sentence re-stating the core value of Inspired Growing for their role, then ask if now is a better time to connect.");
+  const[followupGuidance,setFollowupGuidance]=useState(()=>localStorage.getItem("ig_followup_guidance")||"Just wanted to circle back from my last email. We have a few updates worth sharing — we just launched a new website at inspiredgrowing.com and have expanded our premium services for this coming year. Happy to send more info or get on a quick call if the timing is better now.");
   const[page,setPage]=useState("dashboard");
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
@@ -985,12 +985,12 @@ function App(){
     const pitch=pitchByPersona[cc.persona]||pitchByPersona.General;
     const contactContext=[cc.notes?`Notes: ${cc.notes}`:"",cc.project_type?`Project focus: ${cc.project_type}`:"",cc.org_type&&cc.org_type!=="K-12 School"?`Organization type: ${cc.org_type} (not a school — adjust opener accordingly)`:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
-    const followUpP1="Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt.";
+    const followUpP1=followupGuidance;
     const coldP1="Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT mention aeroponic systems or Inspired Growing. End with a simple bridge like \"That's part of why I wanted to reach out.\" or \"I wanted to make sure this landed on your radar.\" Keep it to 2-3 sentences total.";
     const p1Instruction=isFollowUp?followUpP1:coldP1;
     const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+cc.name+", "+cc.role+" at "+(cc.school||cc.district)+" ("+cc.state+").\n\n"+
-      "PARAGRAPH 1 — Personalized opener (2-3 sentences):\n"+p1Instruction+"\n\n"+
+      "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+cc.name+" at "+(cc.school||cc.district)+", keep it concise and personal):":"Personalized opener (2-3 sentences):")+"\n"+p1Instruction+"\n\n"+
       "PARAGRAPH 2 — What Inspired Growing does (already written — do NOT generate this):\n[PROVIDED SEPARATELY — DO NOT WRITE THIS]\n\n"+
       "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask — offer a quick call or to send more info. Do not repeat anything from paragraph 1.\n\n"+
       "Rules:\n- Do NOT start paragraph 1 with \"I\"\n- Do NOT use \"innovative\", \"exciting\", \"thrilled\", or \"cutting-edge\"\n- Tone: warm, direct, human — like a thoughtful person, not a marketing department\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
@@ -1221,11 +1221,11 @@ function App(){
     const contactContext=[c.notes?"Notes: "+c.notes:"",c.project_type?"Project focus: "+c.project_type:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
     const p1=isFollowUp
-      ?"Acknowledge you reached out previously and haven't heard back. Keep it light and low-pressure — no guilt."
+      ?followupGuidance
       :"Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"End with a bridge sentence like \"I wanted to introduce Inspired Growing while that planning is still in motion.\"";
     const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+c.name+", "+c.role+" at "+(c.school||c.district)+" ("+c.state+").\n\n"+
-      "PARAGRAPH 1 — Personalized opener (2-3 sentences):\n"+p1+"\n\n"+
+      "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+c.name+" at "+(c.school||c.district)+", keep concise):":"Personalized opener (2-3 sentences):")+"\n"+p1+"\n\n"+
       "PARAGRAPH 2 — What Inspired Growing does (already provided — do NOT write this):\n[SKIP]\n\n"+
       "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask. Offer a quick call or to send more info.\n\n"+
       "Rules:\n- Do NOT start with \"I\"\n- Tone: warm, direct, human\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
