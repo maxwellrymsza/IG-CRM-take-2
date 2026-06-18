@@ -985,12 +985,22 @@ function App(){
     const pitch=pitchByPersona[cc.persona]||pitchByPersona.General;
     const contactContext=[cc.notes?`Notes: ${cc.notes}`:"",cc.project_type?`Project focus: ${cc.project_type}`:"",cc.org_type&&cc.org_type!=="K-12 School"?`Organization type: ${cc.org_type} (not a school — adjust opener accordingly)`:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
-    const followUpP1=followupGuidance;
+
+    // For follow-up, use the guidance text directly — no AI needed
+    if(isFollowUp){
+      setL1(followupGuidance);
+      setL2(pitch);
+      setL3(closeText);
+      setSubj(CAMPAIGNS.followup.subjectFn(cc));
+      setAiSt("done");setKbSt("done");
+      return;
+    }
+
     const coldP1="Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT mention aeroponic systems or Inspired Growing. End with a simple bridge like \"That's part of why I wanted to reach out.\" or \"I wanted to make sure this landed on your radar.\" Keep it to 2-3 sentences total.";
-    const p1Instruction=isFollowUp?followUpP1:coldP1;
-    const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
+    const p1Instruction=coldP1;
+    const sys="You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+cc.name+", "+cc.role+" at "+(cc.school||cc.district)+" ("+cc.state+").\n\n"+
-      "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+cc.name+" at "+(cc.school||cc.district)+", keep it concise and personal):":"Personalized opener (2-3 sentences):")+"\n"+p1Instruction+"\n\n"+
+      "PARAGRAPH 1 — Personalized opener (2-3 sentences):\n"+p1Instruction+"\n\n"+
       "PARAGRAPH 2 — What Inspired Growing does (already written — do NOT generate this):\n[PROVIDED SEPARATELY — DO NOT WRITE THIS]\n\n"+
       "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask — offer a quick call or to send more info. Do not repeat anything from paragraph 1.\n\n"+
       "Rules:\n- Do NOT start paragraph 1 with \"I\"\n- Do NOT use \"innovative\", \"exciting\", \"thrilled\", or \"cutting-edge\"\n- Tone: warm, direct, human — like a thoughtful person, not a marketing department\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
@@ -1220,9 +1230,16 @@ function App(){
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?"Notes: "+c.notes:"",c.project_type?"Project focus: "+c.project_type:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
-    const p1=isFollowUp
-      ?followupGuidance
-      :"Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"End with a bridge sentence like \"I wanted to introduce Inspired Growing while that planning is still in motion.\"";
+
+    // For follow-up, use guidance text directly — no AI needed
+    if(isFollowUp){
+      const first=(c.name||"there").split(" ")[0];
+      const body=[`Dear ${first},`,followupGuidance,pitch,DEF_CLOSE,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
+      const subj=CAMPAIGNS.followup.subjectFn(c);
+      return{body,subj};
+    }
+
+    const p1="Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"End with a bridge sentence like \"I wanted to introduce Inspired Growing while that planning is still in motion.\"";
     const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+c.name+", "+c.role+" at "+(c.school||c.district)+" ("+c.state+").\n\n"+
       "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+c.name+" at "+(c.school||c.district)+", keep concise):":"Personalized opener (2-3 sentences):")+"\n"+p1+"\n\n"+
