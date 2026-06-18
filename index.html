@@ -1006,7 +1006,7 @@ function App(){
       "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask — offer a quick call or to send more info. Do not repeat anything from paragraph 1.\n\n"+
       "Rules:\n- Do NOT start paragraph 1 with \"I\"\n- Do NOT use \"innovative\", \"exciting\", \"thrilled\", or \"cutting-edge\"\n- Tone: warm, direct, human — like a thoughtful person, not a marketing department\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
     try{
-      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:"Write ONLY paragraph 1 (personalized opener) and paragraph 3 (close). Do not write paragraph 2."}]})});
+      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:sys,messages:[{role:"user",content:"Write ONLY paragraph 1 (personalized opener) and paragraph 3 (close). Do not write paragraph 2."}]})});
       const d=await r.json();
       const fullText=(d.content?.[0]?.text||"").trim();
       const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
@@ -1016,7 +1016,7 @@ function App(){
       setSubj(CAMPAIGNS[campaign]?.subjectFn(cc)||`A program worth knowing about for ${cc.school||cc.district}`);
       setAiSt("done");
     }
-    catch(e){setAiSt("error");}
+    catch(e){setAiSt("error");console.error("AI error:",e);setL1("Error: "+e.message);}
   }
 
   const preview=[greeting,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
@@ -1247,7 +1247,7 @@ function App(){
       "PARAGRAPH 2 — What Inspired Growing does (already provided — do NOT write this):\n[SKIP]\n\n"+
       "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask. Offer a quick call or to send more info.\n\n"+
       "Rules:\n- Do NOT start with \"I\"\n- Tone: warm, direct, human\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
-    const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:"Write the email."}]})});
+    const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:sys,messages:[{role:"user",content:"Write the email."}]})});
     const d=await r.json();
     const fullText=(d.content?.[0]?.text||"").trim();
     const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
