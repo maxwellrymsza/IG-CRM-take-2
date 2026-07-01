@@ -1007,7 +1007,7 @@ function App(){
     }
 
     const schoolName=cc.school||cc.district||"your school";
-    const coldP1="Write 2 sentences. Sentence 1: reference something specific and genuine about "+schoolName+" — their mission, focus area, student population, or community role. Make it feel personally researched and specific to them. "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT mention aeroponic systems or Inspired Growing yet. Sentence 2: a simple bridge like \"I wanted to make sure this landed on your radar\" or \"I wanted to reach out as the school year winds down.\"";
+    const coldP1="Write 2-3 sentences introducing Eric Wagner from Inspired Growing reaching out as the school year winds down. Sentence 1: mention you're reaching out from Inspired Growing and that with the school year ending, you wanted to share an opportunity that could be a meaningful addition to "+schoolName+"'s nutrition, STEM, and food production programs. Sentence 2: reference something specific and genuine about "+schoolName+" — their mission, student population, or community focus — that makes this feel personally researched. "+(contactContext?"Use this context: "+contactContext+". ":"")+"Keep the tone warm and human, not salesy.";
     const p1Instruction=coldP1;
     const sys="You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+cc.name+", "+cc.role+" at "+(cc.school||cc.district)+" ("+cc.state+").\n\n"+
@@ -1251,7 +1251,7 @@ function App(){
     }
 
     const schoolNameB=c.school||c.district||"your school";
-    const p1="Write 2 sentences. Sentence 1: reference something specific and genuine about "+schoolNameB+" — their mission, focus area, student population, or community role. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"Do NOT mention Inspired Growing yet. Sentence 2: a simple bridge like \"I wanted to make sure this landed on your radar\" or \"I wanted to reach out as the school year winds down.\"";
+    const p1="Write 2-3 sentences introducing Eric Wagner from Inspired Growing reaching out as the school year winds down. Sentence 1: mention reaching out from Inspired Growing and that with the school year ending, you wanted to share an opportunity that could be a meaningful addition to "+schoolNameB+"'s nutrition, STEM, and food production programs. Sentence 2: reference something specific and genuine about "+schoolNameB+" — their mission, student population, or community focus. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"Keep tone warm and human, not salesy.";
     const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+c.name+", "+c.role+" at "+(c.school||c.district)+" ("+c.state+").\n\n"+
       "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+c.name+" at "+(c.school||c.district)+", keep concise):":"Personalized opener (2-3 sentences):")+"\n"+p1+"\n\n"+
