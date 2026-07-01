@@ -161,7 +161,7 @@ const KB_DOCS = [
 const KB_CATEGORIES = ["All", "Sales", "Education", "Technical", "Services"];
 
 const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n909 Newark Tpke, Kearny, NJ 07032";
-const DEF_CLOSE="I'd be happy to send along more detailed information, and I can also speak to the grant funding opportunities that districts across New Jersey and the country are using to help finance these programs. If this sounds interesting, I'm happy to start a conversation.";
+const DEF_CLOSE="If you'd like to learn more, I'm happy to send over some details or hop on a quick 15-minute call whenever it's convenient for you.";
 const DEF_CLOSE_FOLLOWUP="Would you be open to a quick call to hear more about what we do? Happy to keep it brief.";
 const SL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textT,padding:"16px 16px 6px",userSelect:"none"});
 const NOW=Date.now();
@@ -189,7 +189,16 @@ const LBL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpaci
 const TH=(w)=>({padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",...(w?{width:w}:{})});
 const TD=(w)=>({padding:"10px 12px",fontSize:13,verticalAlign:"middle",...(w?{width:w}:{})});
 const CAMPAIGNS={
-  cold:{id:"cold",label:"Cold Outreach",icon:"❄️",description:"AI personalized intro · district hook · persona pitch",subjectFn:(c)=>`A program worth knowing about for ${c.school||c.district}`,ai:true},
+  cold:{id:"cold",label:"Cold Outreach",icon:"❄️",description:"AI personalized intro · district hook · persona pitch",subjectFn:(c)=>{
+    const p=c.persona;
+    const school=c.school||c.district||"your school";
+    if(p==="STEM") return `A hands-on STEM lab for ${school}`;
+    if(p==="Nutrition") return `A farm-to-table nutrition program for ${school}`;
+    if(p==="Sustainability") return `A sustainable food production program for ${school}`;
+    if(p==="CTE"||p==="CTE / Culinary") return `A live agriculture lab for ${school}`;
+    if(p==="Administrator") return `A hands-on STEM and nutritional literacy system for ${school}`;
+    return `A program worth knowing about for ${school}`;
+  },ai:true},
   customer:{id:"customer",label:"Customer Update",icon:"🌱",description:"Summer reconnection · new features · premium services",subjectFn:(c)=>`Summer Updates from Inspired Growing`,ai:false},
   followup:{id:"followup",label:"Follow-Up",icon:"📬",description:"Check in after no response · low pressure nudge",subjectFn:(c)=>`Re: A program worth knowing about for ${c.school||c.district}`,ai:true},
   custom:{id:"custom",label:"Custom",icon:"✏️",description:"Paste your own template · use [PLACEHOLDERS] · fills from contact record",subjectFn:(c,subj)=>subj||"",ai:false},
@@ -997,7 +1006,8 @@ function App(){
       return;
     }
 
-    const coldP1="Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT mention aeroponic systems or Inspired Growing. End with a simple bridge like \"That's part of why I wanted to reach out.\" or \"I wanted to make sure this landed on your radar.\" Keep it to 2-3 sentences total.";
+    const schoolName=cc.school||cc.district||"your school";
+    const coldP1="Write 2 sentences. Sentence 1: reference something specific and genuine about "+schoolName+" — their mission, focus area, student population, or community role. Make it feel personally researched and specific to them. "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT mention aeroponic systems or Inspired Growing yet. Sentence 2: a simple bridge like \"I wanted to make sure this landed on your radar\" or \"I wanted to reach out as the school year winds down.\"";
     const p1Instruction=coldP1;
     const sys="You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+cc.name+", "+cc.role+" at "+(cc.school||cc.district)+" ("+cc.state+").\n\n"+
@@ -1240,7 +1250,8 @@ function App(){
       return{body,subj};
     }
 
-    const p1="Reference something specific and real about their school, district, or role. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"End with a bridge sentence like \"I wanted to introduce Inspired Growing while that planning is still in motion.\"";
+    const schoolNameB=c.school||c.district||"your school";
+    const p1="Write 2 sentences. Sentence 1: reference something specific and genuine about "+schoolNameB+" — their mission, focus area, student population, or community role. "+(contactContext?"Use this context if relevant: "+contactContext+". ":"")+"Do NOT mention Inspired Growing yet. Sentence 2: a simple bridge like \"I wanted to make sure this landed on your radar\" or \"I wanted to reach out as the school year winds down.\"";
     const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+c.name+", "+c.role+" at "+(c.school||c.district)+" ("+c.state+").\n\n"+
       "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+c.name+" at "+(c.school||c.district)+", keep concise):":"Personalized opener (2-3 sentences):")+"\n"+p1+"\n\n"+
