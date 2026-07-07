@@ -1007,10 +1007,9 @@ function App(){
     }
 
     const schoolName=cc.school||cc.district||"your school";
-    const coldP1="Write exactly 2 sentences in this format:\n"+
-      "Sentence 1: Start with a specific, genuine observation about "+schoolName+" — something real about their mission, student community, learning approach, or focus area. Then in the same sentence, introduce Inspired Growing naturally, e.g. \"Having seen [specific observation about school], I'm reaching out from Inspired Growing (inspiredgrowing.com) to share an opportunity that could be a meaningful addition to your nutrition, STEM, and food production programs.\" "+(contactContext?"Use this context to make it specific: "+contactContext+". ":"")+"\n"+
-      "Sentence 2: A single personalized line referencing "+cc.role+"'s specific responsibilities or goals at "+schoolName+" — something like \"Given your role [specific role detail], this felt like something worth putting on your radar.\" Make this feel researched and specific to their role, not generic.\n"+
-      "Do NOT start with I. Keep both sentences warm, human, and concise. Do not mention aeroponic farms or product details yet.";
+    const coldP1="Write exactly 2 sentences.\n"+
+      "Sentence 1: \"I'm reaching out from Inspired Growing (inspiredgrowing.com) to share something that could be a meaningful addition to your nutrition, STEM, and food production programs.\" Write this sentence exactly.\n"+
+      "Sentence 2: Reference something specific and genuine about "+schoolName+" — their mission, values, programs, or community commitment — and connect it naturally to why this is a good time to reach out, e.g. \"[School]'s commitment to [specific thing] shows a clear overlap with our mission, so with the academic year coming to a close, I thought it would be a great time to connect.\" "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT reference the contact's job title or tell them about their own role. Focus only on the school itself. Keep it warm and genuine.";
     const p1Instruction=coldP1;
     const sys="You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+cc.name+", "+cc.role+" at "+(cc.school||cc.district)+" ("+cc.state+").\n\n"+
@@ -1254,10 +1253,9 @@ function App(){
     }
 
     const schoolNameB=c.school||c.district||"your school";
-    const p1="Write exactly 2 sentences in this format:\n"+
-      "Sentence 1: Start with a specific genuine observation about "+schoolNameB+", then introduce Inspired Growing naturally: \"Having seen [specific observation], I'm reaching out from Inspired Growing (inspiredgrowing.com) to share an opportunity that could be a meaningful addition to your nutrition, STEM, and food production programs.\" "+(contactContext?"Use this context: "+contactContext+". ":"")+"\n"+
-      "Sentence 2: A personalized line referencing "+c.role+"'s specific responsibilities or goals at "+schoolNameB+" — like \"Given your role [specific detail], this felt like something worth putting on your radar.\" Make it feel researched and specific.\n"+
-      "Do NOT start with I. Keep both sentences warm, concise, and human. No product details yet.";
+    const p1="Write exactly 2 sentences.\n"+
+      "Sentence 1: \"I'm reaching out from Inspired Growing (inspiredgrowing.com) to share something that could be a meaningful addition to your nutrition, STEM, and food production programs.\" Write this sentence exactly.\n"+
+      "Sentence 2: Reference something specific and genuine about "+schoolNameB+" — their mission, values, programs, or community commitment — and connect it to why this is a good time to reach out, e.g. \"[School]'s commitment to [specific thing] shows a clear overlap with our mission, so with the academic year coming to a close, I thought it would be a great time to connect.\" "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT reference the contact's job title or tell them about their own role. Focus on the school. Keep it warm and genuine.";
     const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
       "Write an email to "+c.name+", "+c.role+" at "+(c.school||c.district)+" ("+c.state+").\n\n"+
       "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+c.name+" at "+(c.school||c.district)+", keep concise):":"Personalized opener (2-3 sentences):")+"\n"+p1+"\n\n"+
