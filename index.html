@@ -161,6 +161,16 @@ const KB_DOCS = [
 
 const KB_CATEGORIES = ["All", "Sales", "Education", "Technical", "Services"];
 
+const TITLES = new Set(['dr','dr.','mr','mr.','mrs','mrs.','ms','ms.','prof','prof.','rev','rev.','sr','sr.','jr','jr.','phd','md','esq','hon']);
+function getFirstName(name){
+  if(!name) return "there";
+  const parts = name.trim().split(/\s+/);
+  // Skip leading titles
+  let i = 0;
+  while(i < parts.length - 1 && TITLES.has(parts[i].toLowerCase())) i++;
+  return parts[i] || "there";
+}
+
 const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n909 Newark Tpke, Kearny, NJ 07032";
 const DEF_CLOSE="We've also just updated our website to better tell the story of how our farms are supporting communities like yours. Take a look at inspiredgrowing.com! If you'd like to learn more, I'm happy to send over some details or hop on a quick 15-minute call whenever it's convenient for you.";
 const DEF_CLOSE_FOLLOWUP="Would you be open to a quick call to hear more about what we do? Happy to keep it brief.";
@@ -507,7 +517,7 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
         subject:`A program worth knowing about for ${c.school||c.district}`,
         scheduledFor:e.next_send_at||new Date().toISOString(),
         status:"pending",
-        body:`Hi ${c.name?.split(" ")[0]||"there"},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
+        body:`Hi ${c.name?},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
       };
     }).filter(Boolean);
 
@@ -944,7 +954,7 @@ function App(){
   function selectCC(c,camp){
     const activeCampaign=camp||campaign;
     setCc(c);
-    setGreeting(`Dear ${c.name?.split(" ")[0]||"there"},`);
+    setGreeting(`Dear ${getFirstName(c.name)},`);
     setSubj(CAMPAIGNS[activeCampaign]?.subjectFn(c)||"");
     setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");
     if(activeCampaign==="custom"){
@@ -952,7 +962,7 @@ function App(){
       setL1(fillPlaceholders(customBody,c,false));
       setL2("");setL3("");
     } else if(activeCampaign==="customer"){
-      const first=(c.name||"there").split(" ")[0];
+      const first=getFirstName(c.name);
       const org=c.school||c.district||"your organization";
       setL1(custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
       setL2(custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
@@ -973,7 +983,7 @@ function App(){
       return;
     }
     if(campaign==="customer"){
-      const first=(cc.name||"there").split(" ")[0];
+      const first=getFirstName(cc.name);
       const org=cc.school||cc.district||"your organization";
       setL1(custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
       setL2(custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
@@ -1147,7 +1157,7 @@ function App(){
 
   function fillPlaceholders(text, c, forHtml=false){
     if(!text) return "";
-    const first=(c.name||"").split(" ")[0];
+    const first=getFirstName(c.name);
     const docLinks={
       "BROCHURE":"https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view",
       "ONE-PAGER":"https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view",
@@ -1198,7 +1208,7 @@ function App(){
       setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
       try{
         const{body,subj}=await generateEmailForContact(c);
-        const firstName=(c.name||"there").split(" ")[0];
+        const firstName=getFirstName(c.name);
         const htmlBody=body
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
           .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
@@ -1229,14 +1239,14 @@ function App(){
   async function generateEmailForContact(c){
     // Use static template for customer update campaign
     if(campaign==="custom"){
-      const first=(c.name||"there").split(" ")[0];
+      const first=getFirstName(c.name);
       const filledBody=fillPlaceholders(customBody,c,true);
       const filledSubj=fillPlaceholders(customSubject,c,false);
       const body=[`Dear ${first},`,filledBody,`\n${DEF_SIG}`].join("\n\n");
       return{body,subj:filledSubj||"A message from Inspired Growing"};
     }
     if(campaign==="customer"){
-      const first=(c.name||"there").split(" ")[0];
+      const first=getFirstName(c.name);
       const org=c.school||c.district||"your organization";
       const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
       return{body,subj:"Summer Updates from Inspired Growing"};
@@ -1247,7 +1257,7 @@ function App(){
 
     // For follow-up, use guidance text directly — no AI needed
     if(isFollowUp){
-      const first=(c.name||"there").split(" ")[0];
+      const first=getFirstName(c.name);
       const body=[`Dear ${first},`,followupGuidance,pitch,DEF_CLOSE_FOLLOWUP,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
       const subj=CAMPAIGNS.followup.subjectFn(c);
       return{body,subj};
@@ -1271,7 +1281,7 @@ function App(){
     const l2=pitch; // Always use template text directly
     const l3=paras[1]||paras[2]||DEF_CLOSE;
     const sig=DEF_SIG;
-    const firstName=c.name?.split(" ")[0]||"there";
+    const firstName=c.name?;
     const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
     const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`A program worth knowing about for ${c.school||c.district}`;
     return{body,subj};
@@ -1583,7 +1593,7 @@ function App(){
                   🌱 <strong>Customer Update</strong> — sent to existing customers (Closed Won stage). Edit the template below. Use <code style={{background:"#E1F5EE",padding:"1px 4px",borderRadius:3}}>[First Name]</code> and <code style={{background:"#E1F5EE",padding:"1px 4px",borderRadius:3}}>[Organization]</code> as placeholders — they auto-fill from the contact record.
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Subject line</label><input value={CAMPAIGNS.customer.subjectFn({district:"",school:""})} readOnly style={{...I(),background:C.bg,color:C.textS}} placeholder="Summer Updates from Inspired Growing"/><div style={{fontSize:11,color:C.textT,marginTop:3}}>Subject line is fixed for this campaign</div></div>
-                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Opening paragraph</label><textarea value={custL1} onChange={e=>setCustL1(e.target.value)} onBlur={e=>{const val=e.target.value;CAMPAIGNS.customer.templateFn=c=>{const first=(c.name||"there").split(" ")[0];const org=c.school||c.district||"your organization";return{l1:val.replace("[First Name]",first).replace("[Organization]",org),l2:CAMPAIGNS.customer.templateFn(c).l2,l3:CAMPAIGNS.customer.templateFn(c).l3};}}} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Opening paragraph</label><textarea value={custL1} onChange={e=>setCustL1(e.target.value)} onBlur={e=>{const val=e.target.value;CAMPAIGNS.customer.templateFn=c=>{const first=getFirstName(c.name);const org=c.school||c.district||"your organization";return{l1:val.replace("[First Name]",first).replace("[Organization]",org),l2:CAMPAIGNS.customer.templateFn(c).l2,l3:CAMPAIGNS.customer.templateFn(c).l3};}}} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Features / updates section</label><textarea value={custL2} onChange={e=>setCustL2(e.target.value)} rows={10} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Closing paragraph</label><textarea value={custL3} onChange={e=>setCustL3(e.target.value)} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
               </div>}
