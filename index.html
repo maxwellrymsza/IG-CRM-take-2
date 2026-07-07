@@ -1281,7 +1281,7 @@ function App(){
     const l2=pitch; // Always use template text directly
     const l3=paras[1]||paras[2]||DEF_CLOSE;
     const sig=DEF_SIG;
-    const firstName=c.name?;
+    const firstName=getFirstName(c.name);
     const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
     const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`A program worth knowing about for ${c.school||c.district}`;
     return{body,subj};
