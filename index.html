@@ -1094,6 +1094,1769 @@ function App(){
         if(r.ok){
           setGmSt("success");
           setGmMsg(`✓ Draft saved in Eric's Gmail — review and send when ready`);
+          const today=new Date().toISOString().split("T")[0];
+          const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
+          if(!keepStage){
+            await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Emailed",last_touch:today})});
+            setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Emailed",lastContact:today}:c));
+          }
+          addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"draft saved to Gmail",detail:subj,icon:"💾"});
+        } else throw new Error("Draft save failed");
+      } else {
+        // Send immediately via Cloudflare Worker
+        const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({to:cc.email,subject:subj,html:fullHtml,contactId:cc.id})
+        });
+        const d=await r.json();
+        if(d.ok){
+          setGmSt("success");
+          setGmMsg(`✓ Email sent to ${cc.email} from eric.wagner@inspiredgrowing.com`);
+          const today=new Date().toISOString().split("T")[0];
+          const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
+          setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(!keepStage&&{stage:"Emailed"})}:c));
+          addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"was emailed",detail:subj,icon:"📧"});
+        } else throw new Error(d.error||"Send failed");
+      }
+    }catch(e){
+      if(e==="popup_closed_by_user"||e==="access_denied"){
+        setGmSt("error");setGmMsg("Sign-in cancelled. Try again.");
+      } else {
+        setGmSt("error");setGmMsg(`Error: ${e.message}. Try again.`);
+      }
+    }
+  }
+
+  function toggleSel(id){setSel(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});}
+  function toggleAll(){sel.size===filtered.length&&filtered.length>0?setSel(new Set()):setSel(new Set(filtered.map(c=>c.id)));}
+
+  async function saveContact(){
+    const{fname,lname,email,role,school,district,state,persona}=addF;if(!fname||!lname){alert("First and last name are required.");return;}
+    try{
+      const rows=await sbFetch("contacts",{method:"POST",body:JSON.stringify({name:`${fname} ${lname}`,email:email||null,role,organization:school,district,region:state,persona,pipeline_stage:addF.stage||"Cold",alt_contact:addF.phone||"",org_type:addF.org_type||"K-12 School",is_strategic:addF.is_strategic||false,project_type:addF.project_type||""})});
+      const newC=mapRow(rows[0]);
+      setContacts(p=>[newC,...p]);
+      setAddF({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
+      setAddOpen(false);
+      addActivity({type:"added",contactId:newC.id,contactName:newC.name,text:"was added as a new contact",detail:`${role} · ${school||district}`,icon:"➕"});
+    }catch(e){alert("Error: "+e.message);}
+  }
+
+  async function deleteContact(c){
+    try{
+      await sbFetch(`contacts?id=eq.${c.id}`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
+      setContacts(p=>p.filter(x=>x.id!==c.id));
+      setDetail(null);setDeleteConfirm(false);
+      addActivity({type:"deleted",contactId:c.id,contactName:c.name,text:"was deleted",detail:`${c.role} · ${c.district}`,icon:"🗑"});
+    }catch(e){alert("Error deleting: "+e.message);}
+  }
+
+  const pitchByPersona={
+    STEM:templates.STEM?.roleBlurb||"We build aeroponic classroom farm systems for K-12 schools.",
+    Nutrition:templates.Nutrition?.roleBlurb||"Our systems bring fresh produce directly into school nutrition programs.",
+    Sustainability:templates.Sustainability?.roleBlurb||"Our aeroponic systems connect students to sustainable food production.",
+    "CTE":templates["CTE"]?.roleBlurb||templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+    "CTE / Culinary":templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+    General:templates.General?.roleBlurb||"Inspired Growing provides turnkey aeroponic classroom farm programs to K-12 schools.",
+    Administrator:templates.Administrator?.roleBlurb||"We work with school administrators to bring aeroponic farm programs into their buildings.",
+  };
+
+  function fillPlaceholders(text, c, forHtml=false){
+    if(!text) return "";
+    const first=getFirstName(c.name);
+    const docLinks={
+      "BROCHURE":"https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view",
+      "ONE-PAGER":"https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view",
+      "OVERVIEW":"https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view",
+      "DECK":"https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view",
+      "CURRICULUM":"https://drive.google.com/file/d/1Qt6sSw9PYGbXZmiaM5iJ0QgORGU2KRXN/view",
+      "SPECS":"https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view",
+      "GRANT":"https://drive.google.com/file/d/1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3/view",
+    };
+    let result = text
+      .replace(/\[FIRST NAME\]/gi, first)
+      .replace(/\[PRINCIPAL NAME\]/gi, c.name||"")
+      .replace(/\[NAME\]/gi, c.name||"")
+      .replace(/\[SCHOOL NAME\]/gi, c.school||c.district||"")
+      .replace(/\[SCHOOL\]/gi, c.school||c.district||"")
+      .replace(/\[DISTRICT\]/gi, c.district||"")
+      .replace(/\[ROLE\]/gi, c.role||"")
+      .replace(/\[STATE\]/gi, c.state||"")
+      .replace(/\[ORG\]/gi, c.school||c.district||"");
+    // Replace doc placeholders with HTML buttons or plain URLs
+    const docReplacements={
+      "BROCHURE":["https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view","Brochure"],
+      "ONE-PAGER":["https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view","One-Pager"],
+      "OVERVIEW":["https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view","Program Overview"],
+      "DECK":["https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view","Overview Deck"],
+      "CURRICULUM":["https://drive.google.com/file/d/1Qt6sSw9PYGbXZmiaM5iJ0QgORGU2KRXN/view","Curriculum Overview"],
+      "SPECS":["https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view","Specs & Yields"],
+      "GRANT":["https://drive.google.com/file/d/1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3/view","Grant Alignment Guide"],
+    };
+    for(const [key,[url,label]] of Object.entries(docReplacements)){
+      const placeholder="["+key+"]";
+      const btnHtml=`<a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${label} →</a>`;
+      const plainLink=`\n\nView ${label}: ${url}`;
+      while(result.includes(placeholder)){
+        result=result.replace(placeholder, forHtml?btnHtml:plainLink);
+      }
+    }
+    return result;
+  }
+
+  async function queueEmailsForContacts(selectedContacts,mode,startTime=null){
+    setBatchRunning(true);setBatchDone(null);
+    setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
+    let done=0,failed=0,failedNames=[];
+    const now=startTime?new Date(startTime):new Date();
+    for(let i=0;i<selectedContacts.length;i++){
+      const c=selectedContacts[i];
+      setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
+      try{
+        const{body,subj}=await generateEmailForContact(c);
+        const firstName=getFirstName(c.name);
+        const htmlBody=body
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
+          .replace(/\n/g,"<br>");
+        const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
+        // Schedule 20 seconds apart
+        const scheduledAt=new Date(now.getTime()+(i*20*1000)).toISOString();
+        await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
+          contact_id:c.id,
+          contact_name:c.name,
+          to_email:c.email,
+          subject:subj,
+          html_body:fullHtml,
+          campaign,
+          scheduled_at:scheduledAt,
+          status:"pending"
+        })});
+        done++;
+      }catch(e){failed++;failedNames.push(c.name);}
+      if(i<selectedContacts.length-1)await new Promise(r=>setTimeout(r,500));
+    }
+    setBatchRunning(false);
+    setBatchProgress(null);
+    setBatchDone({done,failed,failedNames,mode:"queued"});
+    setSel(new Set());
+  }
+
+  async function generateEmailForContact(c){
+    // Use static template for customer update campaign
+    if(campaign==="custom"){
+      const first=getFirstName(c.name);
+      const filledBody=fillPlaceholders(customBody,c,true);
+      const filledSubj=fillPlaceholders(customSubject,c,false);
+      const body=[`Dear ${first},`,filledBody,`\n${DEF_SIG}`].join("\n\n");
+      return{body,subj:filledSubj||"A message from Inspired Growing"};
+    }
+    if(campaign==="customer"){
+      const first=getFirstName(c.name);
+      const org=c.school||c.district||"your organization";
+      const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
+      return{body,subj:"Summer Updates from Inspired Growing"};
+    }
+    const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
+    const contactContext=[c.notes?"Notes: "+c.notes:"",c.project_type?"Project focus: "+c.project_type:""].filter(Boolean).join(". ");
+    const isFollowUp=campaign==="followup";
+
+    // For follow-up, use guidance text directly — no AI needed
+    if(isFollowUp){
+      const first=getFirstName(c.name);
+      const body=[`Dear ${first},`,followupGuidance,pitch,DEF_CLOSE_FOLLOWUP,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
+      const subj=CAMPAIGNS.followup.subjectFn(c);
+      return{body,subj};
+    }
+
+    const schoolNameB=c.school||c.district||"your school";
+    const p1="Write exactly 2 sentences.\n"+
+      "Sentence 1: \"I'm reaching out from Inspired Growing (inspiredgrowing.com) to share something that could be a meaningful addition to your nutrition, STEM, and food production programs.\" Write this sentence exactly.\n"+
+      "Sentence 2: Reference something specific and genuine about "+schoolNameB+" — their mission, values, programs, or community commitment — and connect it to why this is a good time to reach out, e.g. \"[School]'s commitment to [specific thing] shows a clear overlap with our mission, so with the academic year coming to a close, I thought it would be a great time to connect.\" "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT reference the contact's job title or tell them about their own role. Focus on the school. Keep it warm and genuine.";
+    const sys="You write short, personalized "+(isFollowUp?"follow-up":"cold outreach")+" emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
+      "Write an email to "+c.name+", "+c.role+" at "+(c.school||c.district)+" ("+c.state+").\n\n"+
+      "PARAGRAPH 1 — "+(isFollowUp?"Follow-up message (use this text as your base, adapt slightly for "+c.name+" at "+(c.school||c.district)+", keep concise):":"Personalized opener (2-3 sentences):")+"\n"+p1+"\n\n"+
+      "PARAGRAPH 2 — What Inspired Growing does (already provided — do NOT write this):\n[SKIP]\n\n"+
+      "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask. Offer a quick call or to send more info.\n\n"+
+      "Rules:\n- Do NOT start with \"I\"\n- Tone: warm, direct, human\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
+    const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:sys,messages:[{role:"user",content:"Write the email."}]})});
+    const d=await r.json();
+    const fullText=(d.content?.[0]?.text||"").trim();
+    const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
+    const l1=paras[0]||"";
+    const l2=pitch; // Always use template text directly
+    const l3=paras[1]||paras[2]||DEF_CLOSE;
+    const sig=DEF_SIG;
+    const firstName=getFirstName(c.name);
+    const body=[`Dear ${firstName},`,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
+    const subj=CAMPAIGNS[campaign]?.subjectFn(c)||`A program worth knowing about for ${c.school||c.district}`;
+    return{body,subj};
+  }
+
+  async function pushDraftForContact(c,body,subj){
+    const htmlBody2=body
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
+      .replace(/\n/g,"<br>");
+    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
+    const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({to:c.email,subject:subj,html:fullHtml2,contactId:c.id})
+    });
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error||"Send failed");
+    return true;
+  }
+
+  async function batchGenerateAndPush(mode="send"){
+    const selectedContacts=[...sel].map(id=>contacts.find(c=>c.id===id)).filter(Boolean).filter(c=>!c.is_strategic);
+    if(selectedContacts.length===0)return;
+    if(mode==="queue"){
+      await queueEmailsForContacts(selectedContacts,"queue",null);
+      return;
+    }
+    if(mode==="schedule"){
+      await queueEmailsForContacts(selectedContacts,"schedule",scheduleTime||null);
+      setScheduleOpen(false);
+      setScheduleTime("");
+      return;
+    }
+    setBatchRunning(true);setBatchDone(null);
+    setBatchProgress({done:0,total:selectedContacts.length,current:selectedContacts[0]?.name||"",failed:0});
+    // Sending via Cloudflare Worker — no browser OAuth needed
+    let done=0,failed=0;const failedNames=[];
+    for(let i=0;i<selectedContacts.length;i++){
+      const c=selectedContacts[i];
+      setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
+      try{
+        const{body,subj}=await generateEmailForContact(c);
+        if(mode==="draft"){
+          // Save as Gmail draft via OAuth
+          const tok=await getGmailToken();
+          const htmlBody2=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
+          const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
+          const emailLines2=[`From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,`To: ${c.email}`,`Subject: ${subj}`,`MIME-Version: 1.0`,`Content-Type: text/html; charset=utf-8`,``,fullHtml2].join("\r\n");
+          const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+          const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
+          if(!dr.ok)throw new Error("Draft save failed");
+          // Update stage to Emailed
+          const today2=new Date().toISOString().split("T")[0];
+          const keepS2=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
+          if(!keepS2){
+            await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Emailed",last_touch:today2})});
+            setContacts(p=>p.map(x=>x.id===c.id?{...x,stage:"Emailed",lastContact:today2}:x));
+          }
+        } else {
+          await pushDraftForContact(c,body,subj);
+        }
+        await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(["Cold","Emailed"].includes(cc.stage)?{pipeline_stage:"Emailed"}:{})})});
+        setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(["Cold","Emailed"].includes(cc.stage)?{stage:"Emailed"}:{})}:c));
+        setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today,...(x.stage==="Cold"?{stage:"Contacted"}:{})}:x));
+        done++;
+      }catch(e){failed++;failedNames.push(c.name);}
+      // Small delay to avoid rate limits
+      if(i<selectedContacts.length-1)await new Promise(r=>setTimeout(r,1500));
+    }
+    setBatchRunning(false);
+    setBatchProgress(null);
+    setBatchDone({done,failed,failedNames,mode,startTime:startTime?.toISOString()});
+    setSel(new Set());
+  }
+
+  async function bulkDelete(){
+    const ids=[...sel];
+    if(!window.confirm(`Delete ${ids.length} contacts? This cannot be undone.`))return;
+    try{
+      await sbFetch(`contacts?id=in.(${ids.join(",")})`,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
+      setContacts(p=>p.filter(c=>!ids.includes(c.id)));
+      setSel(new Set());
+      addActivity({type:"deleted",contactName:`${ids.length} contacts`,text:"were bulk deleted",detail:"",icon:"🗑"});
+    }catch(e){alert("Error deleting: "+e.message);}
+  }
+
+  function handleStageChange(contactId,stage){
+    const c=contacts.find(x=>x.id===contactId);if(!c||c.stage===stage)return;
+    const prev=c.stage;setContacts(cs=>cs.map(x=>x.id===contactId?{...x,stage,stageEnteredAt:new Date().toISOString()}:x));
+    sbFetch(`contacts?id=eq.${contactId}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:stage})}).catch(console.error);
+    addActivity({type:"stage",contactId,contactName:c.name,text:`moved from ${prev} → ${stage}`,detail:c.district,icon:(STAGE_META[stage]||{icon:"•"}).icon});
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,stage,stageEnteredAt:new Date().toISOString()}));
+  }
+
+  async function handleTaskAdd(contactId,task){
+    const t={...task,id:taskIdRef.current++,done:false};
+    const c=contacts.find(x=>x.id===contactId);
+    const existingSteps=c?.next_steps||"";
+    const dueStr=task.due?` (due ${new Date(task.due).toLocaleDateString("en-US",{month:"short",day:"numeric"})})`:""
+    const newStep=`${task.text}${dueStr}`;
+    const updated=existingSteps?`${existingSteps}\n${newStep}`:newStep;
+    // Save to Supabase next_steps
+    await sbFetch(`contacts?id=eq.${contactId}`,{method:"PATCH",body:JSON.stringify({next_steps:updated})}).catch(console.error);
+    setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:[...(c.tasks||[]),t],next_steps:updated}:c));
+    addActivity({type:"task",contactId,contactName:c?.name||"",text:"Next step added",detail:task.text,icon:"⚡"});
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:[...(p.tasks||[]),t],next_steps:updated}));
+  }
+
+  function handleTaskToggle(contactId,taskId){
+    setContacts(cs=>cs.map(c=>c.id===contactId?{...c,tasks:(c.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}:c));
+    if(selectedContact?.id===contactId)setSelectedContact(p=>({...p,tasks:(p.tasks||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}));
+  }
+
+  const pendingCount=enrollments.filter(e=>{const sq=sequences.find(s=>s.id===e.sequence_id);if(!sq||e.status!=="active")return false;const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===sq.template_id);const step=tmpl?.steps[e.current_step];return step?.approvalRequired&&!seqLog.find(l=>l.sequence_id===sq.id&&l.contact_id===e.contact_id&&l.step_label===step.label);}).length;
+
+  const NAV_PIPELINE=[{id:"dashboard",icon:"📊",label:"Dashboard"},{id:"pipeline",icon:"📋",label:"Pipeline"},{id:"activity",icon:"⚡",label:"Activity Feed"}];
+  const NAV_OUTREACH=[{id:"contacts",icon:"👥",label:"Contacts"},{id:"new-leads",icon:"🔔",label:"New Leads"},{id:"strategic",icon:"⭐",label:"Strategic"},{id:"compose",icon:"✉️",label:"Compose"},{id:"resources",icon:"📁",label:"Resources"},{id:"settings",icon:"⚙️",label:"Email Templates"}];
+  const NAV_AUTO=[{id:"sequences",icon:"🔄",label:"Sequences"},{id:"review",icon:"📬",label:`Review Queue${pendingCount>0?" ("+pendingCount+")":""}`},{id:"unsub",icon:"🚫",label:"Unsubscribes"}];
+
+  return <div style={{fontFamily:"system-ui,sans-serif",background:C.bg,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",fontSize:13,color:C.text}}>
+    <div style={{height:52,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,width:195,flexShrink:0}}>
+        <div style={{width:28,height:28,borderRadius:6,background:C.green,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:12}}>IG</div>
+        <div><div style={{fontWeight:700,fontSize:13}}>Inspired Growing</div><div style={{fontSize:10,color:C.textS}}>CRM</div></div>
+      </div>
+      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+        {loading&&<div style={{fontSize:11,color:C.textS,display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Loading…</div>}
+        {!loading&&[[stats.total,"contacts"],[stats.cold,"cold"],[stats.active,"active"]].map(([v,l])=>(
+          <div key={l} style={{fontSize:12,color:C.textS,padding:"3px 10px",background:C.bg,borderRadius:20,border:`1px solid ${C.border}`}}><strong style={{color:C.text}}>{v}</strong> {l}</div>
+        ))}
+        <div style={{width:28,height:28,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:11,fontWeight:600}}>EW</div>
+      </div>
+    </div>
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{width:195,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",padding:"10px 8px",gap:2,flexShrink:0}}>
+        <div style={SL()}>Pipeline</div>
+        {NAV_PIPELINE.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
+        <div style={SL()}>Outreach</div>
+        {NAV_OUTREACH.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span><span style={{flex:1}}>{item.label}</span>{item.badge>0&&<span style={{fontSize:9,fontWeight:700,background:C.coral,color:"white",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{item.badge}</span>}</div>)}
+        <div style={SL()}>Automation</div>
+        {NAV_AUTO.map(item=><div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:6,cursor:"pointer",fontSize:13,color:page===item.id?C.gDark:C.textS,background:page===item.id?C.gBg:"transparent",fontWeight:page===item.id?500:400}} onMouseEnter={e=>{if(page!==item.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(page!==item.id)e.currentTarget.style.background="transparent";}}><span style={{fontSize:14,width:18,textAlign:"center"}}>{item.icon}</span>{item.label}</div>)}
+      </div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {loadErr&&<div style={{padding:"8px 16px",background:"#FEE2E2",fontSize:12,color:"#A32D2D",borderBottom:`1px solid #FECACA`,flexShrink:0}}>⚠ {loadErr}</div>}
+        {loading&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:C.textT}}><div style={{width:28,height:28,border:`3px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/><div>Loading from Supabase…</div></div>}
+        {!loading&&<>
+          {page==="dashboard"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Dashboard</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Live from Supabase · {contacts.length} contacts</div></div>
+            <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
+          {page==="pipeline"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Pipeline</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance · Click for details</div></div><KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/></>}
+          {page==="activity"&&<ActivityPage activity={activity}/>}
+          {page==="new-leads"&&<NewLeadsPage contacts={contacts} onCompose={c=>{selectCC(c);setPage("compose");}}/>}
+          {page==="strategic"&&<StrategicPage contacts={contacts} setContacts={setContacts} onCompose={c=>{selectCC(c);setPage("compose");}} onEdit={c=>{setDetail(c);setEditMode(true);setEditF({name:c.name,email:c.email,role:c.role,school:c.school,district:c.district,state:c.state,persona:c.persona,org_type:c.org_type||"K-12 School",is_strategic:c.is_strategic||false,relationship_goal:c.relationship_goal||"",lead_source:c.lead_source,project_type:c.project_type,alt_contact:c.alt_contact,notes:c.notes,next_steps:c.next_steps||"",lastContact:c.lastContact||""});}}/>}
+          {page==="contacts"&&<>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+              <div><div style={{fontWeight:700,fontSize:16}}>Contacts</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>K-12 administrator database · live from Supabase</div></div>
+              <div style={{marginLeft:"auto"}}><button onClick={()=>setAddOpen(true)} style={B("secondary","sm")}>+ Add Contact</button></div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap"}}>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search name, school, district, email..." style={I(220)}/>
+              <select value={fp} onChange={e=>setFp(e.target.value)} style={S()}><option value="">All personas</option>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}<option value="__hide_admin__">Hide Administrators</option><option value="__strategic__">⭐ Strategic only</option></select>
+              <select value={fs} onChange={e=>setFs(e.target.value)} style={S()}><option value="">All stages</option>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+              <select value={fst} onChange={e=>setFst(e.target.value)} style={S()}><option value="">All states</option><option value="NY">NY</option><option value="NJ">NJ</option><option value="CT">CT</option><option value="PA">PA</option></select>
+              <select value={fOrgType||""} onChange={e=>setFOrgType(e.target.value)} style={S()}>
+                <option value="">All org types</option><option value="K-12 School">K-12 School</option><option value="Charter School">Charter School</option><option value="Private School">Private School</option><option value="Community Org">Community Org</option>
+                <option value="Senior Center">Senior Center</option><option value="JCC / YMCA">JCC / YMCA</option><option value="Higher Ed">Higher Ed</option><option value="Corporate">Corporate</option><option value="Government">Government</option><option value="Healthcare">Healthcare</option><option value="Nonprofit">Nonprofit</option><option value="Vendor / Partner">Vendor / Partner</option><option value="Media">Media</option><option value="Other">Other</option></select>
+              <select value={fls} onChange={e=>setFls(e.target.value)} style={S()}>
+                <option value="">All sources</option>
+                <option value="NJ_Public">NJ Public Schools (2,398)</option>
+                <option value="NJ_Private">NJ Private Schools (887)</option>
+                <option value="k12_prospects">K-12 Prospects (447)</option>
+                <option value="New Lead">New Leads (144)</option>
+                <option value="NJ_Charters">NJ Charter Schools (74)</option>
+                <option value="Mission-Identity">Mission-Identity (70)</option>
+                <option value="Pvt Schl Expansion">Pvt School Expansion (56)</option>
+                <option value="STEM_Leaders">STEM Leaders (53)</option>
+                <option value="VARS">VARS (45)</option>
+                <option value="Public Expansion">Public Expansion (38)</option>
+                <option value="Public New Construction">Public New Construction (32)</option>
+                <option value="Email Bridge Import">Email Bridge Import (29)</option>
+                <option value="Special Needs Schools">Special Needs Schools (19)</option>
+                <option value="Feb 27 Conf">Feb 27 Conference (12)</option>
+                <option value="Food Service">Food Service (6)</option>
+                <option value="Website">Website (2)</option>
+              </select>
+              <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{filtered.length} of {contacts.length}</span>
+            </div>
+            {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
+              <span style={{fontWeight:600,color:C.gDark}}>{sel.size} contact{sel.size!==1?"s":""} selected</span>
+              {!batchRunning&&!batchDone&&<>
+                <div style={{display:"flex",alignItems:"center",gap:6,background:"white",border:`2px solid ${campaign==="cold"?C.blue:campaign==="customer"?C.green:"#854F0B"}`,borderRadius:8,padding:"3px 8px"}}>
+                  <span style={{fontSize:11,fontWeight:700,color:C.textS,whiteSpace:"nowrap"}}>Campaign:</span>
+                  <select value={campaign} onChange={e=>setCampaign(e.target.value)} style={{fontSize:12,fontWeight:600,border:"none",outline:"none",background:"transparent",cursor:"pointer",color:campaign==="cold"?C.blue:campaign==="customer"?C.gDark:"#854F0B"}}>
+                    {Object.values(CAMPAIGNS).map(camp=><option key={camp.id} value={camp.id}>{camp.icon} {camp.label}</option>)}
+                  </select>
+                </div>
+                <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Send All Now</button>
+                <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (3/min)</button>
+                <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Save All as Drafts</button>
+                <button onClick={()=>setScheduleOpen(true)} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>📅 Schedule</button>
+                <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
+                <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
+              </>}
+              {batchRunning&&batchProgress&&<div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/><span style={{color:C.gDark,fontWeight:500}}>Generating for <strong>{batchProgress.current}</strong>…</span><span style={{color:C.textS}}>{batchProgress.done} of {batchProgress.total} done{batchProgress.failed>0?` · ${batchProgress.failed} failed`:""}</span><div style={{flex:1,height:4,background:C.gBorder,borderRadius:2,overflow:"hidden",maxWidth:200}}><div style={{height:"100%",width:`${(batchProgress.done/batchProgress.total)*100}%`,background:C.gDark,borderRadius:2,transition:"width 0.3s"}}/></div></div>}
+              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":batchDone.mode==="queued"?"queued — sending 3/min via drip":batchDone.mode==="schedule"?`scheduled — starting ${new Date(batchDone.startTime).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
+              {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);setScheduleOpen(false);}} style={B("secondary","sm")}>✕ Clear</button>}
+            </div>}
+            {scheduleOpen&&sel.size>0&&<div style={{padding:"12px 16px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,fontWeight:600,color:"#0369A1"}}>📅 Schedule {sel.size} emails — start sending at:</span>
+              <input type="datetime-local" value={scheduleTime} onChange={e=>setScheduleTime(e.target.value)} style={{...I("220px"),fontSize:12,padding:"4px 8px"}}/>
+              <button onClick={()=>batchGenerateAndPush("schedule")} disabled={!scheduleTime||batchRunning} style={{...B("blue","sm"),opacity:!scheduleTime?0.4:1}}>✓ Confirm Schedule</button>
+              <button onClick={()=>setScheduleOpen(false)} style={B("secondary","sm")}>Cancel</button>
+              <span style={{fontSize:11,color:"#0369A1"}}>Sends 3 emails/min starting at chosen time · {sel.size} emails ≈ {Math.ceil(sel.size/3)} min total</span>
+            </div>}
+            <div style={{flex:1,overflowY:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:C.bg,borderBottom:`1px solid ${C.border}`}}>
+                  <th style={TH(36)}><input type="checkbox" checked={sel.size===filtered.length&&filtered.length>0} onChange={toggleAll} style={{accentColor:C.green}}/></th>
+                  <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th><th style={TH(48)}>State</th><th style={TH(110)}>Org Type</th><th style={TH()}>Persona</th><th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(100)}></th>
+                </tr></thead>
+                <tbody>{filtered.slice(0,contactsShown).map(c=>{
+                  const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
+                  return <tr key={c.id} onClick={()=>{setDetail(c);setEditMode(false);}} style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}} onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
+                    <td style={TD(36)} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggleSel(c.id)} style={{accentColor:C.green}}/></td>
+                    <td style={TD()}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontWeight:500}}>{c.name}</div>{c.is_strategic&&<span style={{fontSize:9,fontWeight:700,color:"#5B21B6",background:"#F5F3FF",border:"1px solid #DDD6FE",padding:"1px 5px",borderRadius:8,flexShrink:0}}>⭐ Strategic</span>}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{c.role}</div></td>
+                    <td style={TD()}><div style={{fontSize:12}}>{c.school||c.district}</div><div style={{fontSize:11,color:C.textT}}>{c.district}</div></td>
+                    <td style={TD(48)}><span style={{fontSize:11,color:C.textS}}>{c.state}</span></td>
+                    <td style={TD(110)}><span style={{fontSize:11,color:C.textS}}>{c.org_type||"K-12 School"}</span></td>
+                    <td style={TD()}><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></td>
+                    <td style={TD()}><Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/></td>
+                    <td style={TD(90)}><span style={{fontSize:12,color:C.textS}}>{c.lastContact||"—"}</span></td>
+                    <td style={TD(100)} onClick={e=>e.stopPropagation()}><div style={{display:"flex",gap:4}}><button onClick={()=>{selectCC(c);setPage("compose");}} style={B("secondary","sm")}>✉</button><button onClick={()=>{if(window.confirm(`Delete ${c.name}?`))deleteContact(c);}} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑</button></div></td>
+                  </tr>;
+                })}</tbody>
+              </table>
+              {filtered.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:30,marginBottom:8}}>🔍</div><div style={{fontWeight:500,color:C.textS}}>No contacts match filters</div></div>}
+              {filtered.length>contactsShown&&<div style={{padding:"16px",textAlign:"center",borderTop:`1px solid ${C.border}`}}><button onClick={()=>setContactsShown(p=>p+100)} style={{...B("secondary"),fontSize:12}}>Load more ({filtered.length-contactsShown} remaining)</button></div>}
+            </div>
+          </>}
+          {page==="compose"&&<>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+              <div style={{fontWeight:700,fontSize:16}}>Compose Email</div>
+              <div style={{display:"flex",gap:2,marginTop:10}}>
+                {Object.values(CAMPAIGNS).map(camp=>(
+                  <button key={camp.id} onClick={()=>{setCampaign(camp.id);if(cc)selectCC(cc,camp.id);}} style={{padding:"6px 12px",fontSize:12,borderRadius:"6px 6px 0 0",cursor:"pointer",fontWeight:campaign===camp.id?600:400,background:campaign===camp.id?"white":C.bg,color:campaign===camp.id?C.gDark:C.textS,border:`1px solid ${C.border}`,borderBottom:campaign===camp.id?"1px solid white":"1px solid transparent",marginBottom:-1}}>
+                    {camp.icon} {camp.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+              <div style={{width:265,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
+                <div style={SL()}>Select contact</div>
+                {contacts.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];return <div key={c.id} onClick={()=>selectCC(c)} style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:cc?.id===c.id?C.gBg:"white",borderLeft:cc?.id===c.id?`3px solid ${C.green}`:"3px solid transparent"}} onMouseEnter={e=>{if(cc?.id!==c.id)e.currentTarget.style.background=C.bg;}} onMouseLeave={e=>{if(cc?.id!==c.id)e.currentTarget.style.background="white";}}><Av name={c.name} size={28} color={C.green}/><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role} · {c.district}</div></div><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></div>;})}
+              </div>
+              <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:14}}>
+                {!cc?<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,padding:40,textAlign:"center"}}><div style={{fontSize:38,opacity:0.3}}>✉️</div><div style={{fontWeight:500,color:C.textS}}>Select a contact to compose</div></div>:<>
+                  <div style={{padding:"11px 14px",background:C.gBg,borderRadius:8,border:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:10}}><Av name={cc.name} size={34} color={C.blue}/><div><div style={{fontWeight:600,fontSize:13}}>{cc.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{cc.role} · {cc.school||cc.district} · {cc.district}, {cc.state}</div></div><div style={{marginLeft:"auto"}}>{(()=>{const[pc,pb]=PER_C[cc.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[cc.persona]?.label||cc.persona} color={pc} bg={pb}/>;})()}</div></div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Subject line</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Auto-fills after generating..." style={I()}/></div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Greeting</label><input value={greeting} onChange={e=>setGreeting(e.target.value)} placeholder="Dear [Name]," style={I()}/></div>
+                  <button onClick={genHook} disabled={aiSt==="loading"} style={{...B("primary"),width:"100%",padding:"10px",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>{aiSt==="loading"?<><div style={{width:14,height:14,border:"2px solid rgba(255,255,255,0.4)",borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Generating full email…</>:l1?<>↻ Regenerate Full Email</>:<>✨ Generate Full Email</>}</button>
+                  <div style={{border:`1px solid #BAE6FD`,borderRadius:8}}>
+                    <div style={{padding:"9px 12px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:22,height:22,borderRadius:"50%",background:"#378ADD",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>1</div>
+                      <div style={{flex:1,fontWeight:600,fontSize:12,color:"#0369A1"}}>Personalized opener{kbSt==="done"&&<span style={{fontWeight:400,color:C.gDark,marginLeft:6}}>✓ Generated</span>}</div>
+                    </div>
+                    <div style={{padding:10,background:"white"}}>
+                      {aiSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:C.gDark,padding:"8px 2px"}}><div style={{width:12,height:12,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>Writing personalized email…</div>}
+                      {aiSt==="error"&&<div style={{fontSize:12,color:"#A32D2D",padding:"4px 2px"}}>⚠ Error connecting to AI. Check your Cloudflare worker and API key.</div>}
+                      {(aiSt==="done"||l1)?<textarea value={l1} onChange={e=>setL1(e.target.value)} rows={4} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/>:<div style={{fontSize:12,color:C.textT,fontStyle:"italic",padding:"8px 2px"}}>Click ✨ Generate Full Email above — AI will write a personalized opener referencing something specific about {cc.district}, then bridge into why you're reaching out.</div>}
+                    </div>
+                  </div>
+                  <div style={{border:`1px solid ${C.gBorder}`,borderRadius:8}}>
+                    <div style={{padding:"9px 12px",background:"#F0FDF4",borderBottom:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.green,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>2</div><div style={{fontWeight:600,fontSize:12,color:C.gDark}}>Inspired Growing pitch — {TMPL[cc.persona]?.label||"General"} angle</div></div>
+                    <div style={{padding:10,background:"white"}}><textarea value={l2} onChange={e=>setL2(e.target.value)} rows={6} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/></div>
+                  </div>
+                  <div style={{border:`1px solid #FED7AA`,borderRadius:8}}>
+                    <div style={{padding:"9px 12px",background:"#FFF7ED",borderBottom:`1px solid #FED7AA`,display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:"50%",background:C.orange,color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>3</div><div style={{fontWeight:600,fontSize:12,color:"#92400E"}}>Universal close</div></div>
+                    <div style={{padding:10,background:"white"}}><textarea value={l3} onChange={e=>setL3(e.target.value)} rows={4} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",overflowY:"auto"}}/></div>
+                  </div>
+                  {(l1||l2||l3)&&<div style={{border:`1px solid ${C.border}`,borderRadius:8}}><div style={{padding:"8px 12px",background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{fontWeight:600,fontSize:11,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em"}}>Full email preview</span><button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(preview)} style={B("ghost","sm")}>Copy</button></div><div style={{padding:"14px 16px",fontSize:13,lineHeight:1.9,color:C.text,whiteSpace:"pre-wrap",background:"white",fontFamily:"Georgia,serif",maxHeight:320,overflowY:"auto"}}>{preview}</div></div>}
+                  {gmSt==="loading"&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:C.bBg,borderRadius:8,fontSize:12,color:C.bDark}}><div style={{width:12,height:12,border:"2px solid #B5D4F4",borderTopColor:C.bDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>{gmMsg}</div>}
+                  {gmSt==="success"&&<div style={{padding:"8px 12px",background:C.gBg,borderRadius:8,fontSize:12,color:C.gDark}}>{gmMsg}</div>}
+                  {gmSt==="error"&&<div style={{padding:"8px 12px",background:"#FAEEDA",borderRadius:8,fontSize:12,color:"#854F0B"}}>{gmMsg}</div>}
+                  <div style={{display:"flex",gap:8,paddingBottom:8,flexWrap:"wrap"}}>
+                  <button onClick={()=>pushGmail("send")} disabled={!subj||!l1||gmSt==="loading"} style={{...B("blue"),opacity:(!subj||!l1)?0.4:1,display:"flex",alignItems:"center",gap:6}}>
+                    {gmSt==="loading"&&gmMsg.includes("Sending")?"Sending…":"📧 Send Now"}
+                  </button>
+                  <button onClick={()=>pushGmail("draft")} disabled={!subj||!l1||gmSt==="loading"} style={{...B("secondary"),opacity:(!subj||!l1)?0.4:1,display:"flex",alignItems:"center",gap:6}}>
+                    {gmSt==="loading"&&gmMsg.includes("draft")?"Saving…":"💾 Save as Draft"}
+                  </button>
+                  <button onClick={genHook} disabled={gmSt==="loading"} style={B("secondary")}>↻ Regenerate</button>
+                </div>
+                </>}
+              </div>
+            </div>
+          </>}
+          {page==="resources"&&<ResourcesPage/>}
+          {page==="settings"&&<>
+            <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:16}}>Email Templates</div></div><div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>{saved&&<span style={{fontSize:12,color:C.gDark,fontWeight:500}}>✓ Saved</span>}<button onClick={()=>{
+                  // Save customer update template to localStorage so it persists
+                  localStorage.setItem("ig_cust_l1",custL1);
+                  localStorage.setItem("ig_cust_l2",custL2);
+                  localStorage.setItem("ig_cust_l3",custL3);
+                  localStorage.setItem("ig_followup_guidance",followupGuidance);
+                  localStorage.setItem("ig_custom_subj",customSubject);
+                  localStorage.setItem("ig_custom_body",customBody);
+                  localStorage.setItem("ig_close_text",closeText);
+                  localStorage.setItem("ig_sig",sig);
+                  setSaved(true);setTimeout(()=>setSaved(false),2000);
+                }} style={B("primary")}>Save Changes</button></div></div>
+            <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"},{id:"campaign_customer",label:"🌱 Customer Update"},{id:"campaign_followup",label:"📬 Follow-Up"},{id:"campaign_custom",label:"✏️ Custom"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
+            <div style={{flex:1,overflowY:"auto",padding:24}}>
+              {stab!=="close"&&templates[stab]&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Persona pitch — {templates[stab].label}</label><textarea value={templates[stab].roleBlurb} onChange={e=>setTemplates(p=>({...p,[stab]:{...p[stab],roleBlurb:e.target.value}}))} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
+              {stab==="close"&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Universal close</label><textarea value={closeText} onChange={e=>setCloseText(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Signature</label><textarea value={sig} onChange={e=>setSig(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
+              {stab==="campaign_customer"&&<div style={{maxWidth:680}}>
+                <div style={{padding:"10px 14px",background:"#F0FDF4",border:`1px solid ${C.gBorder}`,borderRadius:8,marginBottom:16,fontSize:12,color:C.gDark}}>
+                  🌱 <strong>Customer Update</strong> — sent to existing customers (Closed Won stage). Edit the template below. Use <code style={{background:"#E1F5EE",padding:"1px 4px",borderRadius:3}}>[First Name]</code> and <code style={{background:"#E1F5EE",padding:"1px 4px",borderRadius:3}}>[Organization]</code> as placeholders — they auto-fill from the contact record.
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Subject line</label><input value={CAMPAIGNS.customer.subjectFn({district:"",school:""})} readOnly style={{...I(),background:C.bg,color:C.textS}} placeholder="Summer Updates from Inspired Growing"/><div style={{fontSize:11,color:C.textT,marginTop:3}}>Subject line is fixed for this campaign</div></div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Opening paragraph</label><textarea value={custL1} onChange={e=>setCustL1(e.target.value)} onBlur={e=>{const val=e.target.value;CAMPAIGNS.customer.templateFn=c=>{const first=getFirstName(c.name);const org=c.school||c.district||"your organization";return{l1:val.replace("[First Name]",first).replace("[Organization]",org),l2:CAMPAIGNS.customer.templateFn(c).l2,l3:CAMPAIGNS.customer.templateFn(c).l3};}}} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Features / updates section</label><textarea value={custL2} onChange={e=>setCustL2(e.target.value)} rows={10} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}><label style={{...LBL(),fontSize:11}}>Closing paragraph</label><textarea value={custL3} onChange={e=>setCustL3(e.target.value)} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div>
+              </div>}
+              {stab==="campaign_custom"&&<div style={{maxWidth:680}}>
+                <div style={{padding:"10px 14px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8,marginBottom:16,fontSize:12,color:"#5B21B6"}}>
+                  ✏️ <strong>Custom Campaign</strong> — paste any email template. Use these placeholders and they'll auto-fill from each contact's record:<br/><br/>
+                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[PRINCIPAL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code><br/><br/>
+                  <strong>Document buttons</strong> (renders as a green clickable button in the email):<br/>
+                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[BROCHURE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[OVERVIEW]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[CURRICULUM]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SPECS]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[GRANT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DECK]</code>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                  <label style={{...LBL(),fontSize:11}}>Subject line</label>
+                  <input value={customSubject} onChange={e=>setCustomSubject(e.target.value)} placeholder="e.g. A funding opportunity for [SCHOOL NAME]" style={I()}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                  <label style={{...LBL(),fontSize:11}}>Email body</label>
+                  <textarea value={customBody} onChange={e=>setCustomBody(e.target.value)} rows={18} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}} placeholder="Paste your email here. Use [SCHOOL NAME], [PRINCIPAL NAME], [FIRST NAME], [DISTRICT] etc as placeholders..."/>
+                </div>
+              </div>}
+              {stab==="campaign_followup"&&<div style={{maxWidth:680}}>
+                <div style={{padding:"10px 14px",background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:8,marginBottom:16,fontSize:12,color:"#0369A1"}}>
+                  📬 <strong>Follow-Up</strong> — AI-generated check-in for contacts who haven't replied. The AI writes a short, low-pressure nudge referencing the district and original pitch.
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                  <label style={{...LBL(),fontSize:11}}>Follow-up tone guidance (sent to AI)</label>
+                  <textarea value={followupGuidance} onChange={e=>setFollowupGuidance(e.target.value)} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
+                  <div style={{fontSize:11,color:C.textT,marginTop:3}}>This guidance shapes how the AI writes follow-up emails for this campaign</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                  <label style={{...LBL(),fontSize:11}}>Subject line prefix</label>
+                  <input defaultValue="Re:" style={I()} placeholder="Re:"/>
+                  <div style={{fontSize:11,color:C.textT,marginTop:3}}>Prepended to the original subject line e.g. "Re: Clarkstown CSD - Aeroponic Classroom Farm"</div>
+                </div>
+              </div>}
+            </div>
+          </>}
+          {page==="sequences"&&<SequencesPage contacts={contacts} sequences={sequences} setSequences={setSequences} enrollments={enrollments} setEnrollments={setEnrollments} seqLog={seqLog} setSeqLog={setSeqLog}/>}
+          {page==="review"&&<ReviewQueuePage contacts={contacts} enrollments={enrollments} seqLog={seqLog} setSeqLog={setSeqLog} sequences={sequences}/>}
+          {page==="unsub"&&<UnsubscribePage contacts={contacts} setContacts={setContacts}/>}
+        </>}
+      </div>
+    </div>
+    <div style={{height:4,display:"flex",flexShrink:0}}>{[C.lavender,C.lightblue,C.blue,C.green,C.yellow,C.orange,C.coral].map(col=><div key={col} style={{flex:1,background:col}}/>)}</div>
+    {detail&&<div onClick={()=>{setDetail(null);setEditMode(false);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:500,maxHeight:"88vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:16}}>
+          <Av name={detail.name} size={44} color={C.blue}/>
+          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div>
+          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,org_type:detail.org_type||"K-12 School",is_strategic:detail.is_strategic||false,relationship_goal:detail.relationship_goal||"",lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes,next_steps:detail.next_steps||"",lastContact:detail.lastContact||""});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
+          <button onClick={()=>{setDetail(null);setEditMode(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
+        </div>
+        {!editMode?<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Org Type",detail.org_type],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
+            <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
+            <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Stage</div>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{STAGES.map(s=>{const sm=STAGE_META[s]||{color:C.textS,bg:C.bg,icon:"•"};return <button key={s} onClick={async()=>{await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:s})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,stage:s}:c));setDetail(d=>({...d,stage:s}));addActivity({type:"stage",contactId:detail.id,contactName:detail.name,text:`moved to ${s}`,detail:detail.district,icon:sm.icon});}} style={{fontSize:11,padding:"3px 8px",borderRadius:6,cursor:"pointer",fontWeight:detail.stage===s?700:400,background:detail.stage===s?sm.bg:"white",color:detail.stage===s?sm.color:C.textS,border:`1px solid ${detail.stage===s?sm.color:C.border}`}}>{sm.icon} {s}</button>;})}
+            </div></div>
+          </div>
+          {detail.alt_contact&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Phone</div><div style={{fontSize:13,color:C.textS}}>{detail.alt_contact}</div></div>}
+          <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Notes</div>
+          <textarea defaultValue={detail.notes||""} onBlur={async e=>{const newNotes=e.target.value;await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({notes:newNotes})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,notes:newNotes}:c));setDetail(d=>({...d,notes:newNotes}));}} style={{...I(),fontSize:13,lineHeight:1.6,marginBottom:12,minHeight:60,resize:"vertical",background:"white"}} placeholder="Click to add notes..."/>
+        <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:"#854F0B",marginBottom:6}}>⚡ Next Steps</div>
+        <textarea defaultValue={detail.next_steps||""} onBlur={async e=>{const v=e.target.value;await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({next_steps:v})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,next_steps:v}:c));setDetail(d=>({...d,next_steps:v}));}} style={{...I(),fontSize:13,lineHeight:1.6,marginBottom:12,minHeight:50,resize:"vertical",background:"#FFFBEB",border:"1px solid #FED7AA"}} placeholder="What's the next step with this contact?"/>
+        <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Last Touch</div>
+        <input type="date" defaultValue={detail.lastContact||""} onBlur={async e=>{const v=e.target.value;await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({last_touch:v})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,lastContact:v}:c));setDetail(d=>({...d,lastContact:v}));}} style={{...I(),fontSize:13,marginBottom:20,background:"white"}}/>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>{setDetail(null);setEditMode(false);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
+            <button onClick={()=>{setDetail(null);setEditMode(false);}} style={B("secondary")}>Close</button>
+            <button onClick={()=>{if(window.confirm(`Delete ${detail.name}? This cannot be undone.`)){deleteContact(detail);setEditMode(false);}}} style={{...B("secondary"),marginLeft:"auto",color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete</button>
+          </div>
+        </>:<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+            {[["name","Name"],["email","Email"],["role","Role"],["school","Organization"],["district","District"],["state","State"],["lead_source","Lead Source"],["project_type","Project Type"],["alt_contact","Phone"]].map(([k,l])=>(
+              <div key={k} style={{display:"flex",flexDirection:"column",gap:4}}>
+                <label style={LBL()}>{l}</label>
+                <input value={editF[k]||""} onChange={e=>setEditF(f=>({...f,[k]:e.target.value}))} style={I()}/>
+              </div>
+            ))}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={LBL()}>Persona</label>
+              <select value={editF.persona||"General"} onChange={e=>setEditF(f=>({...f,persona:e.target.value}))} style={S()}>
+                {Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}
+              </select>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={LBL()}>Stage</label>
+              <select value={editF.stage||detail.stage||"Cold"} onChange={e=>setEditF(f=>({...f,stage:e.target.value}))} style={S()}>
+                {STAGES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={LBL()}>Organization Type</label>
+              <select value={editF.org_type||"K-12 School"} onChange={e=>setEditF(f=>({...f,org_type:e.target.value}))} style={S()}><option value="K-12 School">K-12 School</option><option value="Charter School">Charter School</option><option value="Private School">Private School</option><option value="Community Org">Community Org</option>
+                <option value="Senior Center">Senior Center</option><option value="JCC / YMCA">JCC / YMCA</option><option value="Higher Ed">Higher Ed</option><option value="Corporate">Corporate</option><option value="Government">Government</option><option value="Healthcare">Healthcare</option><option value="Nonprofit">Nonprofit</option><option value="Vendor / Partner">Vendor / Partner</option><option value="Media">Media</option><option value="Other">Other</option></select>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"10px 12px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8}}>
+            <input type="checkbox" checked={editF.is_strategic||false} onChange={e=>setEditF(f=>({...f,is_strategic:e.target.checked}))} style={{accentColor:"#7C3AED",cursor:"pointer",width:16,height:16}}/>
+            <div><div style={{fontSize:12,fontWeight:600,color:"#5B21B6"}}>⭐ Strategic Relationship</div><div style={{fontSize:11,color:"#7C3AED"}}>Excluded from bulk campaigns · tracked in Strategic Relationships page</div></div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
+            <label style={{...LBL(),color:"#5B21B6"}}>🎯 Relationship Goal</label>
+            <input value={editF.relationship_goal||""} onChange={e=>setEditF(f=>({...f,relationship_goal:e.target.value}))} placeholder="What are we trying to achieve with this person?" style={I()}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
+            <label style={LBL()}>Notes</label>
+            <textarea value={editF.notes||""} onChange={e=>setEditF(f=>({...f,notes:e.target.value}))} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
+            <label style={{...LBL(),color:"#854F0B"}}>⚡ Next Steps</label>
+            <textarea value={editF.next_steps||""} onChange={e=>setEditF(f=>({...f,next_steps:e.target.value}))} rows={2} style={{...I(),resize:"vertical",lineHeight:1.7,background:"#FFFBEB",border:"1px solid #FED7AA"}}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
+            <label style={LBL()}>Last Touch Date</label>
+            <input type="date" value={editF.lastContact||""} onChange={e=>setEditF(f=>({...f,lastContact:e.target.value}))} style={I()}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={async()=>{
+              try{
+                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email||null,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",last_touch:editF.lastContact||null})});
+                const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",lastContact:editF.lastContact||detail.lastContact};
+                setContacts(p=>p.map(c=>c.id===detail.id?updated:c));
+                setDetail(updated);setEditMode(false);
+              }catch(e){alert("Error saving: "+e.message);}
+            }} style={B("primary")}>💾 Save Changes</button>
+            <button onClick={()=>setEditMode(false)} style={B("secondary")}>Cancel</button>
+          </div>
+        </>}
+      </div>
+    </div>}
+    {addOpen&&<div onClick={()=>setAddOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:460,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}><div style={{fontWeight:700,fontSize:16}}>Add Contact</div><button onClick={()=>setAddOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          {[["fname","First Name","Jane"],["lname","Last Name","Smith"]].map(([k,l,ph])=><div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>{l}</label><input value={addF[k]} onChange={e=>setAddF(f=>({...f,[k]:e.target.value}))} placeholder={ph} style={I()}/></div>)}
+          <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Email</label><input value={addF.email} onChange={e=>setAddF(f=>({...f,email:e.target.value}))} placeholder="j.smith@district.edu" style={I()}/></div>
+          {[["role","Role","Nutrition Director"],["school","Organization","Lincoln HS"],["district","District","Clarkstown CSD"]].map(([k,l,ph])=><div key={k} style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>{l}</label><input value={addF[k]} onChange={e=>setAddF(f=>({...f,[k]:e.target.value}))} placeholder={ph} style={I()}/></div>)}
+          <div style={{display:"flex",flexDirection:"column",gap:4,gridColumn:"1/-1"}}><label style={LBL()}>Phone Number</label><input value={addF.phone||""} onChange={e=>setAddF(f=>({...f,phone:e.target.value}))} placeholder="(555) 555-5555" style={I()}/></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,gridColumn:"1/-1"}}><label style={LBL()}>Project Type / Notes</label><input value={addF.project_type||""} onChange={e=>setAddF(f=>({...f,project_type:e.target.value}))} placeholder="e.g. STEM lab expansion, nutrition program..." style={I()}/></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>State</label><select value={addF.state} onChange={e=>setAddF(f=>({...f,state:e.target.value}))} style={S()}>{["NY","NJ","CT","PA","MA","Other"].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Persona</label><select value={addF.persona} onChange={e=>setAddF(f=>({...f,persona:e.target.value}))} style={S()}>{Object.keys(TMPL).map(k=><option key={k} value={k}>{TMPL[k].label}</option>)}</select></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Pipeline Stage</label><select value={addF.stage||"Cold"} onChange={e=>setAddF(f=>({...f,stage:e.target.value}))} style={S()}>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Organization Type</label><select value={addF.org_type||"K-12 School"} onChange={e=>setAddF(f=>({...f,org_type:e.target.value}))} style={S()}><option value="K-12 School">K-12 School</option><option value="Charter School">Charter School</option><option value="Private School">Private School</option><option value="Community Org">Community Org</option>
+                <option value="Senior Center">Senior Center</option><option value="JCC / YMCA">JCC / YMCA</option><option value="Higher Ed">Higher Ed</option><option value="Corporate">Corporate</option><option value="Government">Government</option><option value="Healthcare">Healthcare</option><option value="Nonprofit">Nonprofit</option><option value="Vendor / Partner">Vendor / Partner</option><option value="Media">Media</option><option value="Other">Other</option></select></div>
+        </div>
+        <div onClick={()=>setAddF(f=>({...f,is_strategic:!f.is_strategic}))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:addF.is_strategic?"#F5F3FF":"#FAFAFA",border:`1px solid ${addF.is_strategic?"#DDD6FE":C.border}`,borderRadius:8,cursor:"pointer",marginBottom:16}}>
+          <input type="checkbox" checked={addF.is_strategic||false} onChange={e=>setAddF(f=>({...f,is_strategic:e.target.checked}))} style={{accentColor:"#7C3AED",cursor:"pointer",width:16,height:16}}/>
+          <div><div style={{fontSize:12,fontWeight:600,color:"#5B21B6"}}>⭐ Strategic Relationship</div><div style={{fontSize:11,color:"#7C3AED"}}>Excluded from bulk campaigns · tracked in Strategic page</div></div>
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button onClick={()=>setAddOpen(false)} style={B("secondary")}>Cancel</button><button onClick={saveContact} style={B("primary")}>Add Contact</button></div>
+      </div>
+    </div>}
+    {selectedContact&&<div onClick={()=>setSelectedContact(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:480,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:18}}><Av name={selectedContact.name} size={44} color={PER_C[selectedContact.persona]?.[0]||C.blue}/><div style={{flex:1}}><div style={{fontWeight:700,fontSize:17}}>{selectedContact.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{selectedContact.role} · {selectedContact.district}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{selectedContact.email}</div></div><button onClick={()=>setSelectedContact(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button></div>
+        <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+          {(()=>{const[pc,pb]=PER_C[selectedContact.persona]||["#6B7280","#F1EFE8"];return<Tag label={selectedContact.persona} color={pc} bg={pb}/>;})()}
+          <Tag label={selectedContact.stage} color={STAGE_META[selectedContact.stage]?.color||"#6B7280"} bg={STAGE_META[selectedContact.stage]?.bg||"#F3F4F6"}/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Move to stage</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{STAGES.map(s=>{const sm=STAGE_META[s]||{color:C.textS,bg:C.bg,icon:"•"};return <button key={s} onClick={()=>handleStageChange(selectedContact.id,s)} style={{...B("secondary","xs"),background:selectedContact.stage===s?sm.bg:"white",color:selectedContact.stage===s?sm.color:C.textS,border:`1px solid ${selectedContact.stage===s?sm.color:C.border}`,fontWeight:selectedContact.stage===s?600:400}}>{sm.icon} {s}</button>;})}</div>
+        </div>
+        {selectedContact.notes&&<div style={{marginBottom:16}}><div style={{fontSize:10,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Notes</div><div style={{fontSize:13,color:C.textS,lineHeight:1.6,background:C.bg,borderRadius:6,padding:"8px 10px"}}>{selectedContact.notes}</div></div>}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:600,color:"#854F0B",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>⚡ Next Steps</div>
+          <textarea defaultValue={selectedContact.next_steps||""} onBlur={async e=>{const v=e.target.value;await sbFetch(`contacts?id=eq.${selectedContact.id}`,{method:"PATCH",body:JSON.stringify({next_steps:v})});setContacts(p=>p.map(c=>c.id===selectedContact.id?{...c,next_steps:v}:c));setSelectedContact(p=>({...p,next_steps:v}));}} style={{...I(),fontSize:12,lineHeight:1.6,marginBottom:8,minHeight:50,resize:"vertical",background:"#FFFBEB",border:"1px solid #FED7AA"}} placeholder="What's the next step with this contact?"/>
+          {(selectedContact.tasks||[]).length===0&&<div style={{fontSize:11,color:C.textT,marginBottom:6}}>Or add a tracked step with a due date below:</div>}
+          {(selectedContact.tasks||[]).map(t=><div key={t.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 8px",marginBottom:4,background:t.done?"#F9FAFB":"#FFFBEB",border:`1px solid ${t.done?C.border:"#FED7AA"}`,borderRadius:6}}><input type="checkbox" checked={t.done} onChange={()=>handleTaskToggle(selectedContact.id,t.id)} style={{accentColor:C.green,cursor:"pointer",marginTop:2}}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:500,textDecoration:t.done?"line-through":"none",color:t.done?C.textT:C.text}}>{t.text}</div>{t.due&&<div style={{fontSize:10,color:"#854F0B",marginTop:2}}>Due {new Date(t.due).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>}</div></div>)}
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <input value={taskText} onChange={e=>setTaskText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&taskText){handleTaskAdd(selectedContact.id,{text:taskText,due:taskDate||""});setTaskText("");setTaskDate("");}}} placeholder="Add a next step... (press Enter)" style={{...I(),fontSize:12,padding:"5px 8px",flex:1,background:"#FFFBEB",border:"1px solid #FED7AA"}}/>
+            <input type="date" value={taskDate} onChange={e=>setTaskDate(e.target.value)} style={{...I("130px"),fontSize:12,padding:"5px 8px"}}/>
+            <button onClick={()=>{if(taskText){handleTaskAdd(selectedContact.id,{text:taskText,due:taskDate||""});setTaskText("");setTaskDate("");}}} style={B("primary","sm")}>Add</button>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>{setSelectedContact(null);selectCC(selectedContact);setPage("compose");}} style={B("primary")}>✉ Compose Email</button><button onClick={()=>setSelectedContact(null)} style={B("secondary")}>Close</button></div>
+      </div>
+    </div>}
+    <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+</script>
+</body>
+</html>let googleAccessToken = null;
+
+function signInWithGoogle() {
+  return new Promise((resolve, reject) => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GMAIL_SCOPE,
+      callback: (response) => {
+        if (response.error) { reject(response.error); return; }
+        googleAccessToken = response.access_token;
+        resolve(response.access_token);
+      },
+    });
+    client.requestAccessToken();
+  });
+}
+
+async function getGmailToken() {
+  if (googleAccessToken) return googleAccessToken;
+  return await signInWithGoogle();
+}
+
+async function sbFetch(path, opts={}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation",
+      ...(opts.headers||{})
+    }
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+function mapRow(c) {
+  return {
+    id: c.id,
+    name: c.name || "",
+    email: c.email || "",
+    role: c.role || "",
+    school: c.organization || "",
+    district: c.district || "",
+    state: c.region || "",
+    persona: c.persona || "General",
+    stage: c.pipeline_stage || "Cold",
+    lastContact: c.last_touch || null,
+    notes: c.notes || "",
+    lead_source: c.lead_source || "",
+    project_type: c.project_type || "",
+    alt_contact: c.alt_contact || "",
+    hunter_status: c.hunter_status || "",
+    next_steps: c.next_steps || "",
+    org_type: c.org_type || "K-12 School",
+    is_strategic: c.is_strategic || false,
+    relationship_goal: c.relationship_goal || "",
+    stageEnteredAt: c.created_at || new Date().toISOString(),
+    tasks: [],
+    isUnsubscribed: false,
+    bounced: c.pipeline_stage === "Bounced" || c.hunter_status === "bounced",
+  };
+}
+
+const C={lavender:"#DFC4DF",lightblue:"#C2E8FB",blue:"#40ACE2",green:"#65C39D",yellow:"#FAEE36",orange:"#F9A139",coral:"#EB5665",gDark:"#2d8f68",gBg:"#edf7f2",gBorder:"#b6dfc9",bBg:"#e8f4fc",bDark:"#1e7db0",bg:"#F5F6F8",surface:"#fff",border:"#E4E7EC",text:"#111827",textS:"#6B7280",textT:"#9CA3AF"};
+
+// ── Click Tracker ─────────────────────────────────────────────────────────────
+const TRACKER_URL = "https://ig-click-tracker.maxwellrymsza.workers.dev";
+const DOC_KEYS = {
+"1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK": "onepager",
+"1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn": "specs",
+"1xRjpozVKQEy9TN3oRRy-o_nPNhYghCXC": "aeroponics",
+"1BVZQvNf6faTnr-qXn8bAV5S70LSBE4oH": "comparison",
+"1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3": "grant",
+"1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5": "deck",
+"1Qt6sSw9PYGbXZmiaM5iJ0QgORGU2KRXN": "curriculum",
+"1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl": "manual",
+"1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn": "experiments",
+"1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-": "education",
+"1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz": "services",
+"1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA": "cleaning",
+};
+function trackedLink(contactId, docId) {
+  const docKey = DOC_KEYS[docId];
+  if (!docKey) return null;
+  return `${TRACKER_URL}/t/${contactId}-${docKey}`;
+}
+
+// ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
+function canSpamFooter(contact) {
+  const unsubUrl = contact
+    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
+    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
+  return `--
+Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032
+inspiredgrowing.com | info@inspiredgrowing.com
+
+You're receiving this because of your role in K-12 education.
+Unsubscribe: ${unsubUrl}`;
+}
+function canSpamFooterHtml(contact) {
+  const unsubUrl = contact
+    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
+    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
+  return `<br><br>--<br><span style="font-size:11px;color:#666;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#666">Unsubscribe</a></span>`;
+}
+
+// ── Knowledge Base Documents ──────────────────────────────────────────────────
+const KB_DOCS = [
+{id:"1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK",title:"General One-Pager",file:"Overview_Key_Features.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"Key outcomes, aeroponics advantage, grant-readiness. Best all-purpose attach for cold outreach.",personas:["General","STEM","Nutrition","CTE","Sustainability"],viewUrl:"https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view"},
+{id:"1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn",title:"Specs & Yields",file:"Specs_Safety_Requirements_Yields.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"Exact yield data — 240–336 servings/harvest, 7-14 day cycles, 75 sq ft footprint. Send to technical buyers.",personas:["STEM","General"],viewUrl:"https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view"},
+{id:"1xRjpozVKQEy9TN3oRRy-o_nPNhYghCXC",title:"Aeroponics Technology Brief",file:"Aeroponics_Facts_Process.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"95% less water, NASA tech origin, how the misting system works. Great for science-forward contacts.",personas:["STEM","Sustainability"],viewUrl:"https://drive.google.com/file/d/1xRjpozVKQEy9TN3oRRy-o_nPNhYghCXC/view"},
+{id:"1BVZQvNf6faTnr-qXn8bAV5S70LSBE4oH",title:"Competitive Comparison",file:"Comparison_Competition_Stats.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"IG vs tower & cabinet systems — 75 sq ft, 100 salads/week, 10+ year durability. Use when competing.",personas:["General","STEM"],viewUrl:"https://drive.google.com/file/d/1BVZQvNf6faTnr-qXn8bAV5S70LSBE4oH/view"},
+{id:"1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3",title:"Grant Alignment Guide",file:"Grant_Info_For_Schools.pdf",category:"Sales",tag:"One-Pager",tagColor:"#0F6E56",tagBg:"#E1F5EE",description:"How IG maps to grantmaker priorities — STEM, farm-to-school, food deserts, workforce dev. Essential for Nutrition contacts.",personas:["Nutrition","Sustainability","CTE"],viewUrl:"https://drive.google.com/file/d/1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3/view"},
+{id:"1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5",title:"Full Overview Slideshow",file:"General_Overview_Slideshow.pdf",category:"Sales",tag:"Deck",tagColor:"#854F0B",tagBg:"#FAEEDA",description:"Complete pitch deck — founder story, AeroFarms DNA, quotes from Newark BOE & Riverdale. Best for warm leads.",personas:["General","STEM","Nutrition","CTE","Sustainability"],viewUrl:"https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view"},
+{id:"1Qt6sSw9PYGbXZmiaM5iJ0QgORGU2KRXN",title:"Curriculum Overview",file:"Curriculum_Features_Extensions.pdf",category:"Education",tag:"One-Pager",tagColor:"#3B6D11",tagBg:"#EAF3DE",description:"NGSS-aligned, 6 lessons, student journals, special needs angle. Send to STEM coordinators and science teachers.",personas:["STEM","CTE"],viewUrl:"https://drive.google.com/file/d/1Qt6sSw9PYGbXZmiaM5iJ0QgORGU2KRXN/view"},
+{id:"1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl",title:"User Manual",file:"User_Manual_Specs_Facts.pdf",category:"Technical",tag:"Manual",tagColor:"#5B21B6",tagBg:"#EDE9FE",description:"Complete operational manual — equipment, safety, growing process, glossary. Share post-sale or with technical reviewers.",personas:["General"],viewUrl:"https://drive.google.com/file/d/1GFhPmQNAlmuw5b3xrMcbaIh_6BP6lXdl/view"},
+{id:"1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn",title:"Living Light Lab Experiments",file:"Premium_Experiments_Ideas.pdf",category:"Education",tag:"Premium",tagColor:"#854F0B",tagBg:"#FAEEDA",description:"Light spectrum experiments across grade levels — lower, middle, high school. Great for engaged STEM schools.",personas:["STEM"],viewUrl:"https://drive.google.com/file/d/1Cqj-N3gkfe-uP_BI6nXroPtJo8PhcYvn/view"},
+{id:"1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-",title:"Educational Service Program",file:"Premium_Education_Service.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"IG teaching programs — K-5, 6-8, 9-12 formats. In-class, after-school, one-time workshops.",personas:["STEM","CTE","Nutrition"],viewUrl:"https://drive.google.com/file/d/1CXYxzjLaoiEg2FOGSgq9HS1AirlHJnu-/view"},
+{id:"1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz",title:"Expanded Services Overview",file:"Premium_Services_Overview.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"Farming support, kids programs, workshops & events, enhanced cleaning. For current and prospective customers.",personas:["General","Nutrition"],viewUrl:"https://drive.google.com/file/d/1h_JcG9Ag-j34D1F37m6JVsjsuPR4sIRz/view"},
+{id:"1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA",title:"Farm Cleaning & Maintenance",file:"Premium_Cleaning_Service.pdf",category:"Services",tag:"Service",tagColor:"#185FA5",tagBg:"#E6F1FB",description:"Maintenance services for non-IG systems — deep cleaning, preventive maintenance, troubleshooting.",personas:["General"],viewUrl:"https://drive.google.com/file/d/1RLhcXq_jL12TstL0bOZZLnD8zjxP-EhA/view"},
+];
+
+const KB_CATEGORIES = ["All", "Sales", "Education", "Technical", "Services"];
+
+const TITLES = new Set(['dr','dr.','mr','mr.','mrs','mrs.','ms','ms.','prof','prof.','rev','rev.','sr','sr.','jr','jr.','phd','md','esq','hon']);
+function getFirstName(name){
+  if(!name) return "there";
+  const parts = name.trim().split(/\s+/);
+  // Skip leading titles
+  let i = 0;
+  while(i < parts.length - 1 && TITLES.has(parts[i].toLowerCase())) i++;
+  return parts[i] || "there";
+}
+
+const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com";
+const DEF_CLOSE="We've also just updated our website to better tell the story of how our farms are supporting communities like yours. Take a look at inspiredgrowing.com! If you'd like to learn more, I'm happy to send over some details or hop on a quick 15-minute call whenever it's convenient for you.";
+const DEF_CLOSE_FOLLOWUP="Would you be open to a quick call to hear more about what we do? Happy to keep it brief.";
+const SL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textT,padding:"16px 16px 6px",userSelect:"none"});
+const NOW=Date.now();
+const STAGES=["Cold","Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost","Bounced","Declined"];
+const STAGE_META={"Cold":{color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️"},"Emailed":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Direct Contact":{color:"#7C3AED",bg:"#EDE9FE",icon:"🤝"},"Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬"},"Warm":{color:"#EA580C",bg:"#FFF7ED",icon:"🔥"},"Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅"},"Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄"},"Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆"},"Existing Client":{color:"#0E7490",bg:"#ECFEFF",icon:"🌱"},"Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗"},"Bounced":{color:"#A32D2D",bg:"#FEE2E2",icon:"↩️"},"Declined":{color:"#6B7280",bg:"#F3F4F6",icon:"✗"},"Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"}};
+const STUCK_DAYS={Cold:21,Emailed:7,"Direct Contact":14,Replied:5,Warm:14,"Demo Scheduled":7,"Proposal Sent":14};
+const PER_C={STEM:["#1D4ED8","#EFF6FF"],Nutrition:["#065F46","#ECFDF5"],Sustainability:["#166534","#F0FDF4"],"CTE":["#92400E","#FFFBEB"],"CTE / Culinary":["#92400E","#FFFBEB"],General:["#6B7280","#F1EFE8"],Administrator:["#6B21A8","#F3E8FF"]};
+
+const TMPL={
+STEM:{label:"STEM",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. Students run their own experimental grow cycles, generate real data, and iterate on results — all within a single term. The curriculum is NGSS-aligned and connects naturally to biology, chemistry, and environmental science."},
+Nutrition:{label:"Nutrition",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. Students grow, harvest, and eat what they produce — the farm-to-school distance is exactly zero. No soil, no pesticides, no food miles."},
+Sustainability:{label:"Sustainability",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. The systems run without soil, pesticides, or food miles — and give students a hands-on understanding of where food comes from and how sustainable agriculture works at scale."},
+CTE:{label:"CTE / Culinary",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. Students run the full cycle from seed to harvest to kitchen — developing real skills in agriculture, food science, and culinary arts within a single program."},
+General:{label:"General",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. The system connects naturally to STEM curriculum, nutrition goals, and sustainability programming — and fits in 50 square feet on standard outlets with no plumbing required."},
+Administrator:{label:"Administrator",roleBlurb:"Inspired Growing brings commercial-grade aeroponic farms into schools and community spaces. We currently have farms operating in more than 30 schools across New Jersey and New York. Using the same technology developed for AeroFarms' large-scale vertical farms, our systems are scaled to fit in as little as 50 square feet while producing up to 1,000 pounds of fresh leafy greens annually. Depending on the crop, plants can be harvested in as little as seven days. The program connects to STEM curriculum, supports nutrition goals, and has become one of the more talked-about initiatives in the districts we work with. It runs on standard outlets in 50 square feet with no plumbing."}};
+const fmtTime=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
+const fmtDate=iso=>new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+const fmtDT=iso=>new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+function Tag({label,color,bg,size=11}){return <span style={{fontSize:size,fontWeight:600,color,background:bg,padding:"2px 8px",borderRadius:10,whiteSpace:"nowrap"}}>{label}</span>;}
+function Av({name,size=32,color=C.blue}){const initials=(name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2);return <div style={{width:size,height:size,borderRadius:Math.round(size*0.28),background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:Math.round(size*0.38),flexShrink:0}}>{initials}</div>;}
+const B=(v="primary",sz="md")=>{const base={border:"none",borderRadius:8,cursor:"pointer",fontWeight:600,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,transition:"opacity .15s"};const sizes={sm:{fontSize:12,padding:"5px 12px"},md:{fontSize:13,padding:"8px 16px"},lg:{fontSize:14,padding:"10px 20px"}};const variants={primary:{background:C.green,color:"white"},blue:{background:C.blue,color:"white"},secondary:{background:"white",color:C.text,border:`1px solid ${C.border}`},ghost:{background:"transparent",color:C.textS},danger:{background:"#FEE2E2",color:"#A32D2D",border:"1px solid #FECACA"}};return{...base,...sizes[sz]||sizes.md,...variants[v]||variants.primary};};
+const I=(w)=>({width:w||"100%",padding:"8px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,outline:"none",color:C.text,background:"white",boxSizing:"border-box"});
+const S=()=>({padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,outline:"none",color:C.text,background:"white",cursor:"pointer"});
+const LBL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT});
+const TH=(w)=>({padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",...(w?{width:w}:{})});
+const TD=(w)=>({padding:"10px 12px",fontSize:13,verticalAlign:"middle",...(w?{width:w}:{})});
+const CAMPAIGNS={
+  cold:{id:"cold",label:"Cold Outreach",icon:"❄️",description:"AI personalized intro · district hook · persona pitch",subjectFn:(c)=>{
+    const p=c.persona;
+    const school=c.school||c.district||"your school";
+    if(p==="STEM") return `A hands-on STEM lab for ${school}`;
+    if(p==="Nutrition") return `A farm-to-table nutrition program for ${school}`;
+    if(p==="Sustainability") return `A sustainable food production program for ${school}`;
+    if(p==="CTE"||p==="CTE / Culinary") return `A live agriculture lab for ${school}`;
+    if(p==="Administrator") return `A hands-on STEM and nutritional literacy system for ${school}`;
+    return `A program worth knowing about for ${school}`;
+  },ai:true},
+  customer:{id:"customer",label:"Customer Update",icon:"🌱",description:"Summer reconnection · new features · premium services",subjectFn:(c)=>`Summer Updates from Inspired Growing`,ai:false},
+  followup:{id:"followup",label:"Follow-Up",icon:"📬",description:"Check in after no response · low pressure nudge",subjectFn:(c)=>`Re: A program worth knowing about for ${c.school||c.district}`,ai:true},
+  custom:{id:"custom",label:"Custom",icon:"✏️",description:"Paste your own template · use [PLACEHOLDERS] · fills from contact record",subjectFn:(c,subj)=>subj||"",ai:false},
+};
+
+
+// ── New Leads Page ────────────────────────────────────────────────────────────
+function NewLeadsPage({contacts,onCompose}){
+  const sevenDaysAgo=Date.now()-7*24*60*60*1000;
+  const inbound=contacts.filter(c=>new Date(c.stageEnteredAt||0).getTime()>sevenDaysAgo).sort((a,b)=>new Date(b.stageEnteredAt||0)-new Date(a.stageEnteredAt||0));
+  const fmtDT2=iso=>{try{return new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});}catch(e){return iso||"Unknown";}};
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>New Leads</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>All new contacts added in the last 7 days · {inbound.length} total</div></div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:10}}>
+      {inbound.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:36,marginBottom:8}}>📬</div><div style={{fontWeight:500,color:C.textS}}>No new contacts in the last 7 days</div><div style={{fontSize:12,marginTop:4}}>New contacts added manually or from your website will appear here</div></div>}
+      {inbound.map(c=>{
+        const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
+        const isNew=c.stageEnteredAt&&(Date.now()-new Date(c.stageEnteredAt).getTime())<7*24*60*60*1000;
+        return <div key={c.id} style={{background:"white",border:`1px solid ${isNew?"#86EFAC":C.border}`,borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:40,height:40,borderRadius:10,background:isNew?"#F0FDF4":C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{isNew?"🔔":"✓"}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+              <div style={{fontWeight:600,fontSize:14,color:C.text}}>{c.name||c.email||"Unknown"}</div>
+              {isNew&&<span style={{fontSize:10,fontWeight:700,color:"#065F46",background:"#D1FAE5",padding:"2px 8px",borderRadius:10}}>NEW</span>}
+            </div>
+            <div style={{fontSize:12,color:C.textS,marginBottom:4}}>{c.email}</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontSize:10,fontWeight:600,color:pc,background:pb,padding:"2px 8px",borderRadius:10}}>{c.persona}</span>
+              <span style={{fontSize:10,fontWeight:600,color:"#065F46",background:"#D1FAE5",padding:"2px 8px",borderRadius:10}}>{c.lead_source}</span>
+              <Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/>
+              <span style={{fontSize:11,color:C.textT}}>{fmtDT2(c.stageEnteredAt)}</span>
+            </div>
+            {c.notes&&<div style={{fontSize:12,color:C.textS,marginTop:6,padding:"6px 10px",background:C.bg,borderRadius:6,fontStyle:"italic"}}>"{c.notes}"</div>}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+            <button onClick={()=>onCompose(c)} style={B("primary","sm")}>✉ Compose</button>
+          </div>
+        </div>;
+      })}
+    </div>
+  </>;
+}
+
+
+function Spinner({size=12}){return <div style={{width:size,height:size,border:`2px solid rgba(255,255,255,0.4)`,borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/>;}
+
+function EnrollModal({seq,contacts,enrollments,onClose,onEnroll}){
+  const[search,setSearch]=useState("");
+  const[sel,setSel]=useState(new Set());
+  const alreadyEnrolled=new Set(enrollments.filter(e=>e.sequence_id===seq.id).map(e=>e.contact_id));
+  const eligible=contacts.filter(c=>!c.isUnsubscribed&&!c.bounced&&!alreadyEnrolled.has(c.id)&&(!search||`${c.name} ${c.district} ${c.role}`.toLowerCase().includes(search.toLowerCase())));
+  function toggle(id){setSel(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});}
+  return <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:520,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",overflow:"hidden"}}>
+      <div style={{padding:"16px 20px",borderBottom:`1px solid #E4E7EC`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div><div style={{fontWeight:700,fontSize:15}}>Enroll Contacts</div><div style={{fontSize:12,color:"#6B7280",marginTop:2}}>into "{seq.name}"</div></div>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#9CA3AF"}}>✕</button>
+      </div>
+      <div style={{padding:"10px 16px",borderBottom:`1px solid #E4E7EC`}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search contacts..." style={{width:"100%",padding:"7px 10px",border:`1px solid #E4E7EC`,borderRadius:6,fontSize:13,outline:"none"}}/>
+      </div>
+      <div style={{flex:1,overflowY:"auto"}}>
+        {eligible.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];const chk=sel.has(c.id);return <div key={c.id} onClick={()=>toggle(c.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px",cursor:"pointer",background:chk?"#edf7f2":"white",borderBottom:`1px solid #E4E7EC`}} onMouseEnter={e=>e.currentTarget.style.background=chk?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=chk?"#edf7f2":"white"}><input type="checkbox" checked={chk} onChange={()=>{}} style={{accentColor:"#65C39D",cursor:"pointer",flexShrink:0}}/><div style={{width:28,height:28,borderRadius:7,background:pc,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:11,flexShrink:0}}>{(c.name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:11,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role} · {c.district}</div></div><span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10,background:pb,color:pc,whiteSpace:"nowrap"}}>{c.persona}</span></div>;})}
+        {eligible.length===0&&<div style={{padding:40,textAlign:"center",color:"#9CA3AF",fontSize:12}}>No eligible contacts found</div>}
+      </div>
+      <div style={{padding:"12px 16px",borderTop:`1px solid #E4E7EC`,display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontSize:12,color:"#6B7280"}}>{sel.size} selected · {eligible.length} eligible</span>
+        <button onClick={()=>{onEnroll(seq.id,[...sel]);onClose();}} disabled={sel.size===0} style={{marginLeft:"auto",padding:"6px 16px",fontSize:12,background:"#65C39D",color:"white",border:"1px solid #65C39D",borderRadius:6,cursor:sel.size===0?"not-allowed":"pointer",opacity:sel.size===0?0.4:1,fontWeight:500}}>Enroll {sel.size>0?sel.size:""} Contact{sel.size!==1?"s":""}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollments,seqLog,setSeqLog}){
+  const[newOpen,setNewOpen]=useState(false);
+  const[newName,setNewName]=useState("Cold Outreach — Standard");
+  const[newInterval,setNewInterval]=useState(7);
+  const[newBrake,setNewBrake]=useState(50);
+  const[saving,setSaving]=useState(false);
+  const[enrollTarget,setEnrollTarget]=useState(null);
+
+  async function createSeq(){
+    const tmpl=SEQUENCE_TEMPLATES[newName];
+    if(!tmpl)return;
+    setSaving(true);
+    try{
+      const rows=await sbFetch("sequences",{method:"POST",body:JSON.stringify({
+        name:newName, template_id:tmpl.id, status:"paused",
+        interval_minutes:newInterval, emergency_brake_threshold:newBrake,
+        started_at:new Date().toISOString()
+      })});
+      setSequences(p=>[...p,rows[0]]);
+      setNewOpen(false);
+    }catch(e){alert("Error creating sequence: "+e.message);}
+    setSaving(false);
+  }
+
+  async function toggleStatus(seq){
+    const newStatus=seq.status==="active"?"paused":"active";
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:newStatus})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:newStatus}:s));
+  }
+
+  async function brakeSeq(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"braked"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"braked"}:s));
+  }
+
+  async function resetBrake(seq){
+    await sbFetch(`sequences?id=eq.${seq.id}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSequences(p=>p.map(s=>s.id===seq.id?{...s,status:"paused"}:s));
+  }
+
+  async function handleEnroll(seqId, contactIds){
+    const now=new Date().toISOString();
+    const rows=contactIds.map(cid=>({
+      sequence_id:seqId, contact_id:cid,
+      current_step:0, status:"active",
+      enrolled_at:now, next_send_at:now
+    }));
+    try{
+      const inserted=await sbFetch("enrollments",{method:"POST",body:JSON.stringify(rows)});
+      setEnrollments(p=>[...p,...inserted]);
+      // Update pipeline stage to Contacted for Cold contacts
+      for(const cid of contactIds){
+        const c=contacts.find(x=>x.id===cid);
+        if(c&&c.stage==="Cold"){
+          await sbFetch(`contacts?id=eq.${cid}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted"})});
+        }
+      }
+    }catch(e){alert("Error enrolling: "+e.message);}
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Sequences</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Automated drip sequences · staggered sending · review queue</div></div>
+      <button onClick={()=>setNewOpen(true)} style={{...B("primary","sm"),marginLeft:"auto"}}>+ New Sequence</button>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{background:"#F0F9FF",border:"1px solid #BAE6FD",borderRadius:10,padding:"12px 16px",display:"flex",gap:10}}>
+        <span style={{fontSize:18,flexShrink:0}}>⏱</span>
+        <div>
+          <div style={{fontWeight:600,fontSize:13,color:"#0369A1",marginBottom:3}}>Slow Drip Mode — Active</div>
+          <div style={{fontSize:12,color:"#0284C7",lineHeight:1.6}}>Emails send 1 at a time with a configurable gap (default: every 7 minutes). This mimics human sending behavior and avoids Gmail's automated spam filters. The Emergency Brake automatically pauses any sequence if bounce rate exceeds threshold or an API error is detected.</div>
+        </div>
+      </div>
+
+      {sequences.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT}}>
+        <div style={{fontSize:32,marginBottom:8}}>🔄</div>
+        <div style={{fontWeight:500,color:C.textS}}>No sequences yet</div>
+        <div style={{fontSize:12,marginTop:4}}>Create your first sequence to start automating outreach</div>
+      </div>}
+
+      {sequences.map(seq=>{
+        const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id)||Object.values(SEQUENCE_TEMPLATES)[0];
+        const seqEnrollments=enrollments.filter(e=>e.sequence_id===seq.id);
+        const activeEnrollments=seqEnrollments.filter(e=>e.status==="active");
+        const sentCount=seqLog.filter(l=>l.sequence_id===seq.id).length;
+        const recentLogs=seqLog.filter(l=>l.sequence_id===seq.id).slice(0,4);
+        const sm={active:{color:C.gDark,bg:C.gBg,label:"● Active"},paused:{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"},braked:{color:"#A32D2D",bg:"#FEE2E2",label:"🛑 Emergency Brake"}}[seq.status]||{color:"#854F0B",bg:"#FAEEDA",label:"⏸ Paused"};
+
+        return <div key={seq.id} style={{background:"white",border:`1px solid ${seq.status==="braked"?"#FECACA":C.border}`,borderRadius:10,overflow:"hidden"}}>
+          {seq.status==="braked"&&<div style={{background:"#FEE2E2",borderBottom:"1px solid #FECACA",padding:"8px 16px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#A32D2D"}}>
+            <span>🛑</span><strong>Emergency Brake Triggered</strong> — Review logs before resuming.
+            <button onClick={()=>resetBrake(seq)} style={{marginLeft:"auto",...B("secondary","sm")}}>Reset</button>
+          </div>}
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:12}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{seq.name}</div>
+                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:10,background:sm.bg,color:sm.color}}>{sm.label}</span>
+                </div>
+                <div style={{fontSize:12,color:C.textS}}>{tmpl?.description}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>setEnrollTarget(seq)} style={B("secondary","sm")}>+ Enroll</button>
+                {seq.status!=="braked"&&<button onClick={()=>toggleStatus(seq)} style={B(seq.status==="active"?"warning":"primary","sm")}>{seq.status==="active"?"⏸ Pause":"▶ Resume"}</button>}
+                <button onClick={()=>brakeSeq(seq)} style={B("danger","sm")}>🛑 Brake</button>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
+              {[["Enrolled",seqEnrollments.length,"#185FA5","#E6F1FB"],["Active",activeEnrollments.length,C.gDark,C.gBg],["Sent",sentCount,"#5B21B6","#EDE9FE"],["Completed",seqEnrollments.filter(e=>e.status==="completed").length,"#9CA3AF","#F3F4F6"]].map(([l,v,col,bg])=>(
+                <div key={l} style={{background:bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:18,fontWeight:700,color:col,lineHeight:1}}>{v}</div>
+                  <div style={{fontSize:10,color:C.textS,marginTop:2}}>{l}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"flex",gap:12,padding:"8px 10px",background:C.bg,borderRadius:8,fontSize:12,color:C.textS,marginBottom:12}}>
+              <span>⏱ <strong style={{color:C.text}}>{seq.interval_minutes} min</strong> between sends</span>
+              <span>·</span>
+              <span>🛑 Brake at <strong style={{color:C.text}}>{seq.emergency_brake_threshold}</strong> sends</span>
+              <span>·</span>
+              <span>Started <strong style={{color:C.text}}>{fmtTime(seq.started_at||seq.created_at)}</strong></span>
+            </div>
+
+            <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Sequence steps</div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:recentLogs.length>0?12:0}}>
+              {tmpl?.steps.map((step,i)=>(
+                <React.Fragment key={i}>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:11}}>
+                    <div style={{fontWeight:600}}>Day {step.day}: {step.label}</div>
+                    <div style={{color:C.textS,marginTop:1,display:"flex",gap:4,alignItems:"center"}}>
+                      {step.approvalRequired&&<span style={{fontSize:9,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 5px",borderRadius:4}}>APPROVAL</span>}
+                      <span style={{fontSize:10}}>{step.type.replace(/_/g," ")}</span>
+                    </div>
+                  </div>
+                  {i<tmpl.steps.length-1&&<span style={{color:C.textT}}>→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {recentLogs.length>0&&<>
+              <div style={{fontSize:11,fontWeight:600,color:C.textT,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,marginTop:4}}>Recent sends</div>
+              {recentLogs.map((l,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:C.textS,marginBottom:3}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:C.green,flexShrink:0}}/>
+                  <strong style={{color:C.text}}>{l.contact_name}</strong>
+                  <span>{l.step_label}</span>
+                  <span style={{marginLeft:"auto",color:C.textT}}>{fmtTime(l.sent_at)}</span>
+                </div>
+              ))}
+            </>}
+          </div>
+        </div>;
+      })}
+    </div>
+
+    {newOpen&&<div onClick={()=>setNewOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:12,width:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",padding:24}}>
+        <div style={{fontWeight:700,fontSize:16,marginBottom:16,display:"flex",justifyContent:"space-between"}}>
+          New Sequence
+          <button onClick={()=>setNewOpen(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+          <div>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Template</label>
+            <select value={newName} onChange={e=>setNewName(e.target.value)} style={I()}>
+              {Object.keys(SEQUENCE_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+            </select>
+            <div style={{fontSize:11,color:C.textS,marginTop:4}}>{SEQUENCE_TEMPLATES[newName]?.description}</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Interval (minutes)</label>
+              <input type="number" value={newInterval} onChange={e=>setNewInterval(Number(e.target.value))} min={1} max={60} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Recommended: 5–10 min</div>
+            </div>
+            <div>
+              <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",display:"block",marginBottom:4}}>Emergency Brake</label>
+              <input type="number" value={newBrake} onChange={e=>setNewBrake(Number(e.target.value))} min={1} max={200} style={I()}/>
+              <div style={{fontSize:10,color:C.textT,marginTop:3}}>Max sends before auto-pause</div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"10px 14px",background:"#FFF7ED",borderRadius:8,border:"1px solid #FED7AA",fontSize:12,color:"#92400E",marginBottom:16}}>
+          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a personalized unsubscribe link.
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={()=>setNewOpen(false)} style={B("secondary")}>Cancel</button>
+          <button onClick={createSeq} disabled={saving} style={{...B("primary"),opacity:saving?0.6:1}}>
+            {saving?<span style={{display:"flex",alignItems:"center",gap:6}}><Spinner/>Creating…</span>:"Create Sequence"}
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {enrollTarget&&<EnrollModal
+      seq={enrollTarget}
+      contacts={contacts}
+      enrollments={enrollments}
+      onClose={()=>setEnrollTarget(null)}
+      onEnroll={handleEnroll}
+    />}
+  </>;
+}
+
+// ── Review Queue Page ─────────────────────────────────────────────────────────
+
+function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
+  const[selected,setSelected]=useState(null);
+  const[approving,setApproving]=useState(false);
+
+  // Build a queue from active enrollments that need approval for their current step
+  const queue = enrollments
+    .filter(e=>e.status==="active")
+    .map(e=>{
+      const c=contacts.find(x=>x.id===e.contact_id);
+      const seq=sequences.find(x=>x.id===e.sequence_id);
+      if(!c||!seq)return null;
+      const tmpl=Object.values(SEQUENCE_TEMPLATES).find(t=>t.id===seq.template_id);
+      const step=tmpl?.steps[e.current_step];
+      if(!step||!step.approvalRequired)return null;
+      const alreadySent=seqLog.find(l=>l.sequence_id===seq.id&&l.contact_id===c.id&&l.step_label===step.label);
+      if(alreadySent)return null;
+      return {
+        enrollmentId:e.id, sequenceId:seq.id, sequenceName:seq.name,
+        contactId:c.id, contactName:c.name, contactDistrict:c.district,
+        contactPersona:c.persona, stepLabel:step.label, stepIndex:e.current_step,
+        subject:`A program worth knowing about for ${c.school||c.district}`,
+        scheduledFor:e.next_send_at||new Date().toISOString(),
+        status:"pending",
+        body:`Hi ${getFirstName(c.name)},\n\n[AI-generated hook for ${c.district} will appear here]\n\nInspired Growing installs compact aeroponic classroom farms in K-12 schools — students grow and harvest fresh greens every 7 days, producing around 100 salads a week right in the building.\n\nWould it be worth a quick 10-minute call?\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n\n${canSpamFooter(c.id)}`,
+      };
+    }).filter(Boolean);
+
+  const [editBodies, setEditBodies] = useState({});
+
+  async function approve(item){
+    setApproving(true);
+    try{
+      // Log the send
+      const logRow={
+        sequence_id:item.sequenceId, contact_id:item.contactId,
+        contact_name:item.contactName, step_label:item.stepLabel,
+        subject:item.subject, status:"sent", sent_at:new Date().toISOString()
+      };
+      const inserted=await sbFetch("sequence_log",{method:"POST",body:JSON.stringify(logRow)});
+      setSeqLog(p=>[inserted[0],...p]);
+      // Advance enrollment step
+      await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({current_step:item.stepIndex+1})});
+      // Update contact pipeline stage
+      await sbFetch(`contacts?id=eq.${item.contactId}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Contacted",last_touch:new Date().toISOString().split("T")[0]})});
+    }catch(e){alert("Error approving: "+e.message);}
+    setApproving(false);
+    setSelected(null);
+  }
+
+  async function reject(item){
+    // Mark enrollment as paused for this contact
+    await sbFetch(`enrollments?id=eq.${item.enrollmentId}`,{method:"PATCH",body:JSON.stringify({status:"paused"})});
+    setSelected(null);
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center"}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>Review Queue</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Approve or reject emails before they send</div></div>
+      {queue.length>0&&<span style={{marginLeft:"auto",fontSize:12,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"3px 10px",borderRadius:20,border:"1px solid #FDE68A"}}>{queue.length} awaiting approval</span>}
+    </div>
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{width:300,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
+        {queue.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT,fontSize:12}}>
+          <div style={{fontSize:28,marginBottom:8}}>📬</div>
+          No emails pending review
+        </div>}
+        {queue.map(q=>(
+          <div key={q.enrollmentId} onClick={()=>setSelected(q)}
+            style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:selected?.enrollmentId===q.enrollmentId?C.gBg:"white",borderLeft:selected?.enrollmentId===q.enrollmentId?`3px solid ${C.green}`:"3px solid transparent"}}
+            onMouseEnter={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background=C.bg;}}
+            onMouseLeave={e=>{if(selected?.enrollmentId!==q.enrollmentId)e.currentTarget.style.background="white";}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+              <Av name={q.contactName} size={22} color={PER_C[q.contactPersona]?.[0]||C.blue}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.contactName}</div>
+                <div style={{fontSize:10,color:C.textS}}>{q.contactDistrict}</div>
+              </div>
+              <span style={{width:7,height:7,borderRadius:"50%",background:C.orange,flexShrink:0}}/>
+            </div>
+            <div style={{fontSize:11,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.stepLabel} · {q.sequenceName}</div>
+            <div style={{fontSize:10,color:C.textT,marginTop:2}}>Scheduled: {fmtDT(q.scheduledFor)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:12}}>
+        {!selected?(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,textAlign:"center"}}>
+            <div style={{fontSize:36,opacity:0.3}}>📬</div>
+            <div style={{fontWeight:500,color:C.textS}}>Select an email to review</div>
+            <div style={{fontSize:12,maxWidth:260,lineHeight:1.6}}>Review and approve each email before it sends. You can edit the body before approving.</div>
+          </div>
+        ):<>
+          <div style={{padding:"11px 14px",background:C.gBg,border:`1px solid ${C.gBorder}`,borderRadius:8,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={selected.contactName} size={34} color={PER_C[selected.contactPersona]?.[0]||C.blue}/>
+            <div>
+              <div style={{fontWeight:600,fontSize:13}}>{selected.contactName}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:1}}>{selected.contactDistrict} · {selected.sequenceName} · {selected.stepLabel}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Subject</label>
+            <div style={{padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,background:C.bg}}>{selected.subject}</div>
+          </div>
+          <div style={{fontSize:12,color:C.textS}}>📅 Scheduled: <strong style={{color:C.text}}>{fmtDT(selected.scheduledFor)}</strong></div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,flex:1}}>
+            <label style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.04em"}}>Email Body</label>
+            <textarea
+              value={editBodies[selected.enrollmentId]??selected.body}
+              onChange={e=>setEditBodies(p=>({...p,[selected.enrollmentId]:e.target.value}))}
+              rows={12}
+              style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",fontFamily:"Georgia,serif",fontSize:12}}/>
+          </div>
+          <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>
+            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and personalized unsubscribe link.
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>approve(selected)} disabled={approving} style={{...B("primary"),flex:1,opacity:approving?0.6:1}}>
+              {approving?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Spinner/>Approving…</span>:"✓ Approve & Queue"}
+            </button>
+            <button onClick={()=>reject(selected)} style={{...B("danger"),flex:1}}>✗ Reject</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  </>;
+}
+
+// ── Unsubscribe Page ──────────────────────────────────────────────────────────
+
+function UnsubscribePage({contacts,setContacts}){
+  const unsubs=contacts.filter(c=>c.isUnsubscribed);
+  const bounced=contacts.filter(c=>c.bounced);
+
+  async function toggleUnsub(c, val){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:val?"Cold":"Bounced"})}).catch(console.error);
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,isUnsubscribed:val}:x));
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{fontWeight:700,fontSize:16}}>Unsubscribe & Suppression</div>
+      <div style={{fontSize:12,color:C.textS,marginTop:1}}>CAN-SPAM compliance · unsubscribed contacts skipped in all sequences</div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>Suppression summary</div>
+        <div style={{display:"flex",gap:12}}>
+          {[["Unsubscribed",unsubs.length,"#A32D2D","#FEE2E2"],["Bounced",bounced.length,"#854F0B","#FAEEDA"],["Eligible",contacts.length-unsubs.length-bounced.length,C.gDark,C.gBg]].map(([l,v,col,bg])=>(
+            <div key={l} style={{flex:1,background:bg,borderRadius:8,padding:"10px 14px",textAlign:"center"}}>
+              <div style={{fontSize:22,fontWeight:700,color:col}}>{v}</div>
+              <div style={{fontSize:11,color:C.textS,marginTop:2}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {unsubs.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Unsubscribed</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#A32D2D",background:"#FEE2E2",padding:"1px 7px",borderRadius:10}}>{unsubs.length}</span>
+        </div>
+        {unsubs.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Unsubscribed" color="#A32D2D" bg="#FEE2E2"/>
+            <button onClick={()=>toggleUnsub(c,false)} style={B("secondary","sm")}>Re-subscribe</button>
+          </div>
+        );})}
+      </div>}
+
+      {bounced.length>0&&<div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontWeight:600,fontSize:13}}>Bounced</div>
+          <span style={{fontSize:10,fontWeight:600,color:"#854F0B",background:"#FAEEDA",padding:"1px 7px",borderRadius:10}}>{bounced.length}</span>
+        </div>
+        {bounced.map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];return(
+          <div key={c.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <Av name={c.name} size={28} color={pc}/>
+            <div style={{flex:1}}><div style={{fontWeight:500,fontSize:12}}>{c.name}</div><div style={{fontSize:11,color:C.textS}}>{c.role} · {c.district}</div></div>
+            <Tag label="Bounced" color="#854F0B" bg="#FAEEDA"/>
+          </div>
+        );})}
+      </div>}
+    </div>
+  </>;
+}
+
+// ── Strategic Relationships Page ─────────────────────────────────────────────
+function StrategicPage({contacts,setContacts,onCompose,onEdit}){
+  const[search,setSearch]=useState("");
+  const[addingGoal,setAddingGoal]=useState(null);
+  const strategic=contacts.filter(c=>c.is_strategic).filter(c=>
+    !search||`${c.name} ${c.school} ${c.district} ${c.role}`.toLowerCase().includes(search.toLowerCase())
+  );
+  const fmtD=iso=>iso?new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"—";
+
+  async function toggleStrategic(c,val){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({is_strategic:val})});
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,is_strategic:val}:x));
+  }
+  async function saveGoal(c,goal){
+    await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({relationship_goal:goal})});
+    setContacts(p=>p.map(x=>x.id===c.id?{...x,relationship_goal:goal}:x));
+    setAddingGoal(null);
+  }
+
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12}}>
+      <div><div style={{fontWeight:700,fontSize:16}}>⭐ Strategic Relationships</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>High-value contacts tracked separately · excluded from bulk campaigns · {strategic.length} contacts</div></div>
+    </div>
+    <div style={{padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search strategic contacts..." style={I(260)}/>
+      <span style={{marginLeft:"auto",fontSize:12,color:C.textS}}>{strategic.length} contacts</span>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:10}}>
+      {strategic.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}>
+        <div style={{fontSize:36,marginBottom:8}}>⭐</div>
+        <div style={{fontWeight:500,color:C.textS,marginBottom:6}}>No strategic contacts yet</div>
+        <div style={{fontSize:12,color:C.textT,maxWidth:340,margin:"0 auto",lineHeight:1.6}}>Open any contact, click ✏️ Edit, and check "Strategic Relationship" to add them here. These contacts won't receive bulk campaign emails.</div>
+      </div>}
+      {strategic.map(c=>{
+        const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
+        const sm=STAGE_META[c.stage]||{color:C.textS,bg:C.bg};
+        return <div key={c.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16,display:"flex",gap:14,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+          <div style={{width:44,height:44,borderRadius:11,background:pc,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:16,flexShrink:0}}>{(c.name||"?").split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2)}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+              <div style={{fontWeight:700,fontSize:14,color:C.text}}>{c.name}</div>
+              <Tag label={c.persona} color={pc} bg={pb}/>
+              <Tag label={c.stage} color={sm.color} bg={sm.bg}/>
+              <span style={{fontSize:10,fontWeight:600,color:"#854F0B",background:"#FFF7ED",border:"1px solid #FED7AA",padding:"2px 7px",borderRadius:10}}>⭐ Strategic</span>
+            </div>
+            <div style={{fontSize:12,color:C.textS,marginBottom:4}}>{c.role} · {c.school||c.district} · {c.org_type||"K-12 School"}</div>
+            <div style={{fontSize:11,color:C.textT,marginBottom:8}}>{c.email}{c.alt_contact?` · ${c.alt_contact}`:""}</div>
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:10,fontWeight:600,color:"#5B21B6",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>🎯 Relationship Goal</div>
+              {addingGoal===c.id?(
+                <div style={{display:"flex",gap:6}}>
+                  <input autoFocus defaultValue={c.relationship_goal||""} id={`goal-${c.id}`} style={{...I(),fontSize:12,flex:1}} placeholder="What are we trying to achieve with this person?"/>
+                  <button onClick={()=>saveGoal(c,document.getElementById(`goal-${c.id}`).value)} style={B("primary","sm")}>Save</button>
+                  <button onClick={()=>setAddingGoal(null)} style={B("secondary","sm")}>✕</button>
+                </div>
+              ):(
+                <div onClick={()=>setAddingGoal(c.id)} style={{fontSize:12,color:c.relationship_goal?C.text:C.textT,fontStyle:c.relationship_goal?"normal":"italic",cursor:"pointer",padding:"5px 8px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:6,minHeight:28}}>
+                  {c.relationship_goal||"Click to set relationship goal..."}
+                </div>
+              )}
+            </div>
+            {c.notes&&<div style={{fontSize:12,color:C.textS,background:C.bg,borderRadius:6,padding:"6px 10px",marginBottom:8,fontStyle:"italic"}}>📝 {c.notes}</div>}
+            {c.next_steps&&<div style={{fontSize:12,color:"#854F0B",background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:6,padding:"6px 10px",marginBottom:8}}>⚡ {c.next_steps}</div>}
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <span style={{fontSize:10,color:C.textT}}>Last touch: {fmtD(c.lastContact)}</span>
+              <button onClick={()=>onCompose(c)} style={{...B("primary","sm"),marginLeft:"auto"}}>✉ Compose</button>
+              <button onClick={()=>onEdit(c)} style={B("secondary","sm")}>✏️ Edit</button>
+              <button onClick={()=>toggleStrategic(c,false)} style={{...B("secondary","sm"),color:"#6B7280",fontSize:10}}>Remove</button>
+            </div>
+          </div>
+        </div>;
+      })}
+    </div>
+  </>;
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+
+function DashboardPage({contacts,activity,onNavigate}){
+  const pipeline=contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined","Emailed"].includes(c.stage));
+  const daysInStage=c=>Math.floor((NOW-new Date(c.stageEnteredAt||NOW).getTime())/86400000);
+  const isStuck=c=>{const d=STUCK_DAYS[c.stage];return d&&daysInStage(c)>=d;};
+  const stuck=contacts.filter(isStuck);
+  const hot=contacts.filter(c=>["Replied","Warm","Demo Scheduled","Proposal Sent","Existing Client"].includes(c.stage));
+  const fmtT=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
+  return <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      {[{label:"Total Contacts",value:contacts.length,sub:"in Supabase",color:C.text,bg:C.bg},{label:"Active Pipeline",value:`$${(pipeline.length*50000/1000).toFixed(0)}k`,sub:`${pipeline.length} deals`,color:C.blue,bg:C.bBg},{label:"Replied",value:contacts.filter(c=>c.stage==="Replied").length,sub:"warm leads",color:C.gDark,bg:C.gBg},{label:"Stuck",value:stuck.length,sub:"need attention",color:stuck.length>0?"#A32D2D":C.textS,bg:stuck.length>0?"#FEE2E2":C.bg}].map(s=>(
+        <div key={s.label} style={{background:s.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px"}}>
+          <div style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{s.label}</div>
+          <div style={{fontSize:24,fontWeight:700,color:s.color,lineHeight:1}}>{s.value}</div>
+          <div style={{fontSize:11,color:C.textS,marginTop:4}}>{s.sub}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+      <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>Pipeline by Stage<button onClick={()=>onNavigate("pipeline")} style={{...B("ghost","sm"),color:C.blue,fontSize:11}}>View kanban →</button></div>
+      <div style={{display:"flex",gap:6,alignItems:"flex-end",height:80}}>
+        {["Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent"].map(stage=>{const count=contacts.filter(c=>c.stage===stage).length;const max=Math.max(...["Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent"].map(s=>contacts.filter(c=>c.stage===s).length),1);const h=Math.max((count/max)*60,count>0?6:2);const m=STAGE_META[stage]||{color:C.textS,bg:C.bg};return <div key={stage} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><div style={{fontSize:10,fontWeight:600,color:m.color}}>{count}</div><div style={{width:"100%",height:h,background:m.bg,border:`1px solid ${m.color}33`,borderRadius:4}}/><div style={{fontSize:9,color:C.textT,textAlign:"center",lineHeight:1.2}}>{stage}</div></div>;})}
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:12}}>🔥 Who's Hot</div>
+        {hot.slice(0,8).map(c=>{const[pc]=PER_C[c.persona]||["#6B7280"];const m=STAGE_META[c.stage]||{color:C.textS,bg:C.bg};return <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.border}`}}><Av name={c.name} size={28} color={pc}/><div style={{flex:1,minWidth:0}}><div style={{fontWeight:500,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:10,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.district}</div></div><Tag label={c.stage} color={m.color} bg={m.bg}/></div>;})}
+        {hot.length===0&&<div style={{fontSize:12,color:C.textT}}>No warm leads yet</div>}
+      </div>
+      <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>📊 Stage Breakdown</div>
+        {["Cold","Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Bounced","Declined"].map(stage=>{const count=contacts.filter(c=>c.stage===stage).length;if(!count)return null;const m=STAGE_META[stage]||{color:C.textS,bg:C.bg};const pct=contacts.length>0?Math.round(count/contacts.length*100):0;return <div key={stage} style={{marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:m.color,fontWeight:500}}>{stage}</span><span style={{color:C.textS}}>{count} · {pct}%</span></div><div style={{height:5,background:C.bg,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:m.color,borderRadius:3}}/></div></div>;})}
+      </div>
+    </div>
+    {stuck.length>0&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:16}}><div style={{fontWeight:600,fontSize:13,color:"#A32D2D",marginBottom:10}}>⚠️ Stuck Contacts</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{stuck.slice(0,12).map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:"1px solid #FECACA",borderRadius:8,padding:"6px 10px"}}><Av name={c.name} size={22} color="#A32D2D"/><div><div style={{fontSize:12,fontWeight:500}}>{c.name}</div><div style={{fontSize:10,color:"#C45252"}}>{c.stage} · {daysInStage(c)}d</div></div></div>)}</div></div>}
+    <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+      <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>Recent Activity<button onClick={()=>onNavigate("activity")} style={{...B("ghost","sm"),color:C.blue,fontSize:11}}>View all →</button></div>
+      {activity.slice(0,6).map(a=><div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}><div style={{width:28,height:28,borderRadius:"50%",background:C.bg,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>{a.icon}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:12}}><strong>{a.contactName}</strong> {a.text}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{a.detail}</div></div><div style={{fontSize:10,color:C.textT,whiteSpace:"nowrap"}}>{fmtT(a.time)}</div></div>)}
+      {activity.length===0&&<div style={{fontSize:12,color:C.textT}}>No activity yet.</div>}
+    </div>
+  </div>;
+}
+
+function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
+  const[dragging,setDragging]=useState(null);
+  const[dragOver,setDragOver]=useState(null);
+  const[kanbanSearch,setKanbanSearch]=useState("");
+  const shownStages=["Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost"];
+  const daysInStage=c=>Math.floor((NOW-new Date(c.stageEnteredAt||NOW).getTime())/86400000);
+  const isStuck=c=>{const d=STUCK_DAYS[c.stage];return d&&daysInStage(c)>=d;};
+  const coldCount=contacts.filter(c=>c.stage==="Cold").length;
+  return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{padding:"8px 20px",background:"#F9FAFB",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+      <span style={{fontSize:11,color:C.textS}}>❄️ <strong style={{color:C.text}}>{coldCount} Cold</strong> not shown · Drag to advance</span>
+      <input value={kanbanSearch} onChange={e=>setKanbanSearch(e.target.value)} placeholder="🔍 Search pipeline..." style={{...I("220px"),fontSize:12,padding:"5px 10px",background:"white"}}/>
+      {kanbanSearch&&<button onClick={()=>setKanbanSearch("")} style={{...B("ghost","sm"),fontSize:11}}>✕ Clear</button>}
+    </div>
+    <div style={{flex:1,overflowX:"auto",overflowY:"hidden",padding:"16px 20px",display:"flex",gap:10}}>
+      {shownStages.map(stage=>{
+        const cols=contacts.filter(c=>c.stage===stage&&(!kanbanSearch||`${c.name} ${c.district} ${c.school} ${c.role}`.toLowerCase().includes(kanbanSearch.toLowerCase())));
+        const m=STAGE_META[stage]||{color:C.textS,bg:C.bg,icon:"•"};
+        const isTarget=dragOver===stage;
+        return <div key={stage} className="kanban-col"
+          onDragOver={e=>{e.preventDefault();setDragOver(stage);}}
+          onDrop={e=>{e.preventDefault();if(!dragging||dragging.stage===stage)return;const prev=dragging.stage;setContacts(cs=>cs.map(c=>c.id===dragging.id?{...c,stage,stageEnteredAt:new Date().toISOString()}:c));sbFetch(`contacts?id=eq.${dragging.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:stage})}).catch(console.error);onActivityAdd({type:"stage",contactId:dragging.id,contactName:dragging.name,text:`moved from ${prev} → ${stage}`,detail:dragging.district,icon:m.icon});setDragging(null);setDragOver(null);}}
+          onDragLeave={()=>setDragOver(null)}
+          style={{display:"flex",flexDirection:"column",background:isTarget?"#e8f4fc":"#F0F2F5",border:isTarget?`2px dashed ${C.blue}`:"2px solid transparent",borderRadius:10,padding:8,overflowY:"auto"}}>
+          <div style={{padding:"4px 4px 10px",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:13}}>{m.icon}</span><span style={{fontSize:11,fontWeight:700,color:m.color}}>{stage}</span><span style={{marginLeft:"auto",fontSize:10,fontWeight:600,background:m.bg,color:m.color,padding:"1px 6px",borderRadius:10}}>{cols.length}</span></div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+            {cols.map(c=>{const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];const stuck=isStuck(c);return <div key={c.id} className="kanban-card" draggable onDragStart={e=>{setDragging(c);e.dataTransfer.effectAllowed="move";}} onDragEnd={()=>{setDragging(null);setDragOver(null);}} onClick={()=>onContactClick(c)} style={{background:"white",border:stuck?"1px solid #FECACA":`1px solid ${C.border}`,borderRadius:8,padding:10,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",opacity:dragging?.id===c.id?0.4:1}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Av name={c.name} size={24} color={pc}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div><div style={{fontSize:9,color:C.textS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.role}</div></div></div><div style={{fontSize:10,color:C.textS,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.district||c.school}</div><div style={{display:"flex",gap:4,flexWrap:"wrap"}}><Tag label={c.persona} color={pc} bg={pb} size={9}/>{stuck&&<Tag label={`${daysInStage(c)}d stuck`} color="#A32D2D" bg="#FEE2E2" size={9}/>}</div>{c.next_steps&&<div style={{marginTop:6,fontSize:10,color:"#854F0B",background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:4,padding:"3px 6px",lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>⚡ {c.next_steps}</div>}</div>;})}
+            {cols.length===0&&<div style={{textAlign:"center",padding:"20px 8px",fontSize:11,color:C.textT,border:`1px dashed ${C.border}`,borderRadius:8}}>Drop here</div>}
+          </div>
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+function ActivityPage({activity}){
+  const[filter,setFilter]=useState("All");
+  const types=["All","email","reply","stage","demo","task"];
+  const filtered=filter==="All"?activity:activity.filter(a=>a.type===filter);
+  const tc={email:[C.blue,"#E6F1FB"],reply:["#0F6E56","#E1F5EE"],stage:["#854F0B","#FAEEDA"],demo:["#5B21B6","#EDE9FE"],task:["#065F46","#D1FAE5"]};
+  const fmtT=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Activity Feed</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Every touch, stage change, and task</div></div>
+    <div style={{display:"flex",gap:6,padding:"8px 20px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>{types.map(f=><button key={f} onClick={()=>setFilter(f)} style={{...B(filter===f?"primary":"secondary","sm"),borderRadius:20,textTransform:"capitalize"}}>{f}</button>)}<span style={{marginLeft:"auto",fontSize:12,color:C.textS,alignSelf:"center"}}>{filtered.length} events</span></div>
+    <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
+      <div style={{maxWidth:640,margin:"0 auto",display:"flex",flexDirection:"column",gap:0}}>
+        {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:C.textT}}>No activity yet.</div>}
+        {filtered.map((a,i)=>{const[tcolor,tbg]=tc[a.type]||[C.textS,C.bg];return <div key={a.id} style={{display:"flex",gap:12,paddingBottom:16,position:"relative"}}>{i<filtered.length-1&&<div style={{position:"absolute",left:13,top:28,bottom:0,width:1,background:C.border}}/>}<div style={{width:28,height:28,borderRadius:"50%",background:tbg,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0,zIndex:1}}>{a.icon}</div><div style={{flex:1,background:"white",border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontWeight:600,fontSize:12}}>{a.contactName}</span><span style={{fontSize:12,color:C.textS}}>{a.text}</span><Tag label={a.type} color={tcolor} bg={tbg} size={9}/><span style={{marginLeft:"auto",fontSize:10,color:C.textT}}>{fmtT(a.time)}</span></div>{a.detail&&<div style={{fontSize:11,color:C.textS,lineHeight:1.5}}>{a.detail}</div>}</div></div>;})}
+      </div>
+    </div>
+  </>;
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App(){
+  const[contacts,setContacts]=useState([]);
+  const[sequences,setSequences]=useState([]);
+  const[enrollments,setEnrollments]=useState([]);
+  const[seqLog,setSeqLog]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[loadErr,setLoadErr]=useState("");
+  const[templates,setTemplates]=useState(TMPL);
+  const[closeText,setCloseText]=useState(()=>localStorage.getItem("ig_close_text")||DEF_CLOSE);
+  const[sig,setSig]=useState(()=>localStorage.getItem("ig_sig")||DEF_SIG);
+  const[customSubject,setCustomSubject]=useState(()=>localStorage.getItem("ig_custom_subj")||"");
+  const[customBody,setCustomBody]=useState(()=>localStorage.getItem("ig_custom_body")||"");
+  const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
+  const[custL2,setCustL2]=useState(()=>localStorage.getItem("ig_cust_l2")||`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
+  const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
+  const[followupGuidance,setFollowupGuidance]=useState(()=>localStorage.getItem("ig_followup_guidance")||"Wanted to follow up on my last note — we've had a few updates since we reached out, including a new website at inspiredgrowing.com and some expanded services heading into next year.");
+  const[page,setPage]=useState("dashboard");
+  const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
+  const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
+  const[addOpen,setAddOpen]=useState(false);
+  const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
+  const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");const[campaign,setCampaign]=useState("cold");
+  const[subj,setSubj]=useState("");const[greeting,setGreeting]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
+  const[kbSt,setKbSt]=useState("idle");
+  const[stab,setStab]=useState("STEM");const[saved,setSaved]=useState(false);
+  const[activity,setActivity]=useState([]);
+  const[selectedContact,setSelectedContact]=useState(null);
+  const actIdRef=useRef(1);const taskIdRef=useRef(1);
+  const[batchRunning,setBatchRunning]=useState(false);
+  const[batchProgress,setBatchProgress]=useState(null);
+  const[batchDone,setBatchDone]=useState(null);
+  const[batchMode,setBatchMode]=useState("send");
+  const[queueStatus,setQueueStatus]=useState(null);
+  const[scheduleOpen,setScheduleOpen]=useState(false);
+  const[scheduleTime,setScheduleTime]=useState("");
+  const[taskText,setTaskText]=useState("");
+  const[taskDate,setTaskDate]=useState("");
+  const[editMode,setEditMode]=useState(false);
+  const[editF,setEditF]=useState({});
+
+  useEffect(()=>{
+    setLoading(true);
+    async function loadAll(){
+      try{
+        let allContacts=[];let from=0;const batchSize=1000;
+        while(true){
+          const batch=await sbFetch(`contacts?select=*&order=created_at.desc&limit=${batchSize}&offset=${from}`);
+          allContacts=allContacts.concat(batch);
+          if(batch.length<batchSize)break;
+          from+=batchSize;
+        }
+        const[s,e,l,al]=await Promise.all([
+          sbFetch("sequences?select=*&order=created_at.desc"),
+          sbFetch("enrollments?select=*&order=enrolled_at.desc"),
+          sbFetch("sequence_log?select=*&order=sent_at.desc&limit=500"),
+          sbFetch("activity_log?select=*&order=created_at.desc&limit=100"),
+        ]);
+        const seen=new Set();
+        const deduped=allContacts.filter(c=>{if(seen.has(c.id))return false;seen.add(c.id);return true;});
+        const mapped=deduped.map(mapRow);
+        setContacts(mapped);
+        setSequences(s);setEnrollments(e);setSeqLog(l);
+        setActivity(al.map(a=>({...a,id:actIdRef.current++,time:a.created_at,contactId:a.contact_id,contactName:a.contact_name})));
+        setLoading(false);
+      }catch(err){setLoadErr("Could not load: "+err.message);setLoading(false);}
+    }
+    loadAll();
+  },[]);
+
+  async function addActivity(evt){
+    const entry={...evt,id:actIdRef.current++,time:new Date().toISOString()};
+    setActivity(prev=>[entry,...prev]);
+    try{
+      await sbFetch("activity_log",{method:"POST",body:JSON.stringify({
+        type:evt.type, contact_id:evt.contactId||null,
+        contact_name:evt.contactName||"", text:evt.text||"",
+        detail:evt.detail||"", icon:evt.icon||"•"
+      })});
+    }catch(e){console.error("Activity log failed:",e);}
+  }
+
+  useEffect(()=>setContactsShown(100),[search,fp,fs,fst,fls,fOrgType]);
+  const filtered=contacts.filter(c=>{
+    if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
+    if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp==="__strategic__"&&!c.is_strategic)return false;else if(fp&&fp!=="__hide_admin__"&&fp!=="__strategic__"&&c.persona!==fp)return false;
+    if(fls&&c.lead_source!==fls)return false;
+    if(fOrgType&&c.org_type!==fOrgType)return false;if(fs&&c.stage!==fs)return false;if(fst&&c.state!==fst)return false;return true;
+  });
+
+  const stats={total:contacts.length,cold:contacts.filter(c=>c.stage==="Cold").length,active:contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined"].includes(c.stage)).length};
+
+  function selectCC(c,camp){
+    const activeCampaign=camp||campaign;
+    setCc(c);
+    setGreeting(`Dear ${getFirstName(c.name)},`);
+    setSubj(CAMPAIGNS[activeCampaign]?.subjectFn(c)||"");
+    setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");
+    if(activeCampaign==="custom"){
+      setSubj(fillPlaceholders(customSubject,c,false));
+      setL1(fillPlaceholders(customBody,c,false));
+      setL2("");setL3("");
+    } else if(activeCampaign==="customer"){
+      const first=getFirstName(c.name);
+      const org=c.school||c.district||"your organization";
+      setL1(custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
+      setL2(custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
+      setL3(custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
+    } else {
+      setL1("");setL2(templates[c.persona]?.roleBlurb||templates.General.roleBlurb);setL3(closeText);
+    }
+  }
+
+  async function genHook(){
+    if(!cc)return;
+    // Customer Update uses static template - no AI needed
+    if(campaign==="custom"){
+      setSubj(fillPlaceholders(customSubject,cc,false));
+      setL1(fillPlaceholders(customBody,cc,false));
+      setL2("");setL3("");
+      setAiSt("done");setKbSt("done");
+      return;
+    }
+    if(campaign==="customer"){
+      const first=getFirstName(cc.name);
+      const org=cc.school||cc.district||"your organization";
+      setL1(custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
+      setL2(custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
+      setL3(custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org));
+      setSubj("Summer Updates from Inspired Growing");
+      setAiSt("done");setKbSt("done");
+      return;
+    }
+    setAiSt("loading");setKbSt("loading");setL1("");setL2("");setL3("");
+    const pitchByPersona={
+      STEM:templates.STEM?.roleBlurb||"We build aeroponic classroom farm systems for K-12 schools.",
+      Nutrition:templates.Nutrition?.roleBlurb||"Our systems bring fresh produce directly into school nutrition programs.",
+      Sustainability:templates.Sustainability?.roleBlurb||"Our aeroponic systems connect students to sustainable food production.",
+      "CTE":templates["CTE"]?.roleBlurb||templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+      "CTE / Culinary":templates["CTE / Culinary"]?.roleBlurb||"Our aeroponic systems are ideal for CTE and culinary programs.",
+      General:templates.General?.roleBlurb||"Inspired Growing provides turnkey aeroponic classroom farm programs to K-12 schools.",
+      Administrator:templates.Administrator?.roleBlurb||"We work with school administrators to bring aeroponic farm programs into their buildings.",
+    };
+    setKbSt("done");
+    const pitch=pitchByPersona[cc.persona]||pitchByPersona.General;
+    const contactContext=[cc.notes?`Notes: ${cc.notes}`:"",cc.project_type?`Project focus: ${cc.project_type}`:"",cc.org_type&&cc.org_type!=="K-12 School"?`Organization type: ${cc.org_type} (not a school — adjust opener accordingly)`:""].filter(Boolean).join(". ");
+    const isFollowUp=campaign==="followup";
+
+    // For follow-up, use the guidance text directly — no AI needed
+    if(isFollowUp){
+      setL1(followupGuidance);
+      setL2(pitch);
+      setL3(DEF_CLOSE_FOLLOWUP);
+      setSubj(CAMPAIGNS.followup.subjectFn(cc));
+      setAiSt("done");setKbSt("done");
+      return;
+    }
+
+    const schoolName=cc.school||cc.district||"your school";
+    const coldP1="Write exactly 2 sentences.\n"+
+      "Sentence 1: \"I'm reaching out from Inspired Growing (inspiredgrowing.com) to share something that could be a meaningful addition to your nutrition, STEM, and food production programs.\" Write this sentence exactly.\n"+
+      "Sentence 2: Reference something specific and genuine about "+schoolName+" — their mission, values, programs, or community commitment — and connect it naturally to why this is a good time to reach out, e.g. \"[School]'s commitment to [specific thing] shows a clear overlap with our mission, so with the academic year coming to a close, I thought it would be a great time to connect.\" "+(contactContext?"Use this context: "+contactContext+". ":"")+"Do NOT reference the contact's job title or tell them about their own role. Focus only on the school itself. Keep it warm and genuine.";
+    const p1Instruction=coldP1;
+    const sys="You write short, personalized cold outreach emails for Eric Wagner at Inspired Growing, an EdTech company that installs aeroponic classroom farm systems in K-12 schools.\n\n"+
+      "Write an email to "+cc.name+", "+cc.role+" at "+(cc.school||cc.district)+" ("+cc.state+").\n\n"+
+      "PARAGRAPH 1 — Personalized opener (2-3 sentences):\n"+p1Instruction+"\n\n"+
+      "PARAGRAPH 2 — What Inspired Growing does (already written — do NOT generate this):\n[PROVIDED SEPARATELY — DO NOT WRITE THIS]\n\n"+
+      "PARAGRAPH 3 — Close (1-2 sentences):\nSimple low-pressure ask — offer a quick call or to send more info. Do not repeat anything from paragraph 1.\n\n"+
+      "Rules:\n- Do NOT start paragraph 1 with \"I\"\n- Do NOT use \"innovative\", \"exciting\", \"thrilled\", or \"cutting-edge\"\n- Tone: warm, direct, human — like a thoughtful person, not a marketing department\n- No subject line, greeting, or signature\n- RESPOND WITH ONLY PARAGRAPH 1 AND PARAGRAPH 3 SEPARATED BY A BLANK LINE";
+    try{
+      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:sys,messages:[{role:"user",content:"Write ONLY paragraph 1 (personalized opener) and paragraph 3 (close). Do not write paragraph 2."}]})});
+      const d=await r.json();
+      const fullText=(d.content?.[0]?.text||"").trim();
+      const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
+      setL1(paras[0]||"");
+      setL2(pitch); // Always use template text directly — never AI-generated
+      setL3(paras[1]||paras[2]||"");
+      setSubj(CAMPAIGNS[campaign]?.subjectFn(cc)||`A program worth knowing about for ${cc.school||cc.district}`);
+      setAiSt("done");
+    }
+    catch(e){setAiSt("error");console.error("AI error:",e);setL1("Error: "+e.message);}
+  }
+
+  const preview=[greeting,l1,l2,l3,`\n${sig}`].filter(Boolean).join("\n\n");
+
+  async function pushGmail(mode="send"){
+    if(!subj||!preview||!cc)return;
+    setGmSt("loading");setGmMsg(mode==="send"?"Sending email...":"Saving draft...");
+    try{
+      // For custom campaign build HTML directly with button placeholders
+      let fullHtml;
+      if(campaign==="custom"){
+        // Split body on double newlines into paragraphs, escape each, then fill buttons
+        const paragraphs=customBody.split(/\n\n+/);
+        const bodyHtml=paragraphs.map(para=>{
+          // Check if this paragraph contains a placeholder like [BROCHURE]
+          const filled=fillPlaceholders(para,cc,true);
+          if(filled.startsWith("<a href=")){
+            // It's a button - return as-is
+            return filled;
+          }
+          // Otherwise escape and convert single newlines
+          return "<p style='margin:0 0 14px 0'>"+filled.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>")+"</p>";
+        }).join("");
+        const greetHtml="<p style='margin:0 0 14px 0'>"+greeting.replace(/&/g,"&amp;")+"</p>";
+        const sigHtml="<p style='margin:0 0 6px 0'>"+DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")+"</p>";
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${canSpamFooterHtml(cc)}</div>`;
+      } else {
+        const htmlBody=preview
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/\n\n/g,"<br><br>")
+          .replace(/\n/g,"<br>");
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(cc):""}</div>`;
+      }
+      if(mode==="draft"){
+        // Save as Gmail draft via OAuth popup
+        const token=await getGmailToken();
+        const emailLines=[
+          `From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,
+          `To: ${cc.email}`,
+          `Subject: ${subj}`,
+          `MIME-Version: 1.0`,
+          `Content-Type: text/html; charset=utf-8`,
+          ``,
+          fullHtml
+        ].join("\r\n");
+        const enc=btoa(unescape(encodeURIComponent(emailLines))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+        const r=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+          body:JSON.stringify({message:{raw:enc}})
+        });
+        if(r.ok){
+          setGmSt("success");
+          setGmMsg(`✓ Draft saved in Eric's Gmail — review and send when ready`);
         } else throw new Error("Draft save failed");
       } else {
         // Send immediately via Cloudflare Worker
