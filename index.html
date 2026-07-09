@@ -171,7 +171,7 @@ function getFirstName(name){
   return parts[i] || "there";
 }
 
-const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com\n909 Newark Tpke, Kearny, NJ 07032";
+const DEF_SIG="Sincerely,\n\nEric Wagner\nInspired Growing\ninspiredgrowing.com";
 const DEF_CLOSE="We've also just updated our website to better tell the story of how our farms are supporting communities like yours. Take a look at inspiredgrowing.com! If you'd like to learn more, I'm happy to send over some details or hop on a quick 15-minute call whenever it's convenient for you.";
 const DEF_CLOSE_FOLLOWUP="Would you be open to a quick call to hear more about what we do? Happy to keep it brief.";
 const SL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textT,padding:"16px 16px 6px",userSelect:"none"});
@@ -868,8 +868,8 @@ function App(){
   const[loading,setLoading]=useState(true);
   const[loadErr,setLoadErr]=useState("");
   const[templates,setTemplates]=useState(TMPL);
-  const[closeText,setCloseText]=useState(DEF_CLOSE);
-  const[sig,setSig]=useState(DEF_SIG);
+  const[closeText,setCloseText]=useState(()=>localStorage.getItem("ig_close_text")||DEF_CLOSE);
+  const[sig,setSig]=useState(()=>localStorage.getItem("ig_sig")||DEF_SIG);
   const[customSubject,setCustomSubject]=useState(()=>localStorage.getItem("ig_custom_subj")||"");
   const[customBody,setCustomBody]=useState(()=>localStorage.getItem("ig_custom_body")||"");
   const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
@@ -1582,6 +1582,8 @@ function App(){
                   localStorage.setItem("ig_followup_guidance",followupGuidance);
                   localStorage.setItem("ig_custom_subj",customSubject);
                   localStorage.setItem("ig_custom_body",customBody);
+                  localStorage.setItem("ig_close_text",closeText);
+                  localStorage.setItem("ig_sig",sig);
                   setSaved(true);setTimeout(()=>setSaved(false),2000);
                 }} style={B("primary")}>Save Changes</button></div></div>
             <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"},{id:"campaign_customer",label:"🌱 Customer Update"},{id:"campaign_followup",label:"📬 Follow-Up"},{id:"campaign_custom",label:"✏️ Custom"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
