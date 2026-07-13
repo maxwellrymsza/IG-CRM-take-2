@@ -199,8 +199,10 @@ const S=()=>({padding:"7px 10px",border:`1px solid ${C.border}`,borderRadius:8,f
 const LBL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT});
 const TH=(w)=>({padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em",whiteSpace:"nowrap",...(w?{width:w}:{})});
 const TD=(w)=>({padding:"10px 12px",fontSize:13,verticalAlign:"middle",...(w?{width:w}:{})});
-const CAMPAIGNS={
-  cold:{id:"cold",label:"Cold Outreach",icon:"❄️",description:"AI personalized intro · district hook · persona pitch",subjectFn:(c)=>{
+const SEQUENCE_TEMPLATES={
+  "Cold Outreach — Standard":{id:"cold_standard",description:"3-touch cold outreach sequence with approval gates",steps:[{day:0,label:"Initial outreach",type:"cold_email",approvalRequired:true},{day:7,label:"Follow-up #1",type:"follow_up",approvalRequired:true},{day:14,label:"Final follow-up",type:"follow_up",approvalRequired:true}]},
+};
+const CAMPAIGNS={cold:{id:"cold",label:"Cold Outreach",icon:"❄️",description:"AI personalized intro · district hook · persona pitch",subjectFn:(c)=>{
     const p=c.persona;
     const school=c.school||c.district||"your school";
     if(p==="STEM") return `A hands-on STEM lab for ${school}`;
@@ -875,7 +877,7 @@ function App(){
   const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
   const[custL2,setCustL2]=useState(()=>localStorage.getItem("ig_cust_l2")||`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
   const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
-  const[followupGuidance,setFollowupGuidance]=useState(()=>{const v=localStorage.getItem("ig_followup_v");if(v!=="2"){localStorage.removeItem("ig_followup_guidance");localStorage.setItem("ig_followup_v","2");}return localStorage.getItem("ig_followup_guidance")||"Wanted to follow up on my last note. Since we last reached out, we've launched a new website at inspiredgrowing.com — it gives a much better look at our programs and the communities we work with. I wanted to make sure [ORG] stayed on our radar heading into next year.");
+  const[followupGuidance,setFollowupGuidance]=useState(()=>{const v=localStorage.getItem("ig_followup_v");if(v!=="2"){localStorage.removeItem("ig_followup_guidance");localStorage.setItem("ig_followup_v","2");}return localStorage.getItem("ig_followup_guidance")||"Wanted to follow up on my last note. Since we last reached out, we've launched a new website at inspiredgrowing.com — it gives a much better look at our programs and the communities we work with. I wanted to make sure [ORG] stayed on our radar heading into next year.";});
   const[page,setPage]=useState("dashboard");
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
@@ -1352,9 +1354,12 @@ function App(){
         } else {
           await pushDraftForContact(c,body,subj);
         }
-        await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(["Cold","Emailed"].includes(cc.stage)?{pipeline_stage:"Emailed"}:{})})});
-        setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(["Cold","Emailed"].includes(cc.stage)?{stage:"Emailed"}:{})}:c));
-        setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today,...(x.stage==="Cold"?{stage:"Contacted"}:{})}:x));
+        const today=new Date().toISOString().split("T")[0];
+        const keepS=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
+        if(!keepS){
+          await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,pipeline_stage:"Emailed"})});
+          setContacts(p=>p.map(x=>x.id===c.id?{...x,stage:"Emailed",lastContact:today}:x));
+        }
         done++;
       }catch(e){failed++;failedNames.push(c.name);}
       // Small delay to avoid rate limits
@@ -1362,7 +1367,7 @@ function App(){
     }
     setBatchRunning(false);
     setBatchProgress(null);
-    setBatchDone({done,failed,failedNames,mode,startTime:startTime?.toISOString()});
+    setBatchDone({done,failed,failedNames,mode});
     setSel(new Set());
   }
 
