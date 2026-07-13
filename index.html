@@ -875,7 +875,7 @@ function App(){
   const[custL1,setCustL1]=useState(()=>localStorage.getItem("ig_cust_l1")||`As the school year winds down, we wanted to take a moment to reach out personally — thank you for being part of the Inspired Growing community. Watching [Organization] grow has been a pleasure to be a part of.\n\nWe've been busy on our end, and we wanted to make sure you're in the loop on a few things heading into next year:`);
   const[custL2,setCustL2]=useState(()=>localStorage.getItem("ig_cust_l2")||`🌐 New Website — Within the next few days, we will be launching a refreshed inspiredgrowing.com. It's a much better home for everything IG, including a more in-depth look at what we do, who we serve, and frequent updates and stories. Be on the lookout for your school!\n\n📱 Teacher Login Portal — We're rolling out a dedicated teacher login interface for next year. In this app, you'll have access to a Learning Hub for curriculum and resources, an Experiment Tracker, a Grow Tracker to monitor your farm, a Teacher Planner to keep everything organized, and a School Leaderboard where your harvests are ranked against other IG schools. It will be found on the new website, and we'd love to get you set up and familiar with it before next school year.\n\n✨ Premium Services — We've expanded our premium offerings, and summer is actually a great time to take advantage. Beyond enhanced curriculum support, enhanced cleaning assistance, and premium seeds, we also offer workshops and training events designed to keep your farm active and your community engaged even when students aren't in the building. This way, fresh greens are still going to staff, families, or local organizations all summer long.`);
   const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
-  const[followupGuidance,setFollowupGuidance]=useState(()=>localStorage.getItem("ig_followup_guidance")||"Wanted to follow up on my last note — we've had a few updates since we last reached out, including a new website at inspiredgrowing.com where you can get a better look at our programs and the schools we work with. We'd love to connect if the timing is right.");
+  const[followupGuidance,setFollowupGuidance]=useState(()=>{const v=localStorage.getItem("ig_followup_v");if(v!=="2"){localStorage.removeItem("ig_followup_guidance");localStorage.setItem("ig_followup_v","2");}return localStorage.getItem("ig_followup_guidance")||"Wanted to follow up on my last note. Since we last reached out, we've launched a new website at inspiredgrowing.com — it gives a much better look at our programs and the communities we work with. I wanted to make sure [ORG] stayed on our radar heading into next year.");
   const[page,setPage]=useState("dashboard");
   const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
@@ -1009,7 +1009,7 @@ function App(){
 
     // For follow-up, use the guidance text directly — no AI needed
     if(isFollowUp){
-      setL1(followupGuidance);
+      setL1(fillPlaceholders(followupGuidance,cc,false));
       setL2(""); // No pitch paragraph for follow-up — keep it short
       setL3(DEF_CLOSE_FOLLOWUP);
       setSubj(CAMPAIGNS.followup.subjectFn(cc));
@@ -1265,7 +1265,8 @@ function App(){
     // For follow-up, use guidance text directly — no AI needed
     if(isFollowUp){
       const first=getFirstName(c.name);
-      const body=[`Dear ${first},`,followupGuidance,DEF_CLOSE_FOLLOWUP,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
+      const filledGuidance=fillPlaceholders(followupGuidance,c,false);
+      const body=[`Dear ${first},`,filledGuidance,DEF_CLOSE_FOLLOWUP,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
       const subj=CAMPAIGNS.followup.subjectFn(c);
       return{body,subj};
     }
