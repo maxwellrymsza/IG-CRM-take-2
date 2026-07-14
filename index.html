@@ -1689,7 +1689,10 @@ function App(){
         <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:"#854F0B",marginBottom:6}}>⚡ Next Steps</div>
         <textarea defaultValue={detail.next_steps||""} onBlur={async e=>{const v=e.target.value;await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({next_steps:v})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,next_steps:v}:c));setDetail(d=>({...d,next_steps:v}));}} style={{...I(),fontSize:13,lineHeight:1.6,marginBottom:12,minHeight:50,resize:"vertical",background:"#FFFBEB",border:"1px solid #FED7AA"}} placeholder="What's the next step with this contact?"/>
         <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Last Touch</div>
-        <input type="date" defaultValue={detail.lastContact||""} onBlur={async e=>{const v=e.target.value;await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({last_touch:v})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,lastContact:v}:c));setDetail(d=>({...d,lastContact:v}));}} style={{...I(),fontSize:13,marginBottom:20,background:"white"}}/>
+        <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:20}}>
+          <input type="date" defaultValue={detail.lastContact||""} onBlur={async e=>{const v=e.target.value;await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({last_touch:v||null})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,lastContact:v||null}:c));setDetail(d=>({...d,lastContact:v||null}));}} style={{...I(),fontSize:13,flex:1,background:"white"}}/>
+          {detail.lastContact&&<button onClick={async()=>{await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({last_touch:null})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,lastContact:null}:c));setDetail(d=>({...d,lastContact:null}));}} style={{...B("secondary","sm"),color:C.textT}} title="Clear date">✕ Clear</button>}
+        </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>{setDetail(null);setEditMode(false);selectCC(detail);setPage("compose");}} style={B("primary")}>✉ Compose Email</button>
             <button onClick={()=>{setDetail(null);setEditMode(false);}} style={B("secondary")}>Close</button>
@@ -1739,7 +1742,10 @@ function App(){
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
             <label style={LBL()}>Last Touch Date</label>
-            <input type="date" value={editF.lastContact||""} onChange={e=>setEditF(f=>({...f,lastContact:e.target.value}))} style={I()}/>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <input type="date" value={editF.lastContact||""} onChange={e=>setEditF(f=>({...f,lastContact:e.target.value}))} style={{...I(),flex:1}}/>
+            {editF.lastContact&&<button onClick={()=>setEditF(f=>({...f,lastContact:""}))} style={{...B("secondary","sm"),padding:"6px 10px",color:C.textT}}>✕ Clear</button>}
+          </div>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={async()=>{
