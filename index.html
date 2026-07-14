@@ -879,7 +879,7 @@ function App(){
   const[custL3,setCustL3]=useState(()=>localStorage.getItem("ig_cust_l3")||`We'd love to set up a quick 15-minute call to walk you through what's new and make sure your program is set up for a strong start next fall. We'd also welcome any additional feedback or suggestions you might have to better support the [Organization] community.\n\nFinally, if you know a fellow teacher or school that might be open to hearing about Inspired Growing, we'd be very grateful for a brief introduction. Word of mouth from educators like you means everything to us.\n\nHope you have a wonderful summer, and thanks again for growing with us.`);
   const[followupGuidance,setFollowupGuidance]=useState(()=>{const v=localStorage.getItem("ig_followup_v");if(v!=="2"){localStorage.removeItem("ig_followup_guidance");localStorage.setItem("ig_followup_v","2");}return localStorage.getItem("ig_followup_guidance")||"Wanted to follow up on my last note. Since we last reached out, we've launched a new website at inspiredgrowing.com — it gives a much better look at our programs and the communities we work with. I wanted to make sure [ORG] stayed on our radar heading into next year.";});
   const[page,setPage]=useState("dashboard");
-  const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[contactsShown,setContactsShown]=useState(100);
+  const[search,setSearch]=useState("");const[fp,setFp]=useState("");const[fs,setFs]=useState("");const[fst,setFst]=useState("");const[fls,setFls]=useState("");const[fOrgType,setFOrgType]=useState("");const[sortBy,setSortBy]=useState("default");const[contactsShown,setContactsShown]=useState(100);
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
   const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
@@ -943,7 +943,13 @@ function App(){
     }catch(e){console.error("Activity log failed:",e);}
   }
 
-  useEffect(()=>setContactsShown(100),[search,fp,fs,fst,fls,fOrgType]);
+  useEffect(()=>setContactsShown(100),[search,fp,fs,fst,fls,fOrgType,sortBy]);
+  const sortContacts=(arr)=>{
+    if(sortBy==="last_touch_desc") return [...arr].sort((a,b)=>new Date(b.lastContact||0)-new Date(a.lastContact||0));
+    if(sortBy==="last_touch_asc") return [...arr].sort((a,b)=>new Date(a.lastContact||0)-new Date(b.lastContact||0));
+    if(sortBy==="name") return [...arr].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    return arr;
+  };
   const filtered=contacts.filter(c=>{
     if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
     if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp==="__strategic__"&&!c.is_strategic)return false;else if(fp&&fp!=="__hide_admin__"&&fp!=="__strategic__"&&c.persona!==fp)return false;
@@ -1457,6 +1463,12 @@ function App(){
               <select value={fOrgType||""} onChange={e=>setFOrgType(e.target.value)} style={S()}>
                 <option value="">All org types</option><option value="K-12 School">K-12 School</option><option value="Charter School">Charter School</option><option value="Private School">Private School</option><option value="Community Org">Community Org</option>
                 <option value="Senior Center">Senior Center</option><option value="JCC / YMCA">JCC / YMCA</option><option value="Higher Ed">Higher Ed</option><option value="Corporate">Corporate</option><option value="Government">Government</option><option value="Healthcare">Healthcare</option><option value="Nonprofit">Nonprofit</option><option value="Vendor / Partner">Vendor / Partner</option><option value="Media">Media</option><option value="Other">Other</option></select>
+              <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={S()}>
+                <option value="default">Sort: Default</option>
+                <option value="last_touch_desc">Last Touch: Newest</option>
+                <option value="last_touch_asc">Last Touch: Oldest</option>
+                <option value="name">Name A–Z</option>
+              </select>
               <select value={fls} onChange={e=>setFls(e.target.value)} style={S()}>
                 <option value="">All sources</option>
                 <option value="NJ_Public">NJ Public Schools (2,398)</option>
@@ -1511,7 +1523,7 @@ function App(){
                   <th style={TH(36)}><input type="checkbox" checked={sel.size===filtered.length&&filtered.length>0} onChange={toggleAll} style={{accentColor:C.green}}/></th>
                   <th style={TH()}>Contact</th><th style={TH()}>Organization / District</th><th style={TH(48)}>State</th><th style={TH(110)}>Org Type</th><th style={TH()}>Persona</th><th style={TH()}>Stage</th><th style={TH(90)}>Last Touch</th><th style={TH(100)}></th>
                 </tr></thead>
-                <tbody>{filtered.slice(0,contactsShown).map(c=>{
+                <tbody>{sortContacts(filtered).slice(0,contactsShown).map(c=>{
                   const[pc,pb]=PER_C[c.persona]||["#6B7280","#F1EFE8"];
                   return <tr key={c.id} onClick={()=>{setDetail(c);setEditMode(false);}} style={{borderBottom:`1px solid ${C.border}`,cursor:"pointer",background:sel.has(c.id)?"#edf7f2":"white"}} onMouseEnter={e=>e.currentTarget.style.background=sel.has(c.id)?"#e0f3ec":"#f9fffe"} onMouseLeave={e=>e.currentTarget.style.background=sel.has(c.id)?"#edf7f2":"white"}>
                     <td style={TD(36)} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggleSel(c.id)} style={{accentColor:C.green}}/></td>
