@@ -1098,10 +1098,8 @@ function App(){
           setGmMsg(`✓ Draft saved in Eric's Gmail — review and send when ready`);
           const today=new Date().toISOString().split("T")[0];
           const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
-          if(!keepStage){
-            await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Emailed",last_touch:today})});
-            setContacts(p=>p.map(c=>c.id===cc.id?{...c,stage:"Emailed",lastContact:today}:c));
-          }
+          await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(!keepStage&&{pipeline_stage:"Emailed"})})});
+          setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(!keepStage&&{stage:"Emailed"})}:c));
           addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"draft saved to Gmail",detail:subj,icon:"💾"});
         } else throw new Error("Draft save failed");
       } else {
@@ -1344,13 +1342,11 @@ function App(){
           const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
           const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
           if(!dr.ok)throw new Error("Draft save failed");
-          // Update stage to Emailed
+          // Always update last_touch, only update stage if not advanced
           const today2=new Date().toISOString().split("T")[0];
           const keepS2=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
-          if(!keepS2){
-            await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:"Emailed",last_touch:today2})});
-            setContacts(p=>p.map(x=>x.id===c.id?{...x,stage:"Emailed",lastContact:today2}:x));
-          }
+          await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today2,...(!keepS2&&{pipeline_stage:"Emailed"})})});
+          setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today2,...(!keepS2&&{stage:"Emailed"})}:x));
         } else {
           await pushDraftForContact(c,body,subj);
         }
