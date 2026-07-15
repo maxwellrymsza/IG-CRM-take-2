@@ -90,6 +90,7 @@ function mapRow(c) {
     alt_contact: c.alt_contact || "",
     hunter_status: c.hunter_status || "",
     next_steps: c.next_steps || "",
+    email_count: c.email_count || 0,
     org_type: c.org_type || "K-12 School",
     is_strategic: c.is_strategic || false,
     relationship_goal: c.relationship_goal || "",
@@ -1104,8 +1105,9 @@ function App(){
           setGmMsg(`✓ Draft saved in Eric's Gmail — review and send when ready`);
           const today=new Date().toISOString().split("T")[0];
           const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
-          await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,...(!keepStage&&{pipeline_stage:"Emailed"})})});
-          setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(!keepStage&&{stage:"Emailed"})}:c));
+          const newCount2=(cc.email_count||0)+1;
+          await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,email_count:newCount2,...(!keepStage&&{pipeline_stage:"Emailed"})})});
+          setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,email_count:newCount2,...(!keepStage&&{stage:"Emailed"})}:c));
           addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"draft saved to Gmail",detail:subj,icon:"💾"});
         } else throw new Error("Draft save failed");
       } else {
@@ -1121,7 +1123,9 @@ function App(){
           setGmMsg(`✓ Email sent to ${cc.email} from eric.wagner@inspiredgrowing.com`);
           const today=new Date().toISOString().split("T")[0];
           const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
-          setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,...(!keepStage&&{stage:"Emailed"})}:c));
+          const newCount=(cc.email_count||0)+1;
+          await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({email_count:newCount,last_touch:today,...(!keepStage&&{pipeline_stage:"Emailed"})})});
+          setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,email_count:newCount,...(!keepStage&&{stage:"Emailed"})}:c));
           addActivity({type:"email",contactId:cc.id,contactName:cc.name,text:"was emailed",detail:subj,icon:"📧"});
         } else throw new Error(d.error||"Send failed");
       }
@@ -1358,10 +1362,9 @@ function App(){
         }
         const today=new Date().toISOString().split("T")[0];
         const keepS=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
-        if(!keepS){
-          await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,pipeline_stage:"Emailed"})});
-          setContacts(p=>p.map(x=>x.id===c.id?{...x,stage:"Emailed",lastContact:today}:x));
-        }
+        const newCnt=(c.email_count||0)+1;
+        await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,email_count:newCnt,...(!keepS&&{pipeline_stage:"Emailed"})})});
+        setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today,email_count:newCnt,...(!keepS&&{stage:"Emailed"})}:x));
         done++;
       }catch(e){failed++;failedNames.push(c.name);}
       // Small delay to avoid rate limits
@@ -1532,7 +1535,7 @@ function App(){
                     <td style={TD(48)}><span style={{fontSize:11,color:C.textS}}>{c.state}</span></td>
                     <td style={TD(110)}><span style={{fontSize:11,color:C.textS}}>{c.org_type||"K-12 School"}</span></td>
                     <td style={TD()}><Tag label={TMPL[c.persona]?.label||c.persona} color={pc} bg={pb}/></td>
-                    <td style={TD()}><Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/></td>
+                    <td style={TD()}><div style={{display:"flex",alignItems:"center",gap:6}}><Tag label={c.stage} color={STAGE_META[c.stage]?.color||"#6B7280"} bg={STAGE_META[c.stage]?.bg||"#F3F4F6"}/>{c.email_count>0&&<span style={{fontSize:10,color:C.textT,fontWeight:500}}>✉ {c.email_count}x</span>}</div></td>
                     <td style={TD(90)}><span style={{fontSize:12,color:C.textS}}>{c.lastContact||"—"}</span></td>
                     <td style={TD(100)} onClick={e=>e.stopPropagation()}><div style={{display:"flex",gap:4}}><button onClick={()=>{selectCC(c);setPage("compose");}} style={B("secondary","sm")}>✉</button><button onClick={()=>{if(window.confirm(`Delete ${c.name}?`))deleteContact(c);}} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑</button></div></td>
                   </tr>;
@@ -1677,7 +1680,7 @@ function App(){
         </div>
         {!editMode?<>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
-            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Org Type",detail.org_type],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
+            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Org Type",detail.org_type],["Emails Sent",detail.email_count>0?`${detail.email_count} email${detail.email_count>1?"s":""}`:null],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
             <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
             <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Stage</div>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{STAGES.map(s=>{const sm=STAGE_META[s]||{color:C.textS,bg:C.bg,icon:"•"};return <button key={s} onClick={async()=>{await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:s})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,stage:s}:c));setDetail(d=>({...d,stage:s}));addActivity({type:"stage",contactId:detail.id,contactName:detail.name,text:`moved to ${s}`,detail:detail.district,icon:sm.icon});}} style={{fontSize:11,padding:"3px 8px",borderRadius:6,cursor:"pointer",fontWeight:detail.stage===s?700:400,background:detail.stage===s?sm.bg:"white",color:detail.stage===s?sm.color:C.textS,border:`1px solid ${detail.stage===s?sm.color:C.border}`}}>{sm.icon} {s}</button>;})}
