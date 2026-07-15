@@ -845,9 +845,9 @@ function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
 
 function ActivityPage({activity}){
   const[filter,setFilter]=useState("All");
-  const types=["All","email","reply","stage","demo","task"];
-  const filtered=filter==="All"?activity:activity.filter(a=>a.type===filter);
-  const tc={email:[C.blue,"#E6F1FB"],reply:["#0F6E56","#E1F5EE"],stage:["#854F0B","#FAEEDA"],demo:["#5B21B6","#EDE9FE"],task:["#065F46","#D1FAE5"]};
+  const types=["All","email","reply","stage","demo","task","ooo","bounce"];
+  const filtered=filter==="All"?activity:activity.filter(a=>a.type===filter.toLowerCase());
+  const tc={email:[C.blue,"#E6F1FB"],reply:["#0F6E56","#E1F5EE"],stage:["#854F0B","#FAEEDA"],demo:["#5B21B6","#EDE9FE"],task:["#065F46","#D1FAE5"],ooo:["#854F0B","#FFF7ED"],bounce:["#A32D2D","#FEE2E2"]};
   const fmtT=iso=>{const d=Math.floor((NOW-new Date(iso).getTime())/86400000);return d===0?"Today":d===1?"Yesterday":`${d}d ago`;};
   return <>
     <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}><div style={{fontWeight:700,fontSize:16}}>Activity Feed</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Every touch, stage change, and task</div></div>
