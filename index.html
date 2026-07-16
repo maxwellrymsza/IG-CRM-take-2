@@ -781,6 +781,18 @@ function DashboardPage({contacts,activity,onNavigate}){
         </div>
       ))}
     </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+      {[{label:"Sent Today",value:emailsSentToday,sub:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),color:"#185FA5",bg:"#E6F1FB",icon:"📧"},{label:"Sent This Week",value:emailsSentWeek,sub:"Mon–"+new Date().toLocaleDateString("en-US",{weekday:"short"}),color:"#5B21B6",bg:"#F5F3FF",icon:"📬"},{label:"Replies This Week",value:repliesWeek,sub:`${bouncesWeek} bounced`,color:C.gDark,bg:C.gBg,icon:"💬"}].map(s=>(
+        <div key={s.label} style={{background:s.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{fontSize:28}}>{s.icon}</div>
+          <div>
+            <div style={{fontSize:10,fontWeight:600,color:C.textS,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{s.label}</div>
+            <div style={{fontSize:28,fontWeight:700,color:s.color,lineHeight:1}}>{s.value}</div>
+            <div style={{fontSize:11,color:C.textS,marginTop:3}}>{s.sub}</div>
+          </div>
+        </div>
+      ))}
+    </div>
     <div style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
       <div style={{fontWeight:600,fontSize:13,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>Pipeline by Stage<button onClick={()=>onNavigate("pipeline")} style={{...B("ghost","sm"),color:C.blue,fontSize:11}}>View kanban →</button></div>
       <div style={{display:"flex",gap:6,alignItems:"flex-end",height:80}}>
@@ -959,6 +971,15 @@ function App(){
   });
 
   const stats={total:contacts.length,cold:contacts.filter(c=>c.stage==="Cold").length,active:contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined"].includes(c.stage)).length};
+  const now2=new Date();
+  const startOfDay=new Date(now2.getFullYear(),now2.getMonth(),now2.getDate()).getTime();
+  const startOfWeek=startOfDay-now2.getDay()*86400000;
+  const startOfMonth=new Date(now2.getFullYear(),now2.getMonth(),1).getTime();
+  const emailsSentToday=activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfDay).length;
+  const emailsSentWeek=activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length;
+  const emailsSentMonth=activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfMonth).length;
+  const repliesWeek=activity.filter(a=>a.type==="reply"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length;
+  const bouncesWeek=activity.filter(a=>a.type==="bounce"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length;
 
   function selectCC(c,camp){
     const activeCampaign=camp||campaign;
