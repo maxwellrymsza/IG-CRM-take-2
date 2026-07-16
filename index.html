@@ -764,7 +764,8 @@ function StrategicPage({contacts,setContacts,onCompose,onEdit}){
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 
-function DashboardPage({contacts,activity,onNavigate}){
+function DashboardPage({contacts,activity,onNavigate,emailStats={}}){
+  const {emailsSentToday=0,emailsSentWeek=0,emailsSentMonth=0,repliesWeek=0,bouncesWeek=0}=emailStats;
   const pipeline=contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined","Emailed"].includes(c.stage));
   const daysInStage=c=>Math.floor((NOW-new Date(c.stageEnteredAt||NOW).getTime())/86400000);
   const isStuck=c=>{const d=STUCK_DAYS[c.stage];return d&&daysInStage(c)>=d;};
@@ -975,11 +976,14 @@ function App(){
   const startOfDay=new Date(now2.getFullYear(),now2.getMonth(),now2.getDate()).getTime();
   const startOfWeek=startOfDay-now2.getDay()*86400000;
   const startOfMonth=new Date(now2.getFullYear(),now2.getMonth(),1).getTime();
-  const emailsSentToday=activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfDay).length;
-  const emailsSentWeek=activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length;
-  const emailsSentMonth=activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfMonth).length;
-  const repliesWeek=activity.filter(a=>a.type==="reply"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length;
-  const bouncesWeek=activity.filter(a=>a.type==="bounce"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length;
+  const emailStats={
+    emailsSentToday:activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfDay).length,
+    emailsSentWeek:activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
+    emailsSentMonth:activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfMonth).length,
+    repliesWeek:activity.filter(a=>a.type==="reply"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
+    bouncesWeek:activity.filter(a=>a.type==="bounce"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
+  };
+
 
   function selectCC(c,camp){
     const activeCampaign=camp||campaign;
@@ -1469,7 +1473,7 @@ function App(){
         {loading&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,color:C.textT}}><div style={{width:28,height:28,border:`3px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/><div>Loading from Supabase…</div></div>}
         {!loading&&<>
           {page==="dashboard"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Dashboard</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Live from Supabase · {contacts.length} contacts</div></div>
-            <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage}/></>}
+            <DashboardPage contacts={contacts} activity={activity} onNavigate={setPage} emailStats={emailStats}/></>}
           {page==="pipeline"&&<><div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}><div style={{fontWeight:700,fontSize:16}}>Pipeline</div><div style={{fontSize:12,color:C.textS,marginTop:1}}>Drag cards to advance · Click for details</div></div><KanbanPage contacts={contacts} setContacts={setContacts} onActivityAdd={addActivity} onContactClick={c=>setSelectedContact(contacts.find(x=>x.id===c.id)||c)}/></>}
           {page==="activity"&&<ActivityPage activity={activity}/>}
           {page==="new-leads"&&<NewLeadsPage contacts={contacts} onCompose={c=>{selectCC(c);setPage("compose");}}/>}
