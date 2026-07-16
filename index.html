@@ -976,10 +976,14 @@ function App(){
   const startOfDay=new Date(now2.getFullYear(),now2.getMonth(),now2.getDate()).getTime();
   const startOfWeek=startOfDay-now2.getDay()*86400000;
   const startOfMonth=new Date(now2.getFullYear(),now2.getMonth(),1).getTime();
+  // Use last_touch on contacts for accurate email counts (covers all time, not just since logging started)
+  const todayStr=new Date().toISOString().split("T")[0];
+  const weekStartStr=new Date(startOfWeek).toISOString().split("T")[0];
+  const monthStartStr=new Date(startOfMonth).toISOString().split("T")[0];
   const emailStats={
-    emailsSentToday:activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfDay).length,
-    emailsSentWeek:activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
-    emailsSentMonth:activity.filter(a=>a.type==="email"&&new Date(a.time||a.created_at).getTime()>=startOfMonth).length,
+    emailsSentToday:contacts.filter(c=>c.lastContact===todayStr&&c.email_count>0).length,
+    emailsSentWeek:contacts.filter(c=>c.lastContact&&c.lastContact>=weekStartStr&&c.email_count>0).length,
+    emailsSentMonth:contacts.filter(c=>c.lastContact&&c.lastContact>=monthStartStr&&c.email_count>0).length,
     repliesWeek:activity.filter(a=>a.type==="reply"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
     bouncesWeek:activity.filter(a=>a.type==="bounce"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
   };
