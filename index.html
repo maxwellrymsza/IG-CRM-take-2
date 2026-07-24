@@ -783,7 +783,7 @@ function DashboardPage({contacts,activity,onNavigate,emailStats={}}){
       ))}
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
-      {[{label:"Sent Today",value:emailsSentToday,sub:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),color:"#185FA5",bg:"#E6F1FB",icon:"📧"},{label:"Sent This Week",value:emailsSentWeek,sub:"Mon–"+new Date().toLocaleDateString("en-US",{weekday:"short"}),color:"#5B21B6",bg:"#F5F3FF",icon:"📬"},{label:"Replies This Week",value:repliesWeek,sub:`${bouncesWeek} bounced`,color:C.gDark,bg:C.gBg,icon:"💬"}].map(s=>(
+      {[{label:"Sent Today",value:emailsSentToday,sub:(emailStats.fromGmail?"from Gmail · ":"")+new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"}),color:"#185FA5",bg:"#E6F1FB",icon:"📧"},{label:"Sent This Week",value:emailsSentWeek,sub:(emailStats.fromGmail?"from Gmail · ":"")+"Mon–"+new Date().toLocaleDateString("en-US",{weekday:"short"}),color:"#5B21B6",bg:"#F5F3FF",icon:"📬"},{label:"Replies This Week",value:repliesWeek,sub:`${bouncesWeek} bounced`,color:C.gDark,bg:C.gBg,icon:"💬"}].map(s=>(
         <div key={s.label} style={{background:s.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
           <div style={{fontSize:28}}>{s.icon}</div>
           <div>
@@ -976,16 +976,24 @@ function App(){
   const startOfDay=new Date(now2.getFullYear(),now2.getMonth(),now2.getDate()).getTime();
   const startOfWeek=startOfDay-now2.getDay()*86400000;
   const startOfMonth=new Date(now2.getFullYear(),now2.getMonth(),1).getTime();
-  // Use last_touch on contacts for accurate email counts (covers all time, not just since logging started)
+  // Use last_touch on contacts for CRM-tracked emails
   const todayStr=new Date().toISOString().split("T")[0];
   const weekStartStr=new Date(startOfWeek).toISOString().split("T")[0];
   const monthStartStr=new Date(startOfMonth).toISOString().split("T")[0];
+  const[gmailSentStats,setGmailSentStats]=useState({sentToday:null,sentThisWeek:null});
+  useEffect(()=>{
+    fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/email-stats")
+      .then(r=>r.json())
+      .then(d=>setGmailSentStats({sentToday:d.sentToday,sentThisWeek:d.sentThisWeek}))
+      .catch(()=>{});
+  },[]);
   const emailStats={
-    emailsSentToday:contacts.filter(c=>c.lastContact===todayStr&&c.email_count>0).length,
-    emailsSentWeek:contacts.filter(c=>c.lastContact&&c.lastContact>=weekStartStr&&c.email_count>0).length,
+    emailsSentToday:gmailSentStats.sentToday!==null?gmailSentStats.sentToday:contacts.filter(c=>c.lastContact===todayStr&&c.email_count>0).length,
+    emailsSentWeek:gmailSentStats.sentThisWeek!==null?gmailSentStats.sentThisWeek:contacts.filter(c=>c.lastContact&&c.lastContact>=weekStartStr&&c.email_count>0).length,
     emailsSentMonth:contacts.filter(c=>c.lastContact&&c.lastContact>=monthStartStr&&c.email_count>0).length,
     repliesWeek:activity.filter(a=>a.type==="reply"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
     bouncesWeek:activity.filter(a=>a.type==="bounce"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
+    fromGmail:gmailSentStats.sentToday!==null,
   };
 
 
@@ -1704,7 +1712,7 @@ function App(){
         <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:16}}>
           <Av name={detail.name} size={44} color={C.blue}/>
           <div style={{flex:1}}><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div>
-          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,org_type:detail.org_type||"K-12 School",is_strategic:detail.is_strategic||false,relationship_goal:detail.relationship_goal||"",lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes,next_steps:detail.next_steps||"",lastContact:detail.lastContact||""});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
+          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,org_type:detail.org_type||"K-12 School",is_strategic:detail.is_strategic||false,relationship_goal:detail.relationship_goal||"",lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes,next_steps:detail.next_steps||"",lastContact:detail.lastContact||"",email_count:detail.email_count||0});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
           <button onClick={()=>{setDetail(null);setEditMode(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
         </div>
         {!editMode?<>
@@ -1779,10 +1787,14 @@ function App(){
             {editF.lastContact&&<button onClick={()=>setEditF(f=>({...f,lastContact:""}))} style={{...B("secondary","sm"),padding:"6px 10px",color:C.textT}}>✕ Clear</button>}
           </div>
           </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
+            <label style={LBL()}>Emails Sent (count)</label>
+            <input type="number" min="0" value={editF.email_count||0} onChange={e=>setEditF(f=>({...f,email_count:parseInt(e.target.value)||0}))} style={{...I(),width:100}}/>
+          </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={async()=>{
               try{
-                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email||null,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",last_touch:editF.lastContact||null})});
+                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email||null,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",last_touch:editF.lastContact||null,email_count:editF.email_count||0})});
                 const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",lastContact:editF.lastContact||detail.lastContact};
                 setContacts(p=>p.map(c=>c.id===detail.id?updated:c));
                 setDetail(updated);setEditMode(false);
