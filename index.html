@@ -177,9 +177,9 @@ const DEF_CLOSE="We've also just updated our website to better tell the story of
 const DEF_CLOSE_FOLLOWUP="Happy to send more details or hop on a quick call if the timing works.";
 const SL=()=>({fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textT,padding:"16px 16px 6px",userSelect:"none"});
 const NOW=Date.now();
-const STAGES=["Cold","Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost","Bounced","Declined"];
-const STAGE_META={"Cold":{color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️"},"Emailed":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Direct Contact":{color:"#7C3AED",bg:"#EDE9FE",icon:"🤝"},"Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬"},"Warm":{color:"#EA580C",bg:"#FFF7ED",icon:"🔥"},"Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅"},"Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄"},"Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆"},"Existing Client":{color:"#0E7490",bg:"#ECFEFF",icon:"🌱"},"Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗"},"Bounced":{color:"#A32D2D",bg:"#FEE2E2",icon:"↩️"},"Declined":{color:"#6B7280",bg:"#F3F4F6",icon:"✗"},"Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"OOO":{color:"#854F0B",bg:"#FFF7ED",icon:"🌴"}};
-const STUCK_DAYS={Cold:21,Emailed:7,"Direct Contact":14,Replied:5,Warm:14,"Demo Scheduled":7,"Proposal Sent":14};
+const STAGES=["Cold","Emailed","Direct Contact","Replied","Warm","Out of Office","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost","Bounced","Declined"];
+const STAGE_META={"Cold":{color:"#9CA3AF",bg:"#F3F4F6",icon:"❄️"},"Emailed":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"Direct Contact":{color:"#7C3AED",bg:"#EDE9FE",icon:"🤝"},"Replied":{color:"#0F6E56",bg:"#E1F5EE",icon:"💬"},"Warm":{color:"#EA580C",bg:"#FFF7ED",icon:"🔥"},"Demo Scheduled":{color:"#854F0B",bg:"#FAEEDA",icon:"📅"},"Proposal Sent":{color:"#5B21B6",bg:"#EDE9FE",icon:"📄"},"Closed Won":{color:"#065F46",bg:"#D1FAE5",icon:"🏆"},"Existing Client":{color:"#0E7490",bg:"#ECFEFF",icon:"🌱"},"Closed Lost":{color:"#A32D2D",bg:"#FEE2E2",icon:"✗"},"Bounced":{color:"#A32D2D",bg:"#FEE2E2",icon:"↩️"},"Declined":{color:"#6B7280",bg:"#F3F4F6",icon:"✗"},"Contacted":{color:"#185FA5",bg:"#E6F1FB",icon:"📧"},"OOO":{color:"#854F0B",bg:"#FFF7ED",icon:"🌴"},"Out of Office":{color:"#854F0B",bg:"#FFF7ED",icon:"🌴"}};
+const STUCK_DAYS={Cold:21,Emailed:7,"Direct Contact":14,Replied:5,Warm:14,"Out of Office":21,"Demo Scheduled":7,"Proposal Sent":14};
 const PER_C={STEM:["#1D4ED8","#EFF6FF"],Nutrition:["#065F46","#ECFDF5"],Sustainability:["#166534","#F0FDF4"],"CTE":["#92400E","#FFFBEB"],"CTE / Culinary":["#92400E","#FFFBEB"],General:["#6B7280","#F1EFE8"],Administrator:["#6B21A8","#F3E8FF"]};
 
 const TMPL={
@@ -824,7 +824,7 @@ function KanbanPage({contacts,setContacts,onActivityAdd,onContactClick}){
   const[dragging,setDragging]=useState(null);
   const[dragOver,setDragOver]=useState(null);
   const[kanbanSearch,setKanbanSearch]=useState("");
-  const shownStages=["Emailed","Direct Contact","Replied","Warm","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost"];
+  const shownStages=["Emailed","Direct Contact","Replied","Warm","Out of Office","Demo Scheduled","Proposal Sent","Closed Won","Existing Client","Closed Lost"];
   const daysInStage=c=>Math.floor((NOW-new Date(c.stageEnteredAt||NOW).getTime())/86400000);
   const isStuck=c=>{const d=STUCK_DAYS[c.stage];return d&&daysInStage(c)>=d;};
   const coldCount=contacts.filter(c=>c.stage==="Cold").length;
@@ -1141,7 +1141,7 @@ function App(){
           setGmSt("success");
           setGmMsg(`✓ Draft saved in Eric's Gmail — review and send when ready`);
           const today=new Date().toISOString().split("T")[0];
-          const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
+          const keepStage=["Replied","Warm","Direct Contact","Out of Office","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
           const newCount2=(cc.email_count||0)+1;
           await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,email_count:newCount2,...(!keepStage&&{pipeline_stage:"Emailed"})})});
           setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,email_count:newCount2,...(!keepStage&&{stage:"Emailed"})}:c));
@@ -1159,7 +1159,7 @@ function App(){
           setGmSt("success");
           setGmMsg(`✓ Email sent to ${cc.email} from eric.wagner@inspiredgrowing.com`);
           const today=new Date().toISOString().split("T")[0];
-          const keepStage=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
+          const keepStage=["Replied","Warm","Direct Contact","Out of Office","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(cc.stage);
           const newCount=(cc.email_count||0)+1;
           await sbFetch(`contacts?id=eq.${cc.id}`,{method:"PATCH",body:JSON.stringify({email_count:newCount,last_touch:today,...(!keepStage&&{pipeline_stage:"Emailed"})})});
           setContacts(p=>p.map(c=>c.id===cc.id?{...c,lastContact:today,email_count:newCount,...(!keepStage&&{stage:"Emailed"})}:c));
@@ -1391,14 +1391,14 @@ function App(){
           if(!dr.ok)throw new Error("Draft save failed");
           // Always update last_touch, only update stage if not advanced
           const today2=new Date().toISOString().split("T")[0];
-          const keepS2=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
+          const keepS2=["Replied","Warm","Direct Contact","Out of Office","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
           await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today2,...(!keepS2&&{pipeline_stage:"Emailed"})})});
           setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today2,...(!keepS2&&{stage:"Emailed"})}:x));
         } else {
           await pushDraftForContact(c,body,subj);
         }
         const today=new Date().toISOString().split("T")[0];
-        const keepS=["Replied","Warm","Direct Contact","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
+        const keepS=["Replied","Warm","Direct Contact","Out of Office","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
         const newCnt=(c.email_count||0)+1;
         await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today,email_count:newCnt,...(!keepS&&{pipeline_stage:"Emailed"})})});
         setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today,email_count:newCnt,...(!keepS&&{stage:"Emailed"})}:x));
