@@ -764,6 +764,28 @@ function StrategicPage({contacts,setContacts,onCompose,onEdit}){
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 
+
+function ScanNowButton(){
+  const[scanning,setScanning]=useState(false);
+  const[result,setResult]=useState(null);
+  async function scan(){
+    setScanning(true);setResult(null);
+    try{
+      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/check-replies");
+      const d=await r.json();
+      setResult(d.error?`Error: ${d.error}`:`✓ Checked ${d.checked} emails · ${d.updated} updated`);
+    }catch(e){setResult("Error: "+e.message);}
+    setScanning(false);
+    setTimeout(()=>setResult(null),5000);
+  }
+  return <div style={{display:"flex",alignItems:"center",gap:8}}>
+    {result&&<span style={{fontSize:12,color:result.startsWith("Error")?"#A32D2D":"#065F46",fontWeight:500}}>{result}</span>}
+    <button onClick={scan} disabled={scanning} style={{...B("secondary","sm"),gap:6,opacity:scanning?0.6:1}}>
+      {scanning?"🔄 Scanning...":"🔍 Scan Inbox Now"}
+    </button>
+  </div>;
+}
+
 function DashboardPage({contacts,activity,onNavigate,emailStats={}}){
   const {emailsSentToday=0,emailsSentWeek=0,emailsSentMonth=0,repliesWeek=0,bouncesWeek=0}=emailStats;
   const pipeline=contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined","Emailed"].includes(c.stage));
@@ -974,26 +996,21 @@ function App(){
   const stats={total:contacts.length,cold:contacts.filter(c=>c.stage==="Cold").length,active:contacts.filter(c=>!["Cold","Closed Lost","Bounced","Declined"].includes(c.stage)).length};
   const now2=new Date();
   const startOfDay=new Date(now2.getFullYear(),now2.getMonth(),now2.getDate()).getTime();
-  const startOfWeek=startOfDay-now2.getDay()*86400000;
+  // Monday as week start
+  const dow=now2.getDay();
+  const daysFromMon=dow===0?6:dow-1;
+  const startOfWeek=startOfDay-daysFromMon*86400000;
   const startOfMonth=new Date(now2.getFullYear(),now2.getMonth(),1).getTime();
-  // Use last_touch on contacts for CRM-tracked emails
-  const todayStr=new Date().toISOString().split("T")[0];
+  const todayStr=new Date(startOfDay).toISOString().split("T")[0];
   const weekStartStr=new Date(startOfWeek).toISOString().split("T")[0];
   const monthStartStr=new Date(startOfMonth).toISOString().split("T")[0];
-  const[gmailSentStats,setGmailSentStats]=useState({sentToday:null,sentThisWeek:null});
-  useEffect(()=>{
-    fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/email-stats")
-      .then(r=>r.json())
-      .then(d=>setGmailSentStats({sentToday:d.sentToday,sentThisWeek:d.sentThisWeek}))
-      .catch(()=>{});
-  },[]);
   const emailStats={
-    emailsSentToday:gmailSentStats.sentToday!==null?gmailSentStats.sentToday:contacts.filter(c=>c.lastContact===todayStr&&c.email_count>0).length,
-    emailsSentWeek:gmailSentStats.sentThisWeek!==null?gmailSentStats.sentThisWeek:contacts.filter(c=>c.lastContact&&c.lastContact>=weekStartStr&&c.email_count>0).length,
-    emailsSentMonth:contacts.filter(c=>c.lastContact&&c.lastContact>=monthStartStr&&c.email_count>0).length,
-    repliesWeek:activity.filter(a=>a.type==="reply"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
-    bouncesWeek:activity.filter(a=>a.type==="bounce"&&new Date(a.time||a.created_at).getTime()>=startOfWeek).length,
-    fromGmail:gmailSentStats.sentToday!==null,
+    emailsSentToday:activity.filter(a=>a.type==="email"&&(a.time||a.created_at||"").slice(0,10)===todayStr).length,
+    emailsSentWeek:activity.filter(a=>a.type==="email"&&(a.time||a.created_at||"").slice(0,10)>=weekStartStr).length,
+    emailsSentMonth:activity.filter(a=>a.type==="email"&&(a.time||a.created_at||"").slice(0,10)>=monthStartStr).length,
+    repliesWeek:activity.filter(a=>a.type==="reply"&&(a.time||a.created_at||"").slice(0,10)>=weekStartStr).length,
+    bouncesWeek:activity.filter(a=>a.type==="bounce"&&(a.time||a.created_at||"").slice(0,10)>=weekStartStr).length,
+    fromGmail:false,
   };
 
 
