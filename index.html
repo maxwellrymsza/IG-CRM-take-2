@@ -1286,7 +1286,7 @@ function App(){
           .replace(/\n/g,"<br>");
         const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${campaign!=="customer"?canSpamFooterHtml(c):""}</div>`;
         // Schedule 20 seconds apart
-        const scheduledAt=new Date(now.getTime()+(i*20*1000)).toISOString();
+        const scheduledAt=new Date(now.getTime()+(i*60*1000)).toISOString();
         await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
           contact_id:c.id,
           contact_name:c.name,
@@ -1569,14 +1569,14 @@ function App(){
                   </select>
                 </div>
                 <button onClick={()=>batchGenerateAndPush("send")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5}}>📧 Send All Now</button>
-                <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (3/min)</button>
+                <button onClick={()=>batchGenerateAndPush("queue")} style={{...B("primary","sm"),display:"flex",alignItems:"center",gap:5,background:"#7C3AED",borderColor:"#7C3AED"}}>⏱ Queue Drip (1/min)</button>
                 <button onClick={()=>batchGenerateAndPush("draft")} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>💾 Save All as Drafts</button>
                 <button onClick={()=>setScheduleOpen(true)} style={{...B("secondary","sm"),display:"flex",alignItems:"center",gap:5}}>📅 Schedule</button>
                 <button onClick={()=>{const id=[...sel][0];const c=contacts.find(x=>x.id===id);if(c){selectCC(c);setPage("compose");}}} style={B("secondary","sm")}>✉ Single Compose</button>
                 <button onClick={bulkDelete} style={{...B("secondary","sm"),color:"#A32D2D",borderColor:"#FECACA"}}>🗑 Delete Selected</button>
               </>}
               {batchRunning&&batchProgress&&<div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><div style={{width:10,height:10,border:`2px solid ${C.gBorder}`,borderTopColor:C.gDark,borderRadius:"50%",animation:"spin 0.7s linear infinite",flexShrink:0}}/><span style={{color:C.gDark,fontWeight:500}}>Generating for <strong>{batchProgress.current}</strong>…</span><span style={{color:C.textS}}>{batchProgress.done} of {batchProgress.total} done{batchProgress.failed>0?` · ${batchProgress.failed} failed`:""}</span><div style={{flex:1,height:4,background:C.gBorder,borderRadius:2,overflow:"hidden",maxWidth:200}}><div style={{height:"100%",width:`${(batchProgress.done/batchProgress.total)*100}%`,background:C.gDark,borderRadius:2,transition:"width 0.3s"}}/></div></div>}
-              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":batchDone.mode==="queued"?"queued — sending 3/min via drip":batchDone.mode==="schedule"?`scheduled — starting ${new Date(batchDone.startTime).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
+              {batchDone&&<><span style={{color:C.gDark,fontWeight:500}}>✓ {batchDone.done} email{batchDone.done!==1?"s":""} {batchDone.mode==="draft"?"saved as drafts in Gmail":batchDone.mode==="queued"?"queued — sending 1/min via drip":batchDone.mode==="schedule"?`scheduled — starting ${new Date(batchDone.startTime).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}`:"sent"}{batchDone.failed>0?` · ${batchDone.failed} failed`:""}</span><button onClick={()=>setBatchDone(null)} style={B("ghost","sm")}>✕ Dismiss</button></>}
               {!batchRunning&&<button onClick={()=>{setSel(new Set());setBatchDone(null);setScheduleOpen(false);}} style={B("secondary","sm")}>✕ Clear</button>}
             </div>}
             {scheduleOpen&&sel.size>0&&<div style={{padding:"12px 16px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -1584,7 +1584,7 @@ function App(){
               <input type="datetime-local" value={scheduleTime} onChange={e=>setScheduleTime(e.target.value)} style={{...I("220px"),fontSize:12,padding:"4px 8px"}}/>
               <button onClick={()=>batchGenerateAndPush("schedule")} disabled={!scheduleTime||batchRunning} style={{...B("blue","sm"),opacity:!scheduleTime?0.4:1}}>✓ Confirm Schedule</button>
               <button onClick={()=>setScheduleOpen(false)} style={B("secondary","sm")}>Cancel</button>
-              <span style={{fontSize:11,color:"#0369A1"}}>Sends 3 emails/min starting at chosen time · {sel.size} emails ≈ {Math.ceil(sel.size/3)} min total</span>
+              <span style={{fontSize:11,color:"#0369A1"}}>Sends 1 email/min starting at chosen time · {sel.size} emails ≈ {Math.ceil(sel.size/3)} min total</span>
             </div>}
             <div style={{flex:1,overflowY:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
