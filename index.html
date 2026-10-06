@@ -1564,6 +1564,16 @@ function App(){
             {sel.size>0&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:C.gBg,borderBottom:`1px solid ${C.gBorder}`,fontSize:12,flexWrap:"wrap"}}>
               <span style={{fontWeight:600,color:C.gDark}}>{sel.size} contact{sel.size!==1?"s":""} selected</span>
               {!batchRunning&&!batchDone&&<>
+                <div style={{display:"flex",alignItems:"center",gap:6,background:"white",border:`1px solid ${C.border}`,borderRadius:8,padding:"3px 8px"}}>
+                  <span style={{fontSize:11,fontWeight:700,color:C.textS,whiteSpace:"nowrap"}}>Greeting:</span>
+                  <select value={greetingTemplate} onChange={e=>setGreetingTemplate(e.target.value)} style={{fontSize:12,border:"none",outline:"none",background:"transparent",cursor:"pointer",color:C.text}}>
+                    <option value="Dear [FIRST NAME],">Dear [First Name]</option>
+                    <option value="Dear [TITLE] [LAST NAME],">Dear [Title] [Last Name]</option>
+                    <option value="Dear [FULL NAME],">Dear [Full Name]</option>
+                    <option value="Dear [TITLE] [FULL NAME],">Dear [Title] [Full Name]</option>
+                  </select>
+                  {greetingTemplate.includes("[TITLE]")&&<input value={customTitle} onChange={e=>setCustomTitle(e.target.value)} placeholder='e.g. Superintendent' style={{fontSize:12,border:`1px solid ${C.border}`,borderRadius:6,padding:"2px 6px",width:130,outline:"none"}}/>}
+                </div>
                 <button onClick={async()=>{
                   const ids=[...sel];
                   if(!ids.length)return;
