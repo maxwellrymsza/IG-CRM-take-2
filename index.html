@@ -1238,10 +1238,19 @@ function App(){
       "SPECS":"https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view",
       "GRANT":"https://drive.google.com/file/d/1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3/view",
     };
+    // Extract last name (skip titles)
+    const nameParts=(c.name||"").trim().split(/\s+/);
+    let lastNameIdx=nameParts.length-1;
+    const lastName=nameParts[lastNameIdx]||"";
+    // Extract title from role field
+    const roleTitle=(c.role||"").trim();
     let result = text
       .replace(/\[FIRST NAME\]/gi, first)
+      .replace(/\[LAST NAME\]/gi, lastName)
+      .replace(/\[FULL NAME\]/gi, c.name||"")
       .replace(/\[PRINCIPAL NAME\]/gi, c.name||"")
       .replace(/\[NAME\]/gi, c.name||"")
+      .replace(/\[TITLE\]/gi, roleTitle)
       .replace(/\[SCHOOL NAME\]/gi, c.school||c.district||"")
       .replace(/\[SCHOOL\]/gi, c.school||c.district||"")
       .replace(/\[DISTRICT\]/gi, c.district||"")
@@ -1699,7 +1708,7 @@ function App(){
               {stab==="campaign_custom"&&<div style={{maxWidth:680}}>
                 <div style={{padding:"10px 14px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8,marginBottom:16,fontSize:12,color:"#5B21B6"}}>
                   ✏️ <strong>Custom Campaign</strong> — paste any email template. Use these placeholders and they'll auto-fill from each contact's record:<br/><br/>
-                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[PRINCIPAL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code><br/><br/>
+                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[LAST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FULL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[TITLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code><br/><br/>
                   <strong>Document buttons</strong> (renders as a green clickable button in the email):<br/>
                   <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[BROCHURE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[OVERVIEW]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[CURRICULUM]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SPECS]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[GRANT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DECK]</code>
                 </div>
