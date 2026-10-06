@@ -919,7 +919,9 @@ function App(){
   const[sel,setSel]=useState(new Set());const[detail,setDetail]=useState(null);const[deleteConfirm,setDeleteConfirm]=useState(false);
   const[addOpen,setAddOpen]=useState(false);
   const[addF,setAddF]=useState({fname:"",lname:"",email:"",role:"",school:"",district:"",state:"NY",persona:"STEM",phone:"",stage:"Cold",org_type:"K-12 School",is_strategic:false,project_type:""});
-  const[cc,setCc]=useState(null);const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");const[campaign,setCampaign]=useState("cold");
+  const[cc,setCc]=useState(null);
+  const[greetingTemplate,setGreetingTemplate]=useState("Dear [FIRST NAME],");
+  const[customTitle,setCustomTitle]=useState("");const[l1,setL1]=useState("");const[l2,setL2]=useState("");const[l3,setL3]=useState("");const[campaign,setCampaign]=useState("cold");
   const[subj,setSubj]=useState("");const[greeting,setGreeting]=useState("");const[aiSt,setAiSt]=useState("idle");const[gmSt,setGmSt]=useState("");const[gmMsg,setGmMsg]=useState("");
   const[kbSt,setKbSt]=useState("idle");
   const[stab,setStab]=useState("STEM");const[saved,setSaved]=useState(false);
@@ -1017,7 +1019,7 @@ function App(){
   function selectCC(c,camp){
     const activeCampaign=camp||campaign;
     setCc(c);
-    setGreeting(`Dear ${getFirstName(c.name)},`);
+    setGreeting(greetingTemplate.replace("[FIRST NAME]",getFirstName(c.name)).replace("[LAST NAME]",(c.name||"").trim().split(/\s+/).pop()||"").replace("[TITLE]",customTitle||c.role||"").replace("[FULL NAME]",c.name||""));
     setSubj(CAMPAIGNS[activeCampaign]?.subjectFn(c)||"");
     setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");
     if(activeCampaign==="custom"){
@@ -1322,13 +1324,15 @@ function App(){
       const first=getFirstName(c.name);
       const filledBody=fillPlaceholders(customBody,c,true);
       const filledSubj=fillPlaceholders(customSubject,c,false);
-      const body=[`Dear ${first},`,filledBody,`\n${DEF_SIG}`].join("\n\n");
+      const greetLine=greetingTemplate.replace('[FIRST NAME]',first).replace('[LAST NAME]',(c.name||'').trim().split(/\s+/).pop()||'').replace('[TITLE]',customTitle||c.role||'').replace('[FULL NAME]',c.name||'');
+      const body=[greetLine,filledBody,`\n${DEF_SIG}`].join("\n\n");
       return{body,subj:filledSubj||"A message from Inspired Growing"};
     }
     if(campaign==="customer"){
       const first=getFirstName(c.name);
       const org=c.school||c.district||"your organization";
-      const body=[`Dear ${first},`,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
+      const greetLine=greetingTemplate.replace('[FIRST NAME]',first).replace('[LAST NAME]',(c.name||'').trim().split(/\s+/).pop()||'').replace('[TITLE]',customTitle||c.role||'').replace('[FULL NAME]',c.name||'');
+      const body=[greetLine,custL1.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL2.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),custL3.replace(/\[First Name\]/g,first).replace(/\[Organization\]/g,org),`\n${DEF_SIG}`].join("\n\n");
       return{body,subj:"Summer Updates from Inspired Growing"};
     }
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
@@ -1339,7 +1343,8 @@ function App(){
     if(isFollowUp){
       const first=getFirstName(c.name);
       const filledGuidance=fillPlaceholders(followupGuidance,c,false);
-      const body=[`Dear ${first},`,filledGuidance,DEF_CLOSE_FOLLOWUP,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
+      const greetLine=greetingTemplate.replace('[FIRST NAME]',first).replace('[LAST NAME]',(c.name||'').trim().split(/\s+/).pop()||'').replace('[TITLE]',customTitle||c.role||'').replace('[FULL NAME]',c.name||'');
+      const body=[greetLine,filledGuidance,DEF_CLOSE_FOLLOWUP,`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
       const subj=CAMPAIGNS.followup.subjectFn(c);
       return{body,subj};
     }
@@ -1640,7 +1645,21 @@ function App(){
                 {!cc?<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:C.textT,gap:10,padding:40,textAlign:"center"}}><div style={{fontSize:38,opacity:0.3}}>✉️</div><div style={{fontWeight:500,color:C.textS}}>Select a contact to compose</div></div>:<>
                   <div style={{padding:"11px 14px",background:C.gBg,borderRadius:8,border:`1px solid ${C.gBorder}`,display:"flex",alignItems:"center",gap:10}}><Av name={cc.name} size={34} color={C.blue}/><div><div style={{fontWeight:600,fontSize:13}}>{cc.name}</div><div style={{fontSize:11,color:C.textS,marginTop:1}}>{cc.role} · {cc.school||cc.district} · {cc.district}, {cc.state}</div></div><div style={{marginLeft:"auto"}}>{(()=>{const[pc,pb]=PER_C[cc.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[cc.persona]?.label||cc.persona} color={pc} bg={pb}/>;})()}</div></div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Subject line</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Auto-fills after generating..." style={I()}/></div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={LBL()}>Greeting</label><input value={greeting} onChange={e=>setGreeting(e.target.value)} placeholder="Dear [Name]," style={I()}/></div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={LBL()}>Greeting format</label>
+                  <div style={{display:"flex",gap:6}}>
+                    <select value={greetingTemplate} onChange={e=>{setGreetingTemplate(e.target.value);if(cc)setGreeting(e.target.value.replace("[FIRST NAME]",getFirstName(cc.name)).replace("[LAST NAME]",(cc.name||"").trim().split(/\s+/).pop()||"").replace("[TITLE]",customTitle||cc.role||"").replace("[FULL NAME]",cc.name||""));}} style={{...S(),flex:1}}>
+                      <option value="Dear [FIRST NAME],">Dear [First Name] (default)</option>
+                      <option value="Dear [TITLE] [LAST NAME],">Dear [Title] [Last Name]</option>
+                      <option value="Dear [FULL NAME],">Dear [Full Name]</option>
+                      <option value="Dear [TITLE] [FULL NAME],">Dear [Title] [Full Name]</option>
+                      <option value="Hello [FIRST NAME],">Hello [First Name]</option>
+                      <option value="Good morning [FIRST NAME],">Good morning [First Name]</option>
+                    </select>
+                  </div>
+                  {greetingTemplate.includes("[TITLE]")&&<input value={customTitle} onChange={e=>{setCustomTitle(e.target.value);if(cc)setGreeting(greetingTemplate.replace("[FIRST NAME]",getFirstName(cc.name)).replace("[LAST NAME]",(cc.name||"").trim().split(/\s+/).pop()||"").replace("[TITLE]",e.target.value||cc.role||"").replace("[FULL NAME]",cc.name||""));}} placeholder='Type title e.g. "Superintendent" or "Dr."' style={I()}/>}
+                  <input value={greeting} onChange={e=>setGreeting(e.target.value)} placeholder="Dear [Name]," style={I()}/>
+                </div>
                   <button onClick={genHook} disabled={aiSt==="loading"} style={{...B("primary"),width:"100%",padding:"10px",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>{aiSt==="loading"?<><div style={{width:14,height:14,border:"2px solid rgba(255,255,255,0.4)",borderTopColor:"white",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Generating full email…</>:l1?<>↻ Regenerate Full Email</>:<>✨ Generate Full Email</>}</button>
                   <div style={{border:`1px solid #BAE6FD`,borderRadius:8}}>
                     <div style={{padding:"9px 12px",background:"#F0F9FF",borderBottom:`1px solid #BAE6FD`,display:"flex",alignItems:"center",gap:8}}>
