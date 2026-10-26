@@ -1153,7 +1153,7 @@ function App(){
         }).join("");
         const greetHtml="<p style='margin:0 0 14px 0'>"+greeting.replace(/&/g,"&amp;")+"</p>";
         const sigHtml="<p style='margin:0 0 6px 0'>"+DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")+"</p>";
-        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${canSpamFooterHtml(cc)}</div>`;
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${campaign!=="njsba"?canSpamFooterHtml(cc):""}</div>`;
       } else {
         const htmlBody=preview
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
