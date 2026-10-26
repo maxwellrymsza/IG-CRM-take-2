@@ -1099,7 +1099,7 @@ function App(){
         const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:njsbaSys,messages:[{role:"user",content:"Write the follow-up email."}]})});
         const d=await r.json();
         const fullText=(d.content?.[0]?.text||"").trim();
-        const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);setL1(paras[0]||"");setL2(paras[1]||"");setL3("Thank you again for your time at NJSBA — it was a pleasure.");setSubj(CAMPAIGNS.njsba.subjectFn(cc));
+        const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);setL1(paras[0]||"");setL2(paras[1]||"");setL3("Thank you again for your time at NJSBA, and I look forward to connecting again.");setSubj(CAMPAIGNS.njsba.subjectFn(cc));
         setAiSt("done");setKbSt("done");
       }catch(e){setAiSt("error");setL1("Error: "+e.message);}
       return;
@@ -1378,7 +1378,7 @@ function App(){
       const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
       const first=getFirstName(c.name);
       const greetLine=greetingTemplate.replace("[FIRST NAME]",first).replace("[LAST NAME]",(c.name||"").trim().split(/\s+/).pop()||"").replace("[TITLE]",customTitle||c.role||"").replace("[FULL NAME]",c.name||"");
-      const body=[greetLine,paras[0]||"",paras[1]||"","Thank you again for your time at NJSBA — it was a pleasure.",`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
+      const body=[greetLine,paras[0]||"",paras[1]||"","Thank you again for your time at NJSBA, and I look forward to connecting again.",`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
       const subj=CAMPAIGNS.njsba.subjectFn(c);
       return{body,subj};
     }
