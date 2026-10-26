@@ -1095,13 +1095,7 @@ function App(){
         const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:njsbaSys,messages:[{role:"user",content:"Write the follow-up email."}]})});
         const d=await r.json();
         const fullText=(d.content?.[0]?.text||"").trim();
-        const paras=fullText.split(/
-
-+/).map(p=>p.trim()).filter(Boolean);
-        setL1(paras[0]||"");
-        setL2(paras[1]||"");
-        setL3("I'd love to find a time that works — happy to keep it brief.");
-        setSubj(CAMPAIGNS.njsba.subjectFn(cc));
+        const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);setL1(paras[0]||"");setL2(paras[1]||"");setL3("I'd love to find a time that works — happy to keep it brief.");setSubj(CAMPAIGNS.njsba.subjectFn(cc));
         setAiSt("done");setKbSt("done");
       }catch(e){setAiSt("error");setL1("Error: "+e.message);}
       return;
