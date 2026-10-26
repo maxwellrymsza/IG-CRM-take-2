@@ -216,6 +216,7 @@ const CAMPAIGNS={cold:{id:"cold",label:"Cold Outreach",icon:"❄️",description
   customer:{id:"customer",label:"Customer Update",icon:"🌱",description:"Summer reconnection · new features · premium services",subjectFn:(c)=>`Summer Updates from Inspired Growing`,ai:false},
   followup:{id:"followup",label:"Follow-Up",icon:"📬",description:"Check in after no response · low pressure nudge",subjectFn:(c)=>`Re: A program worth knowing about for ${c.school||c.district}`,ai:true},
   custom:{id:"custom",label:"Custom",icon:"✏️",description:"Paste your own template · use [PLACEHOLDERS] · fills from contact record",subjectFn:(c,subj)=>subj||"",ai:false},
+  njsba:{id:"njsba",label:"NJSBA Follow-Up",icon:"🤝",description:"Conference follow-up · references meeting · demo invite or referral ask",subjectFn:(c)=>`Great meeting you at NJSBA — ${c.school||c.district}`,ai:true},
 };
 
 
@@ -1082,6 +1083,55 @@ function App(){
       return;
     }
 
+    // NJSBA conference follow-up — AI writes personalized message based on notes
+    if(campaign==="njsba"){
+      setAiSt("loading");setKbSt("loading");setL1("");setL2("");setL3("");
+      const isDecisionMaker=["superintendent","principal","director","csa","chief","president","administrator"].some(t=>(cc.role||"").toLowerCase().includes(t));
+      const tier=cc.project_type||"";
+      const meetingNotes=cc.notes||"";
+      const schoolName=cc.school||cc.district||"your school";
+      const njsbaSys="You write warm, personalized conference follow-up emails for Eric Wagner at Inspired Growing (inspiredgrowing.com), a company that brings commercial-grade aeroponic farm systems into K-12 schools. Inspired Growing had a live working farm at the NJSBA 2026 conference.
+
+"+
+        "Write a short 2-paragraph email to "+cc.name+", "+cc.role+" at "+schoolName+".
+
+"+
+        (isDecisionMaker?
+          "PARAGRAPH 1: Reference meeting them at NJSBA and that they saw the farm. Use these notes if available: "+(meetingNotes||"no notes available")+". Keep it warm and personal — 2-3 sentences.
+
+"+
+          "PARAGRAPH 2: Invite them for an in-person demo — either visiting one of Inspired Growing's 34 partner schools in NJ/NY to see a live farm in action, or having the team come to "+schoolName+" directly. Keep it short and low-pressure — 2 sentences.
+
+"
+          :
+          "PARAGRAPH 1: Reference meeting them at NJSBA and that they saw the farm. Use these notes if available: "+(meetingNotes||"no notes available")+". Keep it warm and personal — 2-3 sentences.
+
+"+
+          "PARAGRAPH 2: Since they may not be the final decision-maker, politely ask if they could introduce or refer Eric to their superintendent or district leadership who handles curriculum/facilities decisions. Keep it friendly and appreciative — 2 sentences.
+
+"
+        )+
+        "Rules:
+- Do NOT start with 'I'
+- Warm, human tone — like following up with someone you just met
+- No subject line, greeting, or signature
+- RESPOND WITH ONLY THE 2 PARAGRAPHS SEPARATED BY A BLANK LINE";
+      try{
+        const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:njsbaSys,messages:[{role:"user",content:"Write the follow-up email."}]})});
+        const d=await r.json();
+        const fullText=(d.content?.[0]?.text||"").trim();
+        const paras=fullText.split(/
+
++/).map(p=>p.trim()).filter(Boolean);
+        setL1(paras[0]||"");
+        setL2(paras[1]||"");
+        setL3("I'd love to find a time that works — happy to keep it brief.");
+        setSubj(CAMPAIGNS.njsba.subjectFn(cc));
+        setAiSt("done");setKbSt("done");
+      }catch(e){setAiSt("error");setL1("Error: "+e.message);}
+      return;
+    }
+
     const schoolName=cc.school||cc.district||"your school";
     const coldP1="Write exactly 2 sentences.\n"+
       "Sentence 1: \"I'm reaching out from Inspired Growing (inspiredgrowing.com) to share something that could be a meaningful addition to your nutrition, STEM, and food production programs.\" Write this sentence exactly.\n"+
@@ -1338,6 +1388,29 @@ function App(){
     const pitch=pitchByPersona[c.persona]||pitchByPersona.General;
     const contactContext=[c.notes?"Notes: "+c.notes:"",c.project_type?"Project focus: "+c.project_type:""].filter(Boolean).join(". ");
     const isFollowUp=campaign==="followup";
+
+    // NJSBA batch — AI personalizes based on notes and tier
+    if(campaign==="njsba"){
+      const isDecisionMaker=["superintendent","principal","director","csa","chief","president","administrator"].some(t=>(c.role||"").toLowerCase().includes(t));
+      const meetingNotes=c.notes||"";
+      const schoolName=c.school||c.district||"your school";
+      const njsbaSys="You write warm conference follow-up emails for Eric Wagner at Inspired Growing (inspiredgrowing.com). Write a short 2-paragraph email to "+c.name+", "+c.role+" at "+schoolName+".\n\n"+
+        (isDecisionMaker?
+          "PARAGRAPH 1: Reference meeting at NJSBA 2026 and seeing the live farm at their booth. Notes from meeting: "+(meetingNotes||"none")+". Warm, personal, 2-3 sentences.\n\nPARAGRAPH 2: Invite them for an in-person demo — either visiting one of Inspired Growing's 34 partner schools in NJ/NY or having the team come to "+schoolName+". Short and low-pressure.\n\n"
+          :
+          "PARAGRAPH 1: Reference meeting at NJSBA 2026 and seeing the live farm. Notes from meeting: "+(meetingNotes||"none")+". Warm, personal, 2-3 sentences.\n\nPARAGRAPH 2: Ask if they could refer or introduce Eric to their superintendent or district leadership who handles curriculum or facilities decisions. Friendly and appreciative.\n\n"
+        )+
+        "Do NOT start with 'I'. No subject line, greeting, or signature. RESPOND WITH ONLY 2 PARAGRAPHS SEPARATED BY A BLANK LINE.";
+      const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:njsbaSys,messages:[{role:"user",content:"Write the email."}]})});
+      const d=await r.json();
+      const fullText=(d.content?.[0]?.text||"").trim();
+      const paras=fullText.split(/\n\n+/).map(p=>p.trim()).filter(Boolean);
+      const first=getFirstName(c.name);
+      const greetLine=greetingTemplate.replace("[FIRST NAME]",first).replace("[LAST NAME]",(c.name||"").trim().split(/\s+/).pop()||"").replace("[TITLE]",customTitle||c.role||"").replace("[FULL NAME]",c.name||"");
+      const body=[greetLine,paras[0]||"",paras[1]||"","I'd love to find a time that works — happy to keep it brief.",`\n${DEF_SIG}`].filter(Boolean).join("\n\n");
+      const subj=CAMPAIGNS.njsba.subjectFn(c);
+      return{body,subj};
+    }
 
     // For follow-up, use guidance text directly — no AI needed
     if(isFollowUp){
@@ -1722,7 +1795,7 @@ function App(){
                   localStorage.setItem("ig_sig",sig);
                   setSaved(true);setTimeout(()=>setSaved(false),2000);
                 }} style={B("primary")}>Save Changes</button></div></div>
-            <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"},{id:"campaign_customer",label:"🌱 Customer Update"},{id:"campaign_followup",label:"📬 Follow-Up"},{id:"campaign_custom",label:"✏️ Custom"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
+            <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,padding:"0 20px",gap:2,overflowX:"auto"}}>{[...Object.keys(TMPL).map(k=>({id:k,label:TMPL[k].label})),{id:"close",label:"Close & Signature"},{id:"campaign_customer",label:"🌱 Customer Update"},{id:"campaign_followup",label:"📬 Follow-Up"},{id:"campaign_njsba",label:"🤝 NJSBA Follow-Up"},{id:"campaign_custom",label:"✏️ Custom"}].map(t=>(<div key={t.id} onClick={()=>setStab(t.id)} style={{padding:"10px 14px",fontSize:13,cursor:"pointer",borderBottom:stab===t.id?`2px solid ${C.green}`:"2px solid transparent",color:stab===t.id?C.gDark:C.textS,fontWeight:stab===t.id?500:400,marginBottom:-1,whiteSpace:"nowrap"}}>{t.label}</div>))}</div>
             <div style={{flex:1,overflowY:"auto",padding:24}}>
               {stab!=="close"&&templates[stab]&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Persona pitch — {templates[stab].label}</label><textarea value={templates[stab].roleBlurb} onChange={e=>setTemplates(p=>({...p,[stab]:{...p[stab],roleBlurb:e.target.value}}))} rows={5} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
               {stab==="close"&&<div style={{maxWidth:680}}><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Universal close</label><textarea value={closeText} onChange={e=>setCloseText(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}><label style={{...LBL(),fontSize:11}}>Signature</label><textarea value={sig} onChange={e=>setSig(e.target.value)} rows={3} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}}/></div></div>}
