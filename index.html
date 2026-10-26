@@ -125,6 +125,25 @@ function trackedLink(contactId, docId) {
   return `${TRACKER_URL}/t/${contactId}-${docKey}`;
 }
 
+// ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
+function canSpamFooter(contact) {
+  const unsubUrl = contact
+    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
+    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
+  return `--
+Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032
+inspiredgrowing.com | info@inspiredgrowing.com
+
+You're receiving this because of your role in K-12 education.
+Unsubscribe: ${unsubUrl}`;
+}
+function canSpamFooterHtml(contact) {
+  const unsubUrl = contact
+    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
+    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
+  return `<br><br>--<br><span style="font-size:11px;color:#666;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#666">Unsubscribe</a></span>`;
+}
+
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
 const KB_DOCS = [
 {id:"1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK",title:"General One-Pager",file:"Overview_Key_Features.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"Key outcomes, aeroponics advantage, grant-readiness. Best all-purpose attach for cold outreach.",personas:["General","STEM","Nutrition","CTE","Sustainability"],viewUrl:"https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view"},
