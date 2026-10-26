@@ -127,21 +127,11 @@ function trackedLink(contactId, docId) {
 
 // ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
 function canSpamFooter(contact) {
-  const unsubUrl = contact
-    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
-    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
-  return `--
-Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032
-inspiredgrowing.com | info@inspiredgrowing.com
-
-You're receiving this because of your role in K-12 education.
-Unsubscribe: ${unsubUrl}`;
+  return `Inspired Growing · 909 Newark Tpke, Kearny, NJ 07032
+If you'd rather I not follow up, just reply and let me know.`;
 }
 function canSpamFooterHtml(contact) {
-  const unsubUrl = contact
-    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
-    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
-  return `<br><br>--<br><span style="font-size:11px;color:#666;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#666">Unsubscribe</a></span>`;
+  return `<br><br><span style="font-size:12px;color:#666;font-family:Arial,sans-serif">Inspired Growing · 909 Newark Tpke, Kearny, NJ 07032<br>If you'd rather I not follow up, just reply and let me know.</span>`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -475,7 +465,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
           </div>
         </div>
         <div style={{padding:"10px 14px",background:"#FFF7ED",borderRadius:8,border:"1px solid #FED7AA",fontSize:12,color:"#92400E",marginBottom:16}}>
-          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a personalized unsubscribe link.
+          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a a reply-to-opt-out line.
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <button onClick={()=>setNewOpen(false)} style={B("secondary")}>Cancel</button>
@@ -612,7 +602,7 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
               style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",fontFamily:"Georgia,serif",fontSize:12}}/>
           </div>
           <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>
-            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and personalized unsubscribe link.
+            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and a reply-to-opt-out line.
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>approve(selected)} disabled={approving} style={{...B("primary"),flex:1,opacity:approving?0.6:1}}>
@@ -1153,13 +1143,13 @@ function App(){
         }).join("");
         const greetHtml="<p style='margin:0 0 14px 0'>"+greeting.replace(/&/g,"&amp;")+"</p>";
         const sigHtml="<p style='margin:0 0 6px 0'>"+DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")+"</p>";
-        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${campaign!=="njsba"?canSpamFooterHtml(cc):""}</div>`;
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${canSpamFooterHtml(cc)}</div>`;
       } else {
         const htmlBody=preview
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
           .replace(/\n\n/g,"<br><br>")
           .replace(/\n/g,"<br>");
-        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(cc):""}</div>`;
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${canSpamFooterHtml(cc)}</div>`;
       }
       if(mode==="draft"){
         // Save as Gmail draft via OAuth popup
@@ -1318,7 +1308,7 @@ function App(){
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
           .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
           .replace(/\n/g,"<br>");
-        const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
+        const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${canSpamFooterHtml(c)}</div>`;
         // Schedule 20 seconds apart
         const scheduledAt=new Date(now.getTime()+(i*60*1000)).toISOString();
         await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
@@ -1422,7 +1412,7 @@ function App(){
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
       .replace(/\n/g,"<br>");
-    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
+    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${canSpamFooterHtml(c)}</div>`;
     const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
@@ -1459,7 +1449,7 @@ function App(){
           // Save as Gmail draft via OAuth
           const tok=await getGmailToken();
           const htmlBody2=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
-          const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
+          const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${canSpamFooterHtml(c)}</div>`;
           const emailLines2=[`From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,`To: ${c.email}`,`Subject: ${subj}`,`MIME-Version: 1.0`,`Content-Type: text/html; charset=utf-8`,``,fullHtml2].join("\r\n");
           const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
           const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
