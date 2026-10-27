@@ -128,21 +128,10 @@ function trackedLink(contactId, docId) {
 
 // ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
 function canSpamFooter(contact) {
-  const unsubUrl = contact
-    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
-    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
-  return `--
-Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032
-inspiredgrowing.com | info@inspiredgrowing.com
-
-You're receiving this because of your role in K-12 education.
-Unsubscribe: ${unsubUrl}`;
+  return `Inspired Growing · 909 Newark Tpke, Kearny, NJ 07032`;
 }
 function canSpamFooterHtml(contact) {
-  const unsubUrl = contact
-    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
-    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
-  return `<br><br>--<br><span style="font-size:11px;color:#666;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#666">Unsubscribe</a></span>`;
+  return `<br><br><span style="font-size:12px;color:#666;font-family:Arial,sans-serif">Inspired Growing · 909 Newark Tpke, Kearny, NJ 07032<br></span>`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -765,6 +754,43 @@ function StrategicPage({contacts,setContacts,onCompose,onEdit}){
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
+
+
+// ── Resources Page ────────────────────────────────────────────────────────────
+function ResourcesPage(){
+  const[cat,setCat]=useState("All");
+  const[search,setSearch]=useState("");
+  const filtered=KB_DOCS.filter(d=>(cat==="All"||d.category===cat)&&(!search||d.title.toLowerCase().includes(search.toLowerCase())||d.description.toLowerCase().includes(search.toLowerCase())));
+  return <>
+    <div style={{padding:"14px 20px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{fontWeight:700,fontSize:16}}>Resources</div>
+      <div style={{fontSize:12,color:C.textS,marginTop:1}}>Sales documents, curriculum, and technical specs</div>
+    </div>
+    <div style={{display:"flex",gap:8,padding:"8px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap",alignItems:"center"}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search resources..." style={I(220)}/>
+      {KB_CATEGORIES.map(c=><button key={c} onClick={()=>setCat(c)} style={{...B(cat===c?"primary":"secondary","sm"),borderRadius:20}}>{c}</button>)}
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:10}}>
+      {filtered.map(doc=>(
+        <div key={doc.id} style={{background:"white",border:`1px solid ${C.border}`,borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"flex-start",gap:14}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+              <div style={{fontWeight:600,fontSize:14}}>{doc.title}</div>
+              <Tag label={doc.tag} color={doc.tagColor} bg={doc.tagBg}/>
+              <Tag label={doc.category} color={C.textS} bg={C.bg}/>
+            </div>
+            <div style={{fontSize:12,color:C.textS,lineHeight:1.6,marginBottom:8}}>{doc.description}</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {doc.personas.map(p=>{const[pc,pb]=PER_C[p]||["#6B7280","#F1EFE8"];return<Tag key={p} label={p} color={pc} bg={pb} size={10}/>;}) }
+            </div>
+          </div>
+          <a href={doc.viewUrl} target="_blank" rel="noopener noreferrer" style={{...B("primary","sm"),textDecoration:"none",flexShrink:0}}>View →</a>
+        </div>
+      ))}
+      {filtered.length===0&&<div style={{padding:60,textAlign:"center",color:C.textT}}><div style={{fontSize:32,marginBottom:8}}>📁</div><div style={{fontWeight:500,color:C.textS}}>No documents match</div></div>}
+    </div>
+  </>;
+}
 
 
 function ScanNowButton(){
