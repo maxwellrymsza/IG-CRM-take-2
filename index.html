@@ -94,6 +94,7 @@ function mapRow(c) {
     org_type: c.org_type || "K-12 School",
     is_strategic: c.is_strategic || false,
     relationship_goal: c.relationship_goal || "",
+    reference: c.reference || "",
     stageEnteredAt: c.created_at || new Date().toISOString(),
     tasks: [],
     isUnsubscribed: false,
@@ -127,10 +128,21 @@ function trackedLink(contactId, docId) {
 
 // ── CAN-SPAM Footer ───────────────────────────────────────────────────────────
 function canSpamFooter(contact) {
-  return `Inspired Growing · 909 Newark Tpke, Kearny, NJ 07032`;
+  const unsubUrl = contact
+    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
+    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
+  return `--
+Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032
+inspiredgrowing.com | info@inspiredgrowing.com
+
+You're receiving this because of your role in K-12 education.
+Unsubscribe: ${unsubUrl}`;
 }
 function canSpamFooterHtml(contact) {
-  return `<br><br><span style="font-size:12px;color:#666;font-family:Arial,sans-serif">Inspired Growing · 909 Newark Tpke, Kearny, NJ 07032<br></span>`;
+  const unsubUrl = contact
+    ? `https://ig-crm-take-2.vercel.app/unsubscribe?id=${contact.id}`
+    : `https://ig-crm-take-2.vercel.app/unsubscribe`;
+  return `<br><br>--<br><span style="font-size:11px;color:#666;font-family:Arial,sans-serif">Inspired Growing | 909 Newark Tpke, Kearny, NJ 07032<br>inspiredgrowing.com<br><br>You're receiving this because of your role in K-12 education.<br><a href="${unsubUrl}" style="color:#666">Unsubscribe</a></span>`;
 }
 
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
@@ -464,7 +476,7 @@ function SequencesPage({contacts,sequences,setSequences,enrollments,setEnrollmen
           </div>
         </div>
         <div style={{padding:"10px 14px",background:"#FFF7ED",borderRadius:8,border:"1px solid #FED7AA",fontSize:12,color:"#92400E",marginBottom:16}}>
-          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a a reply-to-opt-out line.
+          ⚠ All emails include a <strong>CAN-SPAM compliant footer</strong> with your address and a personalized unsubscribe link.
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <button onClick={()=>setNewOpen(false)} style={B("secondary")}>Cancel</button>
@@ -601,7 +613,7 @@ function ReviewQueuePage({contacts,enrollments,seqLog,setSeqLog,sequences}){
               style={{...I(),resize:"vertical",lineHeight:1.7,background:"white",fontFamily:"Georgia,serif",fontSize:12}}/>
           </div>
           <div style={{padding:"8px 12px",background:"#F0FDF4",borderRadius:8,border:`1px solid ${C.gBorder}`,fontSize:11,color:C.gDark}}>
-            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and a reply-to-opt-out line.
+            ✓ <strong>CAN-SPAM footer auto-appended</strong> — includes physical address and personalized unsubscribe link.
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>approve(selected)} disabled={approving} style={{...B("primary"),flex:1,opacity:approving?0.6:1}}>
@@ -1142,13 +1154,13 @@ function App(){
         }).join("");
         const greetHtml="<p style='margin:0 0 14px 0'>"+greeting.replace(/&/g,"&amp;")+"</p>";
         const sigHtml="<p style='margin:0 0 6px 0'>"+DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")+"</p>";
-        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${canSpamFooterHtml(cc)}</div>`;
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${campaign!=="njsba"?canSpamFooterHtml(cc):""}</div>`;
       } else {
         const htmlBody=preview
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
           .replace(/\n\n/g,"<br><br>")
           .replace(/\n/g,"<br>");
-        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${canSpamFooterHtml(cc)}</div>`;
+        fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(cc):""}</div>`;
       }
       if(mode==="draft"){
         // Save as Gmail draft via OAuth popup
@@ -1270,7 +1282,8 @@ function App(){
       .replace(/\[DISTRICT\]/gi, c.district||"")
       .replace(/\[ROLE\]/gi, c.role||"")
       .replace(/\[STATE\]/gi, c.state||"")
-      .replace(/\[ORG\]/gi, c.school||c.district||"");
+      .replace(/\[ORG\]/gi, c.school||c.district||"")
+      .replace(/\[REFERENCE\]/gi, c.reference||"");
     // Replace doc placeholders with HTML buttons or plain URLs
     const docReplacements={
       "BROCHURE":["https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view","Brochure"],
@@ -1307,7 +1320,7 @@ function App(){
           .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
           .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
           .replace(/\n/g,"<br>");
-        const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${canSpamFooterHtml(c)}</div>`;
+        const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
         // Schedule 20 seconds apart
         const scheduledAt=new Date(now.getTime()+(i*60*1000)).toISOString();
         await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
@@ -1411,7 +1424,7 @@ function App(){
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
       .replace(/\n/g,"<br>");
-    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${canSpamFooterHtml(c)}</div>`;
+    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
     const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
@@ -1448,7 +1461,7 @@ function App(){
           // Save as Gmail draft via OAuth
           const tok=await getGmailToken();
           const htmlBody2=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
-          const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${canSpamFooterHtml(c)}</div>`;
+          const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
           const emailLines2=[`From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,`To: ${c.email}`,`Subject: ${subj}`,`MIME-Version: 1.0`,`Content-Type: text/html; charset=utf-8`,``,fullHtml2].join("\r\n");
           const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
           const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
@@ -1771,7 +1784,7 @@ function App(){
               {stab==="campaign_custom"&&<div style={{maxWidth:680}}>
                 <div style={{padding:"10px 14px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8,marginBottom:16,fontSize:12,color:"#5B21B6"}}>
                   ✏️ <strong>Custom Campaign</strong> — paste any email template. Use these placeholders and they'll auto-fill from each contact's record:<br/><br/>
-                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[LAST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FULL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[TITLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code><br/><br/>
+                  <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[LAST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FULL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[TITLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[REFERENCE]</code><br/><br/>
                   <strong>Document buttons</strong> (renders as a green clickable button in the email):<br/>
                   <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[BROCHURE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[OVERVIEW]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[CURRICULUM]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SPECS]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[GRANT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DECK]</code>
                 </div>
@@ -1813,12 +1826,12 @@ function App(){
         <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:16}}>
           <Av name={detail.name} size={44} color={C.blue}/>
           <div style={{flex:1}}><div style={{fontWeight:700,fontSize:17}}>{detail.name}</div><div style={{fontSize:12,color:C.textS,marginTop:2}}>{detail.role} · {detail.district}</div></div>
-          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,org_type:detail.org_type||"K-12 School",is_strategic:detail.is_strategic||false,relationship_goal:detail.relationship_goal||"",lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes,next_steps:detail.next_steps||"",lastContact:detail.lastContact||"",email_count:detail.email_count||0});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
+          <button onClick={()=>{if(!editMode){setEditMode(true);setEditF({name:detail.name,email:detail.email,role:detail.role,school:detail.school,district:detail.district,state:detail.state,persona:detail.persona,org_type:detail.org_type||"K-12 School",is_strategic:detail.is_strategic||false,relationship_goal:detail.relationship_goal||"",lead_source:detail.lead_source,project_type:detail.project_type,alt_contact:detail.alt_contact,notes:detail.notes,next_steps:detail.next_steps||"",lastContact:detail.lastContact||"",email_count:detail.email_count||0,reference:detail.reference||""});}else{setEditMode(false);}}} style={{...B(editMode?"secondary":"secondary","sm"),marginRight:6}}>{editMode?"Cancel Edit":"✏️ Edit"}</button>
           <button onClick={()=>{setDetail(null);setEditMode(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.textT}}>✕</button>
         </div>
         {!editMode?<>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
-            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Org Type",detail.org_type],["Emails Sent",detail.email_count>0?`${detail.email_count} email${detail.email_count>1?"s":""}`:null],["Lead Source",detail.lead_source],["Project Type",detail.project_type]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
+            {[["Email",detail.email],["Organization",detail.school],["District",detail.district],["State",detail.state],["Phone",detail.alt_contact],["Org Type",detail.org_type],["Emails Sent",detail.email_count>0?`${detail.email_count} email${detail.email_count>1?"s":""}`:null],["Lead Source",detail.lead_source],["Project Type",detail.project_type],["Reference",detail.reference]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>{l}</div><div style={{fontSize:13,wordBreak:"break-all"}}>{v||"—"}</div></div>))}
             <div><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:3}}>Persona</div>{(()=>{const[pc,pb]=PER_C[detail.persona]||["#6B7280","#F1EFE8"];return<Tag label={TMPL[detail.persona]?.label||detail.persona} color={pc} bg={pb}/>;})()}</div>
             <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",color:C.textT,marginBottom:6}}>Stage</div>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{STAGES.map(s=>{const sm=STAGE_META[s]||{color:C.textS,bg:C.bg,icon:"•"};return <button key={s} onClick={async()=>{await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({pipeline_stage:s})});setContacts(p=>p.map(c=>c.id===detail.id?{...c,stage:s}:c));setDetail(d=>({...d,stage:s}));addActivity({type:"stage",contactId:detail.id,contactName:detail.name,text:`moved to ${s}`,detail:detail.district,icon:sm.icon});}} style={{fontSize:11,padding:"3px 8px",borderRadius:6,cursor:"pointer",fontWeight:detail.stage===s?700:400,background:detail.stage===s?sm.bg:"white",color:detail.stage===s?sm.color:C.textS,border:`1px solid ${detail.stage===s?sm.color:C.border}`}}>{sm.icon} {s}</button>;})}
@@ -1889,14 +1902,18 @@ function App(){
           </div>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
+            <label style={LBL()}>Reference</label>
+            <input value={editF.reference||""} onChange={e=>setEditF(f=>({...f,reference:e.target.value}))} placeholder="e.g. Jane Smith (Board Member)" style={I()}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>
             <label style={LBL()}>Emails Sent (count)</label>
             <input type="number" min="0" value={editF.email_count===undefined?0:editF.email_count} onChange={e=>setEditF(f=>({...f,email_count:e.target.value===""?0:parseInt(e.target.value,10)}))} style={{...I(),width:120}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={async()=>{
               try{
-                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email||null,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",last_touch:editF.lastContact||null,email_count:editF.email_count||0})});
-                const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",lastContact:editF.lastContact||detail.lastContact};
+                await sbFetch(`contacts?id=eq.${detail.id}`,{method:"PATCH",body:JSON.stringify({name:editF.name,email:editF.email||null,role:editF.role,organization:editF.school,district:editF.district,region:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",pipeline_stage:editF.stage||detail.stage,lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",last_touch:editF.lastContact||null,email_count:editF.email_count||0,reference:editF.reference||""})});
+                const updated={...detail,name:editF.name,email:editF.email,role:editF.role,school:editF.school,district:editF.district,state:editF.state,persona:editF.persona,org_type:editF.org_type||"K-12 School",is_strategic:editF.is_strategic||false,relationship_goal:editF.relationship_goal||"",lead_source:editF.lead_source,project_type:editF.project_type,alt_contact:editF.alt_contact,notes:editF.notes,next_steps:editF.next_steps||"",lastContact:editF.lastContact||detail.lastContact,reference:editF.reference||""};
                 setContacts(p=>p.map(c=>c.id===detail.id?updated:c));
                 setDetail(updated);setEditMode(false);
               }catch(e){alert("Error saving: "+e.message);}
