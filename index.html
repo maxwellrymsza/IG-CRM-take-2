@@ -1017,7 +1017,7 @@ function App(){
     return arr;
   };
   const filtered=contacts.filter(c=>{
-    if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role}`.toLowerCase().includes(search.toLowerCase()))return false;
+    if(search&&!`${c.name} ${c.school} ${c.district} ${c.email} ${c.role} ${c.lead_source}`.toLowerCase().includes(search.toLowerCase()))return false;
     if(fp==="__hide_admin__"&&c.persona==="Administrator")return false;else if(fp==="__strategic__"&&!c.is_strategic)return false;else if(fp&&fp!=="__hide_admin__"&&fp!=="__strategic__"&&c.persona!==fp)return false;
     if(fls&&c.lead_source!==fls)return false;
     if(fOrgType&&c.org_type!==fOrgType)return false;if(fs&&c.stage!==fs)return false;if(fst&&c.state!==fst)return false;return true;
