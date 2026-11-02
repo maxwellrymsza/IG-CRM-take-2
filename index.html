@@ -967,6 +967,7 @@ function App(){
   const[taskDate,setTaskDate]=useState("");
   const[editMode,setEditMode]=useState(false);
   const[editF,setEditF]=useState({});
+  const[bulkStage,setBulkStage]=useState("");
 
   useEffect(()=>{
     setLoading(true);
@@ -1516,6 +1517,22 @@ function App(){
     setSel(new Set());
   }
 
+  async function bulkChangeStage(){
+    const ids=[...sel];
+    if(!ids.length||!bulkStage)return;
+    if(!window.confirm(`Move ${ids.length} contact${ids.length!==1?"s":""} to "${bulkStage}"?`))return;
+    try{
+      const nowIso=new Date().toISOString();
+      for(let i=0;i<ids.length;i+=100){
+        const chunk=ids.slice(i,i+100);
+        await sbFetch(`contacts?id=in.(${chunk.join(",")})`,{method:"PATCH",headers:{"Prefer":"return=minimal"},body:JSON.stringify({pipeline_stage:bulkStage})});
+      }
+      setContacts(p=>p.map(c=>ids.includes(c.id)?{...c,stage:bulkStage,stageEnteredAt:nowIso}:c));
+      addActivity({type:"stage",contactName:`${ids.length} contacts`,text:`were moved to ${bulkStage}`,detail:"Bulk stage change",icon:(STAGE_META[bulkStage]||{icon:"•"}).icon});
+      setSel(new Set());setBulkStage("");
+    }catch(e){alert("Error changing stage: "+e.message);}
+  }
+
   async function bulkDelete(){
     const ids=[...sel];
     if(!window.confirm(`Delete ${ids.length} contacts? This cannot be undone.`))return;
@@ -1659,6 +1676,14 @@ function App(){
                   }));
                   setSel(new Set());
                 }} style={{...B("secondary","sm"),gap:4}}>✉ +1 Email Count ({sel.size})</button>
+                <div style={{display:"flex",alignItems:"center",gap:6,background:"white",border:`1px solid ${C.border}`,borderRadius:8,padding:"3px 8px"}}>
+                  <span style={{fontSize:11,fontWeight:700,color:C.textS,whiteSpace:"nowrap"}}>Move to:</span>
+                  <select value={bulkStage} onChange={e=>setBulkStage(e.target.value)} style={{fontSize:12,border:"none",outline:"none",background:"transparent",cursor:"pointer",color:C.text}}>
+                    <option value="">Select stage…</option>
+                    {STAGES.map(st=><option key={st} value={st}>{(STAGE_META[st]||{icon:""}).icon} {st}</option>)}
+                  </select>
+                  <button onClick={bulkChangeStage} disabled={!bulkStage} style={{...B("primary","sm"),opacity:bulkStage?1:0.4}}>Apply</button>
+                </div>
                 <div style={{display:"flex",alignItems:"center",gap:6,background:"white",border:`2px solid ${campaign==="cold"?C.blue:campaign==="customer"?C.green:"#854F0B"}`,borderRadius:8,padding:"3px 8px"}}>
                   <span style={{fontSize:11,fontWeight:700,color:C.textS,whiteSpace:"nowrap"}}>Campaign:</span>
                   <select value={campaign} onChange={e=>setCampaign(e.target.value)} style={{fontSize:12,fontWeight:600,border:"none",outline:"none",background:"transparent",cursor:"pointer",color:campaign==="cold"?C.blue:campaign==="customer"?C.gDark:"#854F0B"}}>
