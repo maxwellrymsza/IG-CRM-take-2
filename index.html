@@ -134,6 +134,36 @@ function canSpamFooterHtml(contact) {
   return `<br><br><span style="font-size:12px;color:#666;font-family:Arial,sans-serif">Inspired Growing · 909 Newark Tpke, Kearny, NJ 07032<br></span>`;
 }
 
+// ── Email HTML helpers (links + document buttons) ─────────────────────────────
+const DOC_BTNS={
+  "BROCHURE":["https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view","Brochure"],
+  "ONE-PAGER":["https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view","One-Pager"],
+  "OVERVIEW":["https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view","Program Overview"],
+  "DECK":["https://drive.google.com/file/d/1ORU8mIgirKNORTRCcxO2n8a6LN4j6GM5/view","Overview Deck"],
+  "CURRICULUM":["https://drive.google.com/file/d/1Qt6sSw9PYGbXZmiaM5iJ0QgORGU2KRXN/view","Curriculum Overview"],
+  "SPECS":["https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view","Specs & Yields"],
+  "GRANT":["https://drive.google.com/file/d/1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3/view","Grant Alignment Guide"],
+};
+function escHtml(x){return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+// Converts plain email text to safe HTML. Supports [link text](https://url) hyperlinks and
+// [BROCHURE]-style document buttons. Everything else is escaped.
+function emailTextToHtml(text){
+  const tokens=[];
+  const tok=html=>{tokens.push(html);return "\u0000"+(tokens.length-1)+"\u0000";};
+  let t=text||"";
+  t=t.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,label,url)=>tok(`<a href="${escHtml(url)}" style="color:#1a73e8">${escHtml(label)}</a>`));
+  for(const [key,[url,label]] of Object.entries(DOC_BTNS)){
+    const ph="["+key+"]";
+    if(t.includes(ph)){
+      const btn=tok(`<a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${escHtml(label)} →</a>`);
+      t=t.split(ph).join(btn);
+    }
+  }
+  t=escHtml(t);
+  const html=t.split(/\n\n+/).map(p=>"<p style='margin:0 0 14px 0'>"+p.replace(/\n/g,"<br>")+"</p>").join("");
+  return html.replace(/\u0000(\d+)\u0000/g,(m,i)=>tokens[Number(i)]);
+}
+
 // ── Knowledge Base Documents ──────────────────────────────────────────────────
 const KB_DOCS = [
 {id:"1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK",title:"General One-Pager",file:"Overview_Key_Features.pdf",category:"Sales",tag:"One-Pager",tagColor:C.blue,tagBg:"#E6F1FB",description:"Key outcomes, aeroponics advantage, grant-readiness. Best all-purpose attach for cold outreach.",personas:["General","STEM","Nutrition","CTE","Sustainability"],viewUrl:"https://drive.google.com/file/d/1iTS_fMfxFGiojdCQKuS4Jr5FWlBwF7NK/view"},
@@ -968,6 +998,22 @@ function App(){
   const[editMode,setEditMode]=useState(false);
   const[editF,setEditF]=useState({});
   const[bulkStage,setBulkStage]=useState("");
+  const customBodyRef=useRef(null);
+  const[linkText,setLinkText]=useState("");
+  const[linkUrl,setLinkUrl]=useState("");
+  function insertLink(){
+    const url=linkUrl.trim().replace(/\)/g,"%29");
+    if(!/^https?:\/\//i.test(url)){alert("Enter a full link starting with https://");return;}
+    const el=customBodyRef.current;
+    const start=el?el.selectionStart:customBody.length;
+    const end=el?el.selectionEnd:customBody.length;
+    const selected=customBody.slice(start,end);
+    const label=(linkText.trim()||selected||url).replace(/[\[\]]/g,"");
+    const md="["+label+"]("+url+")";
+    setCustomBody(customBody.slice(0,start)+md+customBody.slice(end));
+    setLinkText("");setLinkUrl("");
+    setTimeout(()=>{if(el){el.focus();const pos=start+md.length;el.setSelectionRange(pos,pos);}},0);
+  }
 
   useEffect(()=>{
     setLoading(true);
@@ -1053,7 +1099,7 @@ function App(){
     setAiSt("idle");setGmSt("");setGmMsg("");setKbSt("idle");
     if(activeCampaign==="custom"){
       setSubj(fillPlaceholders(customSubject,c,false));
-      setL1(fillPlaceholders(customBody,c,false));
+      setL1(fillPlaceholders(customBody,c,false,true));
       setL2("");setL3("");
     } else if(activeCampaign==="customer"){
       const first=getFirstName(c.name);
@@ -1071,7 +1117,7 @@ function App(){
     // Customer Update uses static template - no AI needed
     if(campaign==="custom"){
       setSubj(fillPlaceholders(customSubject,cc,false));
-      setL1(fillPlaceholders(customBody,cc,false));
+      setL1(fillPlaceholders(customBody,cc,false,true));
       setL2("");setL3("");
       setAiSt("done");setKbSt("done");
       return;
@@ -1167,18 +1213,7 @@ function App(){
       // For custom campaign build HTML directly with button placeholders
       let fullHtml;
       if(campaign==="custom"){
-        // Split body on double newlines into paragraphs, escape each, then fill buttons
-        const paragraphs=customBody.split(/\n\n+/);
-        const bodyHtml=paragraphs.map(para=>{
-          // Check if this paragraph contains a placeholder like [BROCHURE]
-          const filled=fillPlaceholders(para,cc,true);
-          if(filled.startsWith("<a href=")){
-            // It's a button - return as-is
-            return filled;
-          }
-          // Otherwise escape and convert single newlines
-          return "<p style='margin:0 0 14px 0'>"+filled.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>")+"</p>";
-        }).join("");
+        const bodyHtml=emailTextToHtml(l1);
         const greetHtml="<p style='margin:0 0 14px 0'>"+greeting.replace(/&/g,"&amp;")+"</p>";
         const sigHtml="<p style='margin:0 0 6px 0'>"+DEF_SIG.replace(/&/g,"&amp;").replace(/\n/g,"<br>")+"</p>";
         fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${greetHtml}${bodyHtml}${sigHtml}${campaign!=="njsba"?canSpamFooterHtml(cc):""}</div>`;
@@ -1279,7 +1314,7 @@ function App(){
     Administrator:templates.Administrator?.roleBlurb||"We work with school administrators to bring aeroponic farm programs into their buildings.",
   };
 
-  function fillPlaceholders(text, c, forHtml=false){
+  function fillPlaceholders(text, c, forHtml=false, keepDocs=false){
     if(!text) return "";
     const first=getFirstName(c.name);
     const docLinks={
@@ -1321,7 +1356,7 @@ function App(){
       "SPECS":["https://drive.google.com/file/d/1Ieb4I7Cc_N90pp5DRqNOLhxH8VxA7GZn/view","Specs & Yields"],
       "GRANT":["https://drive.google.com/file/d/1VLxxJbhJ__s82LXOCINT0iE2PLwAa_G3/view","Grant Alignment Guide"],
     };
-    for(const [key,[url,label]] of Object.entries(docReplacements)){
+    if(!keepDocs) for(const [key,[url,label]] of Object.entries(docReplacements)){
       const placeholder="["+key+"]";
       const btnHtml=`<a href="${url}" style="display:inline-block;padding:10px 20px;background:#65C39D;color:white;text-decoration:none;border-radius:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:600">📄 View ${label} →</a>`;
       const plainLink=`\n\nView ${label}: ${url}`;
@@ -1341,13 +1376,8 @@ function App(){
       const c=selectedContacts[i];
       setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
       try{
-        const{body,subj}=await generateEmailForContact(c);
-        const firstName=getFirstName(c.name);
-        const htmlBody=body
-          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-          .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
-          .replace(/\n/g,"<br>");
-        const fullHtml=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
+        const{body,subj,html}=await generateEmailForContact(c);
+        const fullHtml=buildBatchHtml(c,body,html);
         // Schedule 20 seconds apart
         const scheduledAt=new Date(now.getTime()+(i*60*1000)).toISOString();
         await sbFetch("send_queue",{method:"POST",body:JSON.stringify({
@@ -1374,11 +1404,12 @@ function App(){
     // Use static template for customer update campaign
     if(campaign==="custom"){
       const first=getFirstName(c.name);
-      const filledBody=fillPlaceholders(customBody,c,true);
+      const filledBody=fillPlaceholders(customBody,c,false,true);
       const filledSubj=fillPlaceholders(customSubject,c,false);
       const greetLine=greetingTemplate.replace('[FIRST NAME]',first).replace('[LAST NAME]',(c.name||'').trim().split(/\s+/).pop()||'').replace('[TITLE]',customTitle||c.role||'').replace('[FULL NAME]',c.name||'');
       const body=[greetLine,filledBody,`\n${DEF_SIG}`].join("\n\n");
-      return{body,subj:filledSubj||"A message from Inspired Growing"};
+      const html="<p style='margin:0 0 14px 0'>"+escHtml(greetLine)+"</p>"+emailTextToHtml(filledBody)+"<p style='margin:0 0 6px 0'>"+escHtml(DEF_SIG).replace(/\n/g,"<br>")+"</p>";
+      return{body,html,subj:filledSubj||"A message from Inspired Growing"};
     }
     if(campaign==="customer"){
       const first=getFirstName(c.name);
@@ -1446,12 +1477,15 @@ function App(){
     return{body,subj};
   }
 
-  async function pushDraftForContact(c,body,subj){
-    const htmlBody2=body
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-      .replace(/\n\n/g,"</p><p style='margin:0 0 12px'>")
-      .replace(/\n/g,"<br>");
-    const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
+  function buildBatchHtml(c,body,html){
+    const footer=(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):"";
+    if(html) return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#000">${html}${footer}</div>`;
+    const htmlBody=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
+    return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody}${footer}</div>`;
+  }
+
+  async function pushDraftForContact(c,body,subj,html){
+    const fullHtml2=buildBatchHtml(c,body,html);
     const r=await fetch("https://ig-click-tracker.maxwellrymsza.workers.dev/send",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
@@ -1483,12 +1517,11 @@ function App(){
       const c=selectedContacts[i];
       setBatchProgress({done:i,total:selectedContacts.length,current:c.name,failed});
       try{
-        const{body,subj}=await generateEmailForContact(c);
+        const{body,subj,html}=await generateEmailForContact(c);
         if(mode==="draft"){
           // Save as Gmail draft via OAuth
           const tok=await getGmailToken();
-          const htmlBody2=body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p style='margin:0 0 12px'>").replace(/\n/g,"<br>");
-          const fullHtml2=`<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#000">${htmlBody2}${(campaign!=="customer"&&campaign!=="njsba")?canSpamFooterHtml(c):""}</div>`;
+          const fullHtml2=buildBatchHtml(c,body,html);
           const emailLines2=[`From: Eric Wagner <eric.wagner@inspiredgrowing.com>`,`To: ${c.email}`,`Subject: ${subj}`,`MIME-Version: 1.0`,`Content-Type: text/html; charset=utf-8`,``,fullHtml2].join("\r\n");
           const enc2=btoa(unescape(encodeURIComponent(emailLines2))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
           const dr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${tok}`},body:JSON.stringify({message:{raw:enc2}})});
@@ -1499,7 +1532,7 @@ function App(){
           await sbFetch(`contacts?id=eq.${c.id}`,{method:"PATCH",body:JSON.stringify({last_touch:today2,...(!keepS2&&{pipeline_stage:"Emailed"})})});
           setContacts(p=>p.map(x=>x.id===c.id?{...x,lastContact:today2,...(!keepS2&&{stage:"Emailed"})}:x));
         } else {
-          await pushDraftForContact(c,body,subj);
+          await pushDraftForContact(c,body,subj,html);
         }
         const today=new Date().toISOString().split("T")[0];
         const keepS=["Replied","Warm","Direct Contact","Out of Office","Demo Scheduled","Proposal Sent","Closed Won","Existing Client"].includes(c.stage);
@@ -1836,7 +1869,7 @@ function App(){
                 <div style={{padding:"10px 14px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8,marginBottom:16,fontSize:12,color:"#5B21B6"}}>
                   ✏️ <strong>Custom Campaign</strong> — paste any email template. Use these placeholders and they'll auto-fill from each contact's record:<br/><br/>
                   <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FIRST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[LAST NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[FULL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[TITLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SCHOOL NAME]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DISTRICT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[ROLE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[STATE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[REFERENCE]</code><br/><br/>
-                  <strong>Document buttons</strong> (renders as a green clickable button in the email):<br/>
+                  <strong>Hyperlinks:</strong> use the Insert link bar above the email body, or type <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[link text](https://...)</code><br/><br/><strong>Document buttons</strong> (renders as a green clickable button in the email):<br/>
                   <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[BROCHURE]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[OVERVIEW]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[CURRICULUM]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[SPECS]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[GRANT]</code> <code style={{background:"#EDE9FE",padding:"2px 5px",borderRadius:3,fontSize:11}}>[DECK]</code>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
@@ -1845,7 +1878,13 @@ function App(){
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
                   <label style={{...LBL(),fontSize:11}}>Email body</label>
-                  <textarea value={customBody} onChange={e=>setCustomBody(e.target.value)} rows={18} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}} placeholder="Paste your email here. Use [SCHOOL NAME], [PRINCIPAL NAME], [FIRST NAME], [DISTRICT] etc as placeholders..."/>
+                  <div style={{display:"flex",gap:6,alignItems:"center",padding:"8px 10px",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:8,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,fontWeight:700,color:"#5B21B6"}}>🔗 Insert link</span>
+                    <input value={linkText} onChange={e=>setLinkText(e.target.value)} placeholder="Link text (or select text below)" style={{...I("200px"),fontSize:12,padding:"5px 8px"}}/>
+                    <input value={linkUrl} onChange={e=>setLinkUrl(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")insertLink();}} placeholder="https://..." style={{...I("240px"),fontSize:12,padding:"5px 8px"}}/>
+                    <button onClick={insertLink} style={B("primary","sm")}>Insert at cursor</button>
+                  </div>
+                  <textarea ref={customBodyRef} value={customBody} onChange={e=>setCustomBody(e.target.value)} rows={18} style={{...I(),resize:"vertical",lineHeight:1.7,background:"white"}} placeholder="Paste your email here. Use [SCHOOL NAME], [PRINCIPAL NAME], [FIRST NAME], [DISTRICT] etc as placeholders..."/>
                 </div>
               </div>}
               {stab==="campaign_followup"&&<div style={{maxWidth:680}}>
